@@ -1,0 +1,6 @@
+PPTX package: acceptance-evidence/2026-08-19/office-safe-slide-powerpoint.pptx
+Checked: 2026-08-19 with Python standard-library zipfile
+PPTX entries: 38
+Media entries: ppt/media/image1.svg
+Embedded SVG count: 1
+Result: PASS — the saved and reopened presentation retained the source as SVG media rather than dropping it.

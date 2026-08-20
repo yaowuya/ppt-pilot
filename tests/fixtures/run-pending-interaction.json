@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "deck_id": "pending-outline-approval",
+  "mode": "guided",
+  "stage": "outline",
+  "approved": {
+    "brief": true,
+    "outline": false,
+    "style": false
+  },
+  "manuscript_review": {
+    "required": true,
+    "round": 0,
+    "mode": "pending",
+    "state": "pending",
+    "status": "PENDING",
+    "latest_report": "文稿审查.md",
+    "open_blocking_findings": [],
+    "review_history": []
+  },
+  "dirty_slides": [],
+  "pending_interaction": {
+    "id": "outline-approval",
+    "stage": "outline",
+    "kind": "approval",
+    "checkpoint": "outline",
+    "approval_attempt": 1,
+    "question": "是否批准当前核心论点和证明顺序以继续制作故事板？",
+    "status": "pending",
+    "options": [
+      "approve",
+      "request_revision"
+    ],
+    "option_effects": {
+      "approve": "冻结当前大纲并进入故事板阶段。",
+      "request_revision": "保持当前阶段并记录需要修改的大纲范围。"
+    },
+    "recommendation": "approve",
+    "recommendation_reason": "当前大纲已经满足简报和证据约束。"
+  }
+}

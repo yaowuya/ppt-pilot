@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "outline-approve",
+      "answered_run": {
+        "schema_version": 1,
+        "deck_id": "outline-approve",
+        "mode": "guided",
+        "stage": "outline",
+        "manuscript_review": {
+          "required": true,
+          "round": 0,
+          "mode": "pending",
+          "state": "pending",
+          "status": "PENDING",
+          "latest_report": "文稿审查.md",
+          "open_blocking_findings": [],
+          "review_history": []
+        },
+        "dirty_slides": [],
+        "pending_interaction": {
+          "id": "outline-approval",
+          "stage": "outline",
+          "kind": "approval",
+          "checkpoint": "outline",
+          "approval_attempt": 1,
+          "question": "是否批准当前核心论点和证明顺序以继续制作故事板？",
+          "status": "answered",
+          "options": ["approve", "request_revision"],
+          "option_effects": {
+            "approve": "冻结当前大纲并进入故事板阶段。",
+            "request_revision": "保持当前阶段并记录需要修改的大纲范围。"
+          },
+          "recommendation": "approve",
+          "recommendation_reason": "当前大纲已经满足简报和证据约束。",
+          "answer": "批准，继续。",
+          "decision": "approve"
+        }
+      },
+      "committed_run": {
+        "schema_version": 1,
+        "deck_id": "outline-approve",
+        "mode": "guided",
+        "stage": "storyboard",
+        "manuscript_review": {
+          "required": true,
+          "round": 0,
+          "mode": "pending",
+          "state": "pending",
+          "status": "PENDING",
+          "latest_report": "文稿审查.md",
+          "open_blocking_findings": [],
+          "review_history": []
+        },
+        "interaction_history": {
+          "outline-approval": {
+            "stage": "outline",
+            "kind": "approval",
+            "checkpoint": "outline",
+            "approval_attempt": 1,
+            "answer": "批准，继续。",
+            "decision": "approve",
+            "status": "applied",
+            "artifact_owner": "大纲.md",
+            "artifact_snapshot_id": "snapshot:outline-v1"
+          }
+        },
+        "dirty_slides": []
+      }
+    },
+    {
+      "name": "outline-revision-needs-clarification",
+      "answered_run": {
+        "schema_version": 1,
+        "deck_id": "outline-revision-needs-clarification",
+        "mode": "guided",
+        "stage": "outline",
+        "manuscript_review": {
+          "required": true,
+          "round": 0,
+          "mode": "pending",
+          "state": "pending",
+          "status": "PENDING",
+          "latest_report": "文稿审查.md",
+          "open_blocking_findings": [],
+          "review_history": []
+        },
+        "dirty_slides": [],
+        "pending_interaction": {
+          "id": "outline-approval",
+          "stage": "outline",
+          "kind": "approval",
+          "checkpoint": "outline",
+          "approval_attempt": 1,
+          "question": "是否批准当前核心论点和证明顺序以继续制作故事板？",
+          "status": "answered",
+          "options": ["approve", "request_revision"],
+          "option_effects": {
+            "approve": "冻结当前大纲并进入故事板阶段。",
+            "request_revision": "保持当前阶段并记录需要修改的大纲范围。"
+          },
+          "recommendation": "approve",
+          "recommendation_reason": "当前大纲已经满足简报和证据约束。",
+          "answer": "我不批准，请修改。",
+          "decision": "request_revision"
+        }
+      },
+      "canonical_record_owner": "run.json.interaction_history.outline-approval",
+      "revision_record_owner": "大纲.md",
+      "revision_record": {
+        "interaction_id": "outline-approval",
+        "stage": "outline",
+        "kind": "approval",
+        "checkpoint": "outline",
+        "approval_attempt": 1,
+        "answer": "我不批准，请修改。",
+        "decision": "request_revision",
+        "affected_scope": "unresolved",
+        "status": "clarification_pending",
+        "artifact_owner": "大纲.md",
+        "clarification_index": 1
+      },
+      "committed_run": {
+        "schema_version": 1,
+        "deck_id": "outline-revision-needs-clarification",
+        "mode": "guided",
+        "stage": "outline",
+        "manuscript_review": {
+          "required": true,
+          "round": 0,
+          "mode": "pending",
+          "state": "pending",
+          "status": "PENDING",
+          "latest_report": "文稿审查.md",
+          "open_blocking_findings": [],
+          "review_history": []
+        },
+        "interaction_history": {
+          "outline-approval": {
+            "stage": "outline",
+            "kind": "approval",
+            "checkpoint": "outline",
+            "approval_attempt": 1,
+            "answer": "我不批准，请修改。",
+            "decision": "request_revision",
+            "affected_scope": "unresolved",
+            "status": "clarification_pending",
+            "artifact_owner": "大纲.md",
+            "clarification_index": 1
+          }
+        },
+        "dirty_slides": [],
+        "pending_interaction": {
+          "id": "outline-approval-revision-clarification-1",
+          "stage": "outline",
+          "kind": "question",
+          "question": "大纲最需要调整的是核心结论、证明顺序还是内容范围？",
+          "status": "pending",
+          "options": ["core_conclusion", "proof_order", "content_scope"],
+          "option_effects": {
+            "core_conclusion": "重写核心结论并重新核对简报。",
+            "proof_order": "保留结论但调整支撑论点顺序。",
+            "content_scope": "保留逻辑但增删大纲内容范围。"
+          },
+          "recommendation": "proof_order",
+          "recommendation_reason": "现有反馈只表明不批准，先确认最小可执行修改范围。"
+        }
+      }
+    },
+    {
+      "name": "anchor-claim-revision",
+      "answered_run": {
+        "schema_version": 1,
+        "deck_id": "anchor-claim-revision",
+        "mode": "guided",
+        "stage": "anchor",
+        "manuscript_review": {
+          "required": true,
+          "cycle": 1,
+          "round": 1,
+          "mode": "subagent",
+          "state": "manuscript_approved",
+          "status": "PASSED",
+          "latest_report": "文稿审查.md",
+          "open_blocking_findings": [],
+          "review_history": [
+            {
+              "cycle": 1,
+              "round": 1,
+              "reviewer_id": "independent-reviewer-cycle-1-round-1",
+              "reviewer_context": "fresh-independent-context-cycle-1-round-1",
+              "delegation_evidence": {
+                "child_context_id": "fresh-independent-context-cycle-1-round-1",
+                "completion_event_id": "completion-cycle-1-round-1",
+                "result_context_id": "fresh-independent-context-cycle-1-round-1"
+              },
+              "reviewed_file_snapshot": {
+                "snapshot_id": "sha256:anchor-claim-revision-v1",
+                "files": [
+                  "简报.md",
+                  "研究.md",
+                  "来源.md",
+                  "大纲.md",
+                  "故事板.md"
+                ]
+              },
+              "verdict": "PASS",
+              "findings": [],
+              "author_revision_notes": "not_applicable"
+            }
+          ]
+        },
+        "dirty_slides": [],
+        "pending_interaction": {
+          "id": "anchor-approval",
+          "stage": "anchor",
+          "kind": "approval",
+          "checkpoint": "anchor",
+          "approval_attempt": 1,
+          "question": "是否批准当前锚点视觉方向进入正式生产？",
+          "status": "answered",
+          "options": ["approve", "request_revision"],
+          "option_effects": {
+            "approve": "冻结锚点方向并进入正式生产。",
+            "request_revision": "保持当前阶段，分类并记录需要修改的范围。"
+          },
+          "recommendation": "approve",
+          "recommendation_reason": "锚点渲染和硬检查均已通过。",
+          "answer": "修改核心建议及其来源后再设计。",
+          "decision": "request_revision"
+        }
+      },
+      "canonical_record_owner": "run.json.interaction_history.anchor-approval",
+      "revision_record_owner": "theme.json",
+      "revision_record": {
+        "interaction_id": "anchor-approval",
+        "stage": "anchor",
+        "kind": "approval",
+        "checkpoint": "anchor",
+        "approval_attempt": 1,
+        "answer": "修改核心建议及其来源后再设计。",
+        "decision": "request_revision",
+        "affected_scope": "claim_or_source",
+        "status": "applied",
+        "artifact_owner": "theme.json"
+      },
+      "committed_run": {
+        "schema_version": 1,
+        "deck_id": "anchor-claim-revision",
+        "mode": "guided",
+        "stage": "research",
+        "manuscript_review": {
+          "required": true,
+          "cycle": 2,
+          "round": 0,
+          "mode": "pending",
+          "state": "pending",
+          "status": "PENDING",
+          "latest_report": "文稿审查.md",
+          "open_blocking_findings": [],
+          "review_history": [
+            {
+              "cycle": 1,
+              "round": 1,
+              "reviewer_id": "independent-reviewer-cycle-1-round-1",
+              "reviewer_context": "fresh-independent-context-cycle-1-round-1",
+              "delegation_evidence": {
+                "child_context_id": "fresh-independent-context-cycle-1-round-1",
+                "completion_event_id": "completion-cycle-1-round-1",
+                "result_context_id": "fresh-independent-context-cycle-1-round-1"
+              },
+              "reviewed_file_snapshot": {
+                "snapshot_id": "sha256:anchor-claim-revision-v1",
+                "files": [
+                  "简报.md",
+                  "研究.md",
+                  "来源.md",
+                  "大纲.md",
+                  "故事板.md"
+                ]
+              },
+              "verdict": "PASS",
+              "findings": [],
+              "author_revision_notes": "not_applicable"
+            }
+          ]
+        },
+        "interaction_history": {
+          "anchor-approval": {
+            "stage": "anchor",
+            "kind": "approval",
+            "checkpoint": "anchor",
+            "approval_attempt": 1,
+            "answer": "修改核心建议及其来源后再设计。",
+            "decision": "request_revision",
+            "affected_scope": "claim_or_source",
+            "status": "applied",
+            "artifact_owner": "theme.json"
+          }
+        },
+        "dirty_slides": ["S01", "S02"]
+      }
+    }
+  ]
+}

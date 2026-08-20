@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "deck_id": "outline-reapproval",
+  "mode": "guided",
+  "stage": "storyboard",
+  "manuscript_review": {
+    "required": true,
+    "cycle": 1,
+    "round": 0,
+    "mode": "pending",
+    "state": "pending",
+    "status": "PENDING",
+    "latest_report": "文稿审查.md",
+    "open_blocking_findings": [],
+    "review_history": []
+  },
+  "interaction_history": {
+    "outline-approval": {
+      "stage": "outline",
+      "kind": "approval",
+      "checkpoint": "outline",
+      "approval_attempt": 1,
+      "answer": "先调整证明顺序。",
+      "decision": "request_revision",
+      "affected_scope": "outline",
+      "status": "applied",
+      "artifact_owner": "大纲.md"
+    },
+    "outline-approval-2": {
+      "stage": "outline",
+      "kind": "approval",
+      "checkpoint": "outline",
+      "approval_attempt": 2,
+      "answer": "修订正确，批准。",
+      "decision": "approve",
+      "status": "applied",
+      "artifact_owner": "大纲.md",
+      "artifact_snapshot_id": "snapshot:outline-v2"
+    }
+  },
+  "dirty_slides": []
+}

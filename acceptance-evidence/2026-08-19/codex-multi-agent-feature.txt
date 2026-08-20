@@ -1,0 +1,7 @@
+Codex CLI feature probe on 2026-08-19
+Host version: codex-cli 0.146.1
+Command: codex features list
+Relevant result:
+  multi_agent    stable    true
+
+The unavailable-review acceptance invocation separately uses `--disable multi_agent` so the absence of independent delegation is controlled and reproducible for that process.

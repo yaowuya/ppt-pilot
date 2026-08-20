@@ -1,0 +1,5 @@
+$ppt-pilot
+
+Create an auto-mode 6-slide internal orientation deck about how a fictional team should document handoffs. The audience is the fictional team itself and the desired action is to adopt a checklist. Use no network research and make no external factual claims. Use deck_id `acceptance-codex-review-unavailable-v3`.
+
+Acceptance harness constraint: this Codex process is launched with its stable `multi_agent` feature disabled. Complete and freeze the five manuscript files, then follow the installed Skill exactly. Independent review remains mandatory. If a fresh independent reviewer cannot be launched, write the required `manuscript-review.md`, set `latest_report` to that file, record `review_unavailable` with the reason, and stop. Keep review history empty, do not use same-context self-review, do not pretend findings exist, and do not create `theme.json`, samples, or SVG. Persist the exact artifact-contract schema and report the terminal stage.

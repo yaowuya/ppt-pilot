@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "deck_id": "review-unavailable-example",
+  "mode": "auto",
+  "stage": "review_unavailable",
+  "approved": {
+    "brief": true,
+    "outline": true,
+    "style": false
+  },
+  "manuscript_review": {
+    "required": true,
+    "round": 0,
+    "mode": "unavailable",
+    "state": "review_unavailable",
+    "status": "BLOCKED",
+    "latest_report": "文稿审查.md",
+    "reason": "The current host cannot launch a fresh independent subagent/context.",
+    "open_blocking_findings": [],
+    "review_history": []
+  },
+  "dirty_slides": []
+}

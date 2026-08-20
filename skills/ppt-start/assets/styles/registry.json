@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "styles": [
+    {
+      "id": "minimal-business",
+      "display_name": "极简商务",
+      "kind": "legacy_seed",
+      "entrypoint": "minimal-business.json"
+    },
+    {
+      "id": "tech-dark",
+      "display_name": "深色科技",
+      "kind": "legacy_seed",
+      "entrypoint": "tech-dark.json"
+    },
+    {
+      "id": "bold-editorial",
+      "display_name": "强调编辑",
+      "kind": "legacy_seed",
+      "entrypoint": "bold-editorial.json"
+    },
+    {
+      "id": "canway-midyear-review",
+      "display_name": "嘉为年中总结风格",
+      "kind": "style_pack",
+      "entrypoint": "canway-midyear-review/manifest.json"
+    }
+  ]
+}

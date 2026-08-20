@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "kind": "run_selection",
+  "entry_action": "revise",
+  "operation_payload": {
+    "request": "把核心建议改为仅覆盖有来源支持的范围，并重新执行所有受影响质量门。",
+    "requested_scope": "claim_or_source"
+  },
+  "status": "pending",
+  "question": "要修订哪个运行？",
+  "candidates": [
+    "quarterly-review",
+    "annual-plan"
+  ],
+  "options": [
+    "quarterly-review",
+    "annual-plan"
+  ],
+  "option_effects": {
+    "quarterly-review": "读取 ppt-output/quarterly-review/ 并应用已保存的修订请求，不修改其他运行。",
+    "annual-plan": "读取 ppt-output/annual-plan/ 并应用已保存的修订请求，不修改其他运行。"
+  },
+  "recommendation": "quarterly-review",
+  "recommendation_reason": "它是请求主题最接近且尚未完成的候选运行。"
+}

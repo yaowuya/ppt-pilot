@@ -1,0 +1,29 @@
+{
+  "name": "bold-editorial",
+  "colors": {
+    "background": "#FFFDF8",
+    "surface": "#F1E8D8",
+    "text": "#201B18",
+    "muted": "#6D625A",
+    "dominant": "#8C1C3A",
+    "support": "#D9B7A6",
+    "accent": "#E99A2E"
+  },
+  "typography": {
+    "font_stack": ["Cambria", "Microsoft YaHei", "PingFang SC", "serif"],
+    "title_min": 42,
+    "body_min": 20,
+    "footnote_min": 14,
+    "title_weight": 700,
+    "body_weight": 400
+  },
+  "spacing": {
+    "outer_margin": 64,
+    "standard_gap": 24,
+    "card_padding": 28
+  },
+  "shape": {
+    "corner_radius": 8,
+    "stroke_width": 2
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "canway-midyear-review",
+  "display_name": "嘉为年中总结风格",
+  "version": "1.0.0",
+  "kind": "style_pack",
+  "default": false,
+  "summary": "面向 SaaS、研发、交付与组织管理层年中或年度汇报的层级 Bento 风格。",
+  "recommended_for": ["SaaS 管理汇报", "研发复盘", "交付总结", "组织与治理提案"],
+  "not_for": ["营销海报", "活动发布", "重数据大屏"],
+  "selection_aliases": ["canway-midyear-review", "嘉为年中总结风格"],
+  "files": {
+    "tokens": "tokens.json",
+    "guidance": "STYLE.md",
+    "reference_svg": "reference.svg"
+  },
+  "compatibility": {
+    "office_safe_svg": true,
+    "canvas": "1280x720",
+    "languages": ["zh-CN", "en"]
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "deck_id": "resume-approved",
+  "mode": "auto",
+  "stage": "manuscript_approved",
+  "approved": {
+    "brief": true,
+    "outline": true,
+    "style": false
+  },
+  "manuscript_review": {
+    "required": true,
+    "round": 2,
+    "mode": "subagent",
+    "state": "manuscript_approved",
+    "status": "PASSED",
+    "latest_report": "manuscript-review.md",
+    "open_blocking_findings": [],
+    "review_history": [
+      {
+        "round": 1,
+        "reviewer_id": "independent-reviewer-round-1",
+        "reviewer_context": "fresh-independent-context-round-1",
+        "delegation_evidence": {
+          "child_context_id": "fresh-independent-context-round-1",
+          "completion_event_id": "completion-round-1",
+          "result_context_id": "fresh-independent-context-round-1"
+        },
+        "reviewed_file_snapshot": {
+          "snapshot_id": "sha256:manuscript-v1",
+          "files": [
+            "brief.md",
+            "research.md",
+            "sources.md",
+            "outline.md",
+            "storyboard.md"
+          ]
+        },
+        "verdict": "BLOCK",
+        "findings": [
+          {
+            "id": "MR-001",
+            "severity": "HIGH",
+            "category": "factuality",
+            "slide_ids": ["S03"],
+            "claim": "The market grew by exactly 47% in the current year.",
+            "evidence": "The cited source does not contain the number.",
+            "recommendation": "Remove or replace the unsupported number.",
+            "status": "OPEN"
+          }
+        ],
+        "author_revision_notes": "Removed the unsupported number and added a dated, qualified source-backed statement."
+      },
+      {
+        "round": 2,
+        "reviewer_id": "independent-reviewer-round-2",
+        "reviewer_context": "fresh-independent-context-round-2",
+        "delegation_evidence": {
+          "child_context_id": "fresh-independent-context-round-2",
+          "completion_event_id": "completion-round-2",
+          "result_context_id": "fresh-independent-context-round-2"
+        },
+        "reviewed_file_snapshot": {
+          "snapshot_id": "sha256:manuscript-v2",
+          "files": [
+            "brief.md",
+            "research.md",
+            "sources.md",
+            "outline.md",
+            "storyboard.md"
+          ]
+        },
+        "verdict": "PASS",
+        "findings": [
+          {
+            "id": "MR-001",
+            "severity": "HIGH",
+            "category": "factuality",
+            "slide_ids": ["S03"],
+            "claim": "The market grew by exactly 47% in the current year.",
+            "evidence": "Snapshot v2 removes the unsupported number and accurately qualifies the replacement claim against the dated source.",
+            "recommendation": "Keep the source date and qualification.",
+            "status": "RESOLVED"
+          }
+        ]
+      }
+    ]
+  },
+  "dirty_slides": []
+}

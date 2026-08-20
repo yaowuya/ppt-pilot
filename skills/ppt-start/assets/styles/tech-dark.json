@@ -1,0 +1,29 @@
+{
+  "name": "tech-dark",
+  "colors": {
+    "background": "#0B1020",
+    "surface": "#151D33",
+    "text": "#F4F7FF",
+    "muted": "#AAB5CF",
+    "dominant": "#5B8CFF",
+    "support": "#22345B",
+    "accent": "#35D0BA"
+  },
+  "typography": {
+    "font_stack": ["Arial", "Microsoft YaHei", "PingFang SC", "sans-serif"],
+    "title_min": 40,
+    "body_min": 20,
+    "footnote_min": 14,
+    "title_weight": 700,
+    "body_weight": 400
+  },
+  "spacing": {
+    "outer_margin": 64,
+    "standard_gap": 24,
+    "card_padding": 24
+  },
+  "shape": {
+    "corner_radius": 14,
+    "stroke_width": 1.5
+  }
+}

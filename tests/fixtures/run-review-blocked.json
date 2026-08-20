@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "deck_id": "review-blocked-example",
+  "mode": "auto",
+  "stage": "manuscript_blocked",
+  "approved": {
+    "brief": true,
+    "outline": true,
+    "style": false
+  },
+  "manuscript_review": {
+    "required": true,
+    "round": 3,
+    "mode": "subagent",
+    "state": "manuscript_blocked",
+    "status": "BLOCKED",
+    "latest_report": "文稿审查.md",
+    "open_blocking_findings": [
+      {
+        "id": "MR-001",
+        "severity": "HIGH",
+        "category": "factuality",
+        "slide_ids": ["S03"],
+        "claim": "The market grew by exactly 47% in the current year.",
+        "evidence": "The third independent review still found no cited source for the time-sensitive number.",
+        "recommendation": "Remove the number or provide a dated source that directly supports it.",
+        "status": "OPEN"
+      }
+    ],
+    "review_history": [
+      {
+        "round": 1,
+        "reviewer_id": "independent-reviewer-round-1",
+        "reviewer_context": "fresh-independent-context-round-1",
+        "delegation_evidence": {
+          "child_context_id": "fresh-independent-context-round-1",
+          "completion_event_id": "completion-round-1",
+          "result_context_id": "fresh-independent-context-round-1"
+        },
+        "reviewed_file_snapshot": {
+          "snapshot_id": "sha256:blocked-v1",
+          "files": ["简报.md", "研究.md", "来源.md", "大纲.md", "故事板.md"]
+        },
+        "verdict": "BLOCK",
+        "findings": [
+          {
+            "id": "MR-001",
+            "severity": "HIGH",
+            "category": "factuality",
+            "slide_ids": ["S03"],
+            "claim": "The market grew by exactly 47% in the current year.",
+            "evidence": "No cited source contains the 47% value, and the claim is time-sensitive.",
+            "recommendation": "Remove the number or replace it with a dated, directly supported claim.",
+            "status": "OPEN"
+          }
+        ],
+        "author_revision_notes": "Removed the exact percentage, but the replacement still asserted current-year growth without a dated supporting source."
+      },
+      {
+        "round": 2,
+        "reviewer_id": "independent-reviewer-round-2",
+        "reviewer_context": "fresh-independent-context-round-2",
+        "delegation_evidence": {
+          "child_context_id": "fresh-independent-context-round-2",
+          "completion_event_id": "completion-round-2",
+          "result_context_id": "fresh-independent-context-round-2"
+        },
+        "reviewed_file_snapshot": {
+          "snapshot_id": "sha256:blocked-v2",
+          "files": ["简报.md", "研究.md", "来源.md", "大纲.md", "故事板.md"]
+        },
+        "verdict": "BLOCK",
+        "findings": [
+          {
+            "id": "MR-001",
+            "severity": "HIGH",
+            "category": "factuality",
+            "slide_ids": ["S03"],
+            "claim": "The market grew by exactly 47% in the current year.",
+            "evidence": "The replacement wording still makes a current-year growth claim that the cited historical source cannot establish.",
+            "recommendation": "Use a source whose publication period matches the claim or remove the current-year comparison.",
+            "status": "OPEN"
+          }
+        ],
+        "author_revision_notes": "Restored the numerical claim with a citation, but the cited source still did not contain the value or cover the stated year."
+      },
+      {
+        "round": 3,
+        "reviewer_id": "independent-reviewer-round-3",
+        "reviewer_context": "fresh-independent-context-round-3",
+        "delegation_evidence": {
+          "child_context_id": "fresh-independent-context-round-3",
+          "completion_event_id": "completion-round-3",
+          "result_context_id": "fresh-independent-context-round-3"
+        },
+        "reviewed_file_snapshot": {
+          "snapshot_id": "sha256:blocked-v3",
+          "files": ["简报.md", "研究.md", "来源.md", "大纲.md", "故事板.md"]
+        },
+        "verdict": "BLOCK",
+        "findings": [
+          {
+            "id": "MR-001",
+            "severity": "HIGH",
+            "category": "factuality",
+            "slide_ids": ["S03"],
+            "claim": "The market grew by exactly 47% in the current year.",
+            "evidence": "The third independent review still found no cited source for the time-sensitive number.",
+            "recommendation": "Remove the number or provide a dated source that directly supports it.",
+            "status": "OPEN"
+          }
+        ]
+      }
+    ]
+  },
+  "dirty_slides": []
+}

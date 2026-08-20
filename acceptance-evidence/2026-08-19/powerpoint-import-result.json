@@ -1,0 +1,8 @@
+{
+  "runDate": "2026-08-19",
+  "sourceSvg": "D:\\01-code\\ppt-pilot\\skills\\ppt-pilot\\assets\\examples\\office-safe-slide.svg",
+  "outputPptx": "D:\\01-code\\ppt-pilot\\acceptance-evidence\\2026-08-19\\office-safe-slide-powerpoint.pptx",
+  "outputPng": "D:\\01-code\\ppt-pilot\\acceptance-evidence\\2026-08-19\\office-safe-slide-powerpoint.png",
+  "result": "FAIL",
+  "error": "No active Microsoft PowerPoint COM object after launching POWERPNT.EXE."
+}

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "history": [
+    {
+      "id": "visual-revision-1",
+      "stage": "anchor",
+      "kind": "visual_revision",
+      "answer": "Use the brand blue and a long blue title rail.",
+      "normalized_changes": {
+        "brand_primary": "#156BFF",
+        "title_rail": "long-blue"
+      },
+      "affected_scope": "deck",
+      "supersedes": [],
+      "status": "applied",
+      "artifact_owner": "theme.json"
+    },
+    {
+      "id": "visual-revision-2",
+      "stage": "anchor",
+      "kind": "visual_revision",
+      "answer": "Remove the long blue title rail.",
+      "normalized_changes": {
+        "title_rail": "none"
+      },
+      "affected_scope": "deck",
+      "supersedes": ["visual-revision-1:title_rail"],
+      "status": "applied",
+      "artifact_owner": "theme.json"
+    },
+    {
+      "id": "visual-revision-3",
+      "stage": "anchor",
+      "kind": "visual_revision",
+      "answer": "Use hierarchical Bento for S05.",
+      "normalized_changes": {
+        "layout_family": "hierarchical-bento"
+      },
+      "affected_scope": ["S05"],
+      "supersedes": [],
+      "status": "applied",
+      "artifact_owner": "visual-briefs/S05.md"
+    }
+  ],
+  "expected_active_contract": {
+    "brand_primary": "#156BFF",
+    "title_rail": "none",
+    "layout_family": "hierarchical-bento"
+  },
+  "expected_superseded_rules": ["visual-revision-1:title_rail"]
+}

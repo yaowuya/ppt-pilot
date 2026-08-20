@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "before_revision": {
+    "schema_version": 1,
+    "deck_id": "approved-on-third-round",
+    "mode": "guided",
+    "stage": "anchor",
+    "manuscript_review": {
+      "required": true,
+      "cycle": 1,
+      "round": 3,
+      "mode": "subagent",
+      "state": "manuscript_approved",
+      "status": "PASSED",
+      "latest_report": "文稿审查.md",
+      "open_blocking_findings": [],
+      "review_history": [
+        {
+          "cycle": 1,
+          "round": 1,
+          "reviewer_id": "independent-reviewer-cycle-1-round-1",
+          "reviewer_context": "fresh-context-cycle-1-round-1",
+          "delegation_evidence": {
+            "child_context_id": "fresh-context-cycle-1-round-1",
+            "completion_event_id": "completion-cycle-1-round-1",
+            "result_context_id": "fresh-context-cycle-1-round-1"
+          },
+          "reviewed_file_snapshot": {
+            "snapshot_id": "sha256:cycle-1-v1",
+            "files": [
+              "简报.md",
+              "研究.md",
+              "来源.md",
+              "大纲.md",
+              "故事板.md"
+            ]
+          },
+          "verdict": "BLOCK",
+          "findings": [
+            {
+              "id": "MR-001",
+              "severity": "HIGH",
+              "category": "factuality",
+              "slide_ids": [
+                "S02"
+              ],
+              "claim": "Unsupported recommendation.",
+              "evidence": "No aligned source.",
+              "recommendation": "Qualify and source the recommendation.",
+              "status": "OPEN"
+            }
+          ],
+          "author_revision_notes": "Added a source and qualification."
+        },
+        {
+          "cycle": 1,
+          "round": 2,
+          "reviewer_id": "independent-reviewer-cycle-1-round-2",
+          "reviewer_context": "fresh-context-cycle-1-round-2",
+          "delegation_evidence": {
+            "child_context_id": "fresh-context-cycle-1-round-2",
+            "completion_event_id": "completion-cycle-1-round-2",
+            "result_context_id": "fresh-context-cycle-1-round-2"
+          },
+          "reviewed_file_snapshot": {
+            "snapshot_id": "sha256:cycle-1-v2",
+            "files": [
+              "简报.md",
+              "研究.md",
+              "来源.md",
+              "大纲.md",
+              "故事板.md"
+            ]
+          },
+          "verdict": "BLOCK",
+          "findings": [
+            {
+              "id": "MR-001",
+              "severity": "HIGH",
+              "category": "factuality",
+              "slide_ids": [
+                "S02"
+              ],
+              "claim": "Recommendation remains broader than the source.",
+              "evidence": "The new source supports only a narrower scope.",
+              "recommendation": "Narrow the recommendation.",
+              "status": "OPEN"
+            }
+          ],
+          "author_revision_notes": "Narrowed the recommendation to the sourced scope."
+        },
+        {
+          "cycle": 1,
+          "round": 3,
+          "reviewer_id": "independent-reviewer-cycle-1-round-3",
+          "reviewer_context": "fresh-context-cycle-1-round-3",
+          "delegation_evidence": {
+            "child_context_id": "fresh-context-cycle-1-round-3",
+            "completion_event_id": "completion-cycle-1-round-3",
+            "result_context_id": "fresh-context-cycle-1-round-3"
+          },
+          "reviewed_file_snapshot": {
+            "snapshot_id": "sha256:cycle-1-v3",
+            "files": [
+              "简报.md",
+              "研究.md",
+              "来源.md",
+              "大纲.md",
+              "故事板.md"
+            ]
+          },
+          "verdict": "PASS",
+          "findings": [
+            {
+              "id": "MR-001",
+              "severity": "HIGH",
+              "category": "factuality",
+              "slide_ids": [
+                "S02"
+              ],
+              "claim": "The recommendation now matches the source scope.",
+              "evidence": "Snapshot v3 contains the supported qualification.",
+              "recommendation": "Keep the qualification.",
+              "status": "RESOLVED"
+            }
+          ],
+          "author_revision_notes": "not_applicable"
+        }
+      ]
+    },
+    "dirty_slides": []
+  },
+  "after_material_revision": {
+    "schema_version": 1,
+    "deck_id": "approved-on-third-round",
+    "mode": "guided",
+    "stage": "research",
+    "manuscript_review": {
+      "required": true,
+      "cycle": 2,
+      "round": 0,
+      "mode": "pending",
+      "state": "pending",
+      "status": "PENDING",
+      "latest_report": "文稿审查.md",
+      "open_blocking_findings": [],
+      "review_history": [
+        {
+          "cycle": 1,
+          "round": 1,
+          "reviewer_id": "independent-reviewer-cycle-1-round-1",
+          "reviewer_context": "fresh-context-cycle-1-round-1",
+          "delegation_evidence": {
+            "child_context_id": "fresh-context-cycle-1-round-1",
+            "completion_event_id": "completion-cycle-1-round-1",
+            "result_context_id": "fresh-context-cycle-1-round-1"
+          },
+          "reviewed_file_snapshot": {
+            "snapshot_id": "sha256:cycle-1-v1",
+            "files": [
+              "简报.md",
+              "研究.md",
+              "来源.md",
+              "大纲.md",
+              "故事板.md"
+            ]
+          },
+          "verdict": "BLOCK",
+          "findings": [
+            {
+              "id": "MR-001",
+              "severity": "HIGH",
+              "category": "factuality",
+              "slide_ids": [
+                "S02"
+              ],
+              "claim": "Unsupported recommendation.",
+              "evidence": "No aligned source.",
+              "recommendation": "Qualify and source the recommendation.",
+              "status": "OPEN"
+            }
+          ],
+          "author_revision_notes": "Added a source and qualification."
+        },
+        {
+          "cycle": 1,
+          "round": 2,
+          "reviewer_id": "independent-reviewer-cycle-1-round-2",
+          "reviewer_context": "fresh-context-cycle-1-round-2",
+          "delegation_evidence": {
+            "child_context_id": "fresh-context-cycle-1-round-2",
+            "completion_event_id": "completion-cycle-1-round-2",
+            "result_context_id": "fresh-context-cycle-1-round-2"
+          },
+          "reviewed_file_snapshot": {
+            "snapshot_id": "sha256:cycle-1-v2",
+            "files": [
+              "简报.md",
+              "研究.md",
+              "来源.md",
+              "大纲.md",
+              "故事板.md"
+            ]
+          },
+          "verdict": "BLOCK",
+          "findings": [
+            {
+              "id": "MR-001",
+              "severity": "HIGH",
+              "category": "factuality",
+              "slide_ids": [
+                "S02"
+              ],
+              "claim": "Recommendation remains broader than the source.",
+              "evidence": "The new source supports only a narrower scope.",
+              "recommendation": "Narrow the recommendation.",
+              "status": "OPEN"
+            }
+          ],
+          "author_revision_notes": "Narrowed the recommendation to the sourced scope."
+        },
+        {
+          "cycle": 1,
+          "round": 3,
+          "reviewer_id": "independent-reviewer-cycle-1-round-3",
+          "reviewer_context": "fresh-context-cycle-1-round-3",
+          "delegation_evidence": {
+            "child_context_id": "fresh-context-cycle-1-round-3",
+            "completion_event_id": "completion-cycle-1-round-3",
+            "result_context_id": "fresh-context-cycle-1-round-3"
+          },
+          "reviewed_file_snapshot": {
+            "snapshot_id": "sha256:cycle-1-v3",
+            "files": [
+              "简报.md",
+              "研究.md",
+              "来源.md",
+              "大纲.md",
+              "故事板.md"
+            ]
+          },
+          "verdict": "PASS",
+          "findings": [
+            {
+              "id": "MR-001",
+              "severity": "HIGH",
+              "category": "factuality",
+              "slide_ids": [
+                "S02"
+              ],
+              "claim": "The recommendation now matches the source scope.",
+              "evidence": "Snapshot v3 contains the supported qualification.",
+              "recommendation": "Keep the qualification.",
+              "status": "RESOLVED"
+            }
+          ],
+          "author_revision_notes": "not_applicable"
+        }
+      ]
+    },
+    "dirty_slides": [
+      "S01",
+      "S02"
+    ]
+  }
+}

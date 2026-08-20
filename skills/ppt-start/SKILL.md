@@ -1,0 +1,95 @@
+---
+name: ppt-start
+description: Use when creating, revising, or resuming multi-slide presentations whose final slide files must be standalone SVG, especially for evidence-backed decks, workspace handoffs, or PowerPoint-compatible vector delivery.
+---
+
+# PPT Pilot
+
+## 概述
+
+通过工作区中的持久产物开发演示文稿，而不是只在对话中一次性输出。内容决策与视觉设计必须分离；独立审稿人批准文稿之前，禁止开始视觉设计。
+
+## 输入、入口与执行策略
+
+可接收主题、完整简报、资料集合、既有运行目录或定向修订请求。开始任何阶段前先读取[用户交互与确认协议](references/interaction-protocol.md)，检查请求和工作区，避免重复提问。
+
+持久执行策略只有两种：
+
+- **guided**：新运行未显式指定策略时的默认值；在简报、大纲和锚点页批准节点提出一个直接问题，并等待明确回答。
+- **auto**：只有显式指定时才使用；采用合理默认值并跳过可选问题，但需要用户权限或没有安全默认值时仍须询问。
+
+`resume` 和 `revise` 是入口动作，不写入 `run.json.mode`：
+
+- **resume**：先读取 `run.json` 并处理待回答交互，保留既有 `run.json.mode`，再从第一个未完成或脏阶段继续。
+- **revise**：先读取并保留既有 `run.json.mode`，再按照产物契约只使受影响的产物失效；修改类别无法唯一判断时先询问。
+
+推荐不是确认。提出阻塞问题后必须停止，不得在收到并持久化明确答案前推进下游工作。每次运行写入 `ppt-output/<deck-id>/`。禁止把产物写入本 Skill 或宿主配置目录。新运行的过程 Markdown 使用中文文件名；`resume`／`revise` 对旧英文运行只做原位读取并沿用既有名称，不自动重命名、复制或迁移，具体规则见产物契约。
+
+## 必须执行的工作流
+
+执行某阶段前，先读取该阶段链接的参考文档。
+
+1. 简报与可选研究——[简报与研究](references/brief-and-research.md)
+2. 结论先行的大纲与逐页故事板——[叙事与故事板](references/narrative-and-storyboard.md)
+3. 独立文稿审查——[文稿审查](references/manuscript-review.md)
+4. 主题、风格包与语义布局选择——[设计系统](references/design-system.md)和[布局目录](references/layout-catalog.md)
+5. 在生成任何视觉页面前，先按[逐页视觉 brief 与生成](references/visual-brief-and-generation.md)组装并验证对应 `visual-briefs/<slide-id>.md`；没有有效 brief 不得生成 SVG。
+6. 两页锚点 SVG——[SVG 契约](references/svg-contract.md)
+7. 生成任何正式页面前，先读取 [QA、恢复与修订](references/qa-and-revision.md)；按每批 3–4 页生产，但每次只写入并验证一个 SVG，通过后才能继续。
+
+阶段转换遵循[工作流](references/workflow.md)，文件和状态字段遵循[产物契约](references/artifact-contract.md)。
+
+## 文稿审查是硬质量门
+
+当 `简报.md`、`研究.md`、`来源.md`、`大纲.md` 和 `故事板.md` 五个文稿文件全部完成后：
+
+1. 冻结这五个文件，并把运行状态设置为 `manuscript_review`。
+2. 把它们委派给一个**全新且独立的子 Agent**，只授予文稿只读输入。不得提供创作对话、主题／布局文件或任何视觉文件。真实启动必须在任何等待之前返回非空子上下文；若接收者或 Agent 状态为空，说明审稿人并未启动，必须立即进入 `review_unavailable`。记录宿主返回的子上下文、完成事件和结果来源上下文，启动上下文与结果上下文必须一致。
+3. 审稿人只返回结构化问题载荷，禁止修改工作区文件。创作上下文把该载荷原样保存到当前运行的审查报告文件；新运行使用 `文稿审查.md`，旧英文运行沿用 `run.json.manuscript_review.latest_report` 指向的 `manuscript-review.md`。不得虚构审稿来源，也不得把叙述、创作方自行分配的角色名或空等待当作审稿人已运行的证据。
+4. 只要任一 `BLOCKER`／`HIGH` 问题的状态不是 `RESOLVED`，就不得创建 `theme.json`、样例或正式页面；`ACCEPTED_RISK` 在这些严重级别仍然阻断。
+5. 只能由创作上下文修订文稿，然后启动新一轮独立审查。连续三轮仍被阻断时必须停止。
+6. 如果独立委派不可用，或宿主没有提供可归因的子上下文完成／结果证据，写入当前运行实际使用的审查报告文件，设置 `review_unavailable`，并在设计前停止。
+
+硬质量门至少检查：
+
+- 来源覆盖；
+- 事实准确性；
+- 时效性；
+- 逻辑与叙事流；
+- 重复与矛盾；
+- 遗漏与证据薄弱的主张；
+- 风险与重大决策影响。
+
+每条问题必须包含：`id`、`severity`、`category`、`slide_ids`、`claim`、`evidence`、`recommendation` 和 `status`。
+
+允许值：
+
+- `severity`：`BLOCKER`、`HIGH`、`MEDIUM`、`LOW`
+- `status`：`OPEN`、`RESOLVED`、`ACCEPTED_RISK`
+
+只有所有 `BLOCKER` 或 `HIGH` 问题都为 `RESOLVED` 时才能通过；任一此类问题不是 `RESOLVED` 都会阻断，`OPEN` 与 `ACCEPTED_RISK` 都不能通过。问题 ID 还必须唯一，所有必填字段必须有效。
+
+同上下文审查只能作为建议性 QA，不能满足文稿质量门。
+
+无法实时核验的时效性或重大影响主张按 `HIGH` 处理。满足标准且没有问题时，零问题的 `PASS` 报告仍然有效，并且必须明确保存。
+
+## 生产、恢复与修订
+
+- 顶层 `stage` 表示当前工作流位置。批准检查点之后，每个视觉阶段都要求 `run.json.manuscript_review.state` 持续为 `manuscript_approved`。
+- 每完成一个持久阶段或一个生产批次，都更新 `run.json`。
+- 每页最多修复两次，之后使用简单布局回退；回退后仍有硬检查失败时必须停止。
+- `resume` 入口必须先读取 `run.json` 并保留既有 `run.json.mode`；除非产物缺失、格式错误或被标记为脏，否则不得重新计算已批准的上游工作。
+- 纯视觉修改或可证明不改变事实的文字修正，只把受影响页面和 QA 标记为脏，不重新进行文稿审查。
+- 主张、来源、事实性文案、大纲或故事板变化会使批准失效；重新生成视觉页面前必须进行新的文稿审查。
+
+## 输出规则
+
+- 最终页面是独立 UTF-8 SVG 文件，并包含 `viewBox="0 0 1280 720"`。
+- 过程文件与页面保存在同一运行目录，使另一个受支持宿主可以恢复运行。
+- 只使用 Office-safe SVG 子集，不使用远程资源。
+- 事实无法验证时，必须限定或删除，不得把证据缺失改写成确定结论。
+- 无法视觉渲染时，记录 `visual_qa: not_rendered`，不得声称视觉检查通过。
+
+## 完成条件
+
+只有文稿质量门通过、全部 SVG 硬检查通过、整套 QA 已写入当前运行实际使用的 QA 报告（新运行为 `质量检查报告.md`，旧英文运行为 `qa-report.md`），并且 `run.json` 的阶段为 `complete`，本次运行才算完成。

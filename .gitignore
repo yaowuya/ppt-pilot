@@ -1,0 +1,51 @@
+# PPT Pilot runtime outputs and confidential deck artifacts
+ppt-output/
+.superpowers/
+
+# Local host configuration and sandbox copies
+.claude/
+.agents/
+.codex/
+
+# Raw acceptance-run inputs and transcripts
+acceptance-evidence/**/inputs/
+acceptance-evidence/**/*.jsonl
+
+# Python caches, virtual environments, and coverage
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+env/
+
+# JavaScript dependencies and build output
+node_modules/
+dist/
+build/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE and operating-system metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini

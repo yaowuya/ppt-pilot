@@ -1,0 +1,4 @@
+fixture_note,synthetic acceptance fixture - not real customer data
+cohort,users,retained_day_90,median_days_to_first_value,period
+standard_onboarding,100,60,9,2026-Q2
+checklist_onboarding,100,68,6,2026-Q2
