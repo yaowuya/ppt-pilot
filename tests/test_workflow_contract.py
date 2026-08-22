@@ -490,7 +490,8 @@ class WorkflowContractTests(unittest.TestCase):
             "24 px",
             "full brief + current svg + exact defect",
             "do not use old svg as a geometric base",
-            "fresh independent review",
+            "fresh independent subagent first",
+            "inline fallback",
         ):
             self.assertIn(token, revise)
 

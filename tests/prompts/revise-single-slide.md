@@ -18,4 +18,4 @@ Expected: classify as recompose; rebuild S05 brief and SVG; do not use old SVG a
 
 On S05, change a sourced 12% result to 27% and point it to another source.
 
-Expected: not patch or recompose; invalidate manuscript approval and all dependent visual artifacts; require a fresh independent review before SVG generation.
+Expected: not patch or recompose; invalidate manuscript approval and all dependent visual artifacts; require a new formal review before SVG generation—fresh independent subagent first, explicit inline fallback after attributable delegation failure.

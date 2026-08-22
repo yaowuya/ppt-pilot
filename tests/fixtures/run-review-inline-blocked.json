@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "deck_id": "inline-blocked",
+  "mode": "guided",
+  "stage": "manuscript_blocked",
+  "manuscript_review": {
+    "required": true,
+    "cycle": 1,
+    "round": 3,
+    "mode": "inline_fallback",
+    "state": "manuscript_blocked",
+    "status": "BLOCKED",
+    "latest_report": "文稿审查.md",
+    "open_blocking_findings": [
+      {
+        "id": "MR-INLINE-002",
+        "severity": "HIGH",
+        "category": "source_coverage",
+        "slide_ids": ["S05"],
+        "claim": "核心建议缺少可核验来源。",
+        "evidence": "三轮冻结快照均没有支持该建议的来源。",
+        "recommendation": "删除建议或提供来源。",
+        "status": "OPEN"
+      }
+    ],
+    "review_history": [
+      {
+        "cycle": 1,
+        "round": 1,
+        "reviewer_id": "independent-reviewer-round-1",
+        "reviewer_context": "fresh-independent-context-round-1",
+        "review_mode": "subagent",
+        "delegation_evidence": {
+          "child_context_id": "fresh-independent-context-round-1",
+          "completion_event_id": "completion-round-1",
+          "result_context_id": "fresh-independent-context-round-1"
+        },
+        "reviewed_file_snapshot": {
+          "snapshot_id": "sha256:inline-blocked-v1",
+          "files": ["简报.md", "研究.md", "来源.md", "大纲.md", "故事板.md"]
+        },
+        "verdict": "BLOCK",
+        "findings": [
+          {
+            "id": "MR-INLINE-002",
+            "severity": "HIGH",
+            "category": "source_coverage",
+            "slide_ids": ["S05"],
+            "claim": "核心建议缺少可核验来源。",
+            "evidence": "冻结快照 v1 没有支持来源。",
+            "recommendation": "删除建议或提供来源。",
+            "status": "OPEN"
+          }
+        ],
+        "author_revision_notes": "缩小建议范围，但仍缺少直接来源。"
+      },
+      {
+        "cycle": 1,
+        "round": 2,
+        "reviewer_id": "current-context-inline-review-cycle-1-round-2",
+        "reviewer_context": "current-authoring-context",
+        "review_mode": "inline_fallback",
+        "fallback_evidence": {
+          "delegation_attempted": true,
+          "reason": "child_context_unavailable",
+          "host_detail": "child context was not returned"
+        },
+        "reviewed_file_snapshot": {
+          "snapshot_id": "sha256:inline-blocked-v2",
+          "files": ["简报.md", "研究.md", "来源.md", "大纲.md", "故事板.md"]
+        },
+        "verdict": "BLOCK",
+        "findings": [
+          {
+            "id": "MR-INLINE-002",
+            "severity": "HIGH",
+            "category": "source_coverage",
+            "slide_ids": ["S05"],
+            "claim": "核心建议缺少可核验来源。",
+            "evidence": "冻结快照 v2 仍没有支持来源。",
+            "recommendation": "删除建议或提供来源。",
+            "status": "OPEN"
+          }
+        ],
+        "author_revision_notes": "补充说明文字，但未提供可核验来源。"
+      },
+      {
+        "cycle": 1,
+        "round": 3,
+        "reviewer_id": "current-context-inline-review-cycle-1-round-3",
+        "reviewer_context": "current-authoring-context",
+        "review_mode": "inline_fallback",
+        "fallback_evidence": {
+          "delegation_attempted": true,
+          "reason": "completion_event_missing",
+          "host_detail": "child started but no attributable completion event was returned"
+        },
+        "reviewed_file_snapshot": {
+          "snapshot_id": "sha256:inline-blocked-v3",
+          "files": ["简报.md", "研究.md", "来源.md", "大纲.md", "故事板.md"]
+        },
+        "verdict": "BLOCK",
+        "findings": [
+          {
+            "id": "MR-INLINE-002",
+            "severity": "HIGH",
+            "category": "source_coverage",
+            "slide_ids": ["S05"],
+            "claim": "核心建议缺少可核验来源。",
+            "evidence": "冻结快照 v3 仍没有支持来源。",
+            "recommendation": "删除建议或提供来源。",
+            "status": "OPEN"
+          }
+        ]
+      }
+    ]
+  },
+  "dirty_slides": []
+}

@@ -11,6 +11,6 @@ Do not silently qualify it during review. Exercise the independent manuscript-re
 - [ ] The reviewer returns a finding with the exact claim, `severity: HIGH`, evidence explaining that it is unsupported/current, and `status: OPEN`.
 - [ ] `文稿审查.md` persists the reviewer payload and provenance.
 - [ ] `run.json.stage` becomes `manuscript_blocked`; the finding ID appears in `open_blocking_findings` and review history.
-- [ ] Any future correction must be made only in the authoring context and would require a fresh independent re-review; this scenario stops before that correction.
+- [ ] Any future correction must be made only in the authoring context and requires a new formal review round: fresh independent subagent first, explicit inline fallback after attributable delegation failure; this scenario stops before that correction.
 - [ ] No theme.json is created while the finding is not `RESOLVED`.
 - [ ] No SVG, sample, or slide file is created while the manuscript is blocked.

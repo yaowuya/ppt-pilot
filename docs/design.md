@@ -13,7 +13,7 @@ MVP 刻意保持纯指令架构。它只使用宿主常规的工作区能力，�
 1. 内容先于外观。
 2. 每页只表达一个结论，并以证据或明确限定支持。
 3. 中间文件是产品状态，不是附带日志。
-4. 文稿批准必须由全新审稿人负责，不能由创作上下文自批。
+4. 文稿审查必须执行；每轮优先全新独立审稿人，委派失败时只有明确记录的 inline fallback 才能在当前上下文正式放行。
 5. 文稿获批前禁止视觉设计。
 6. SVG 兼容性与可读性优先于装饰效果。
 7. 任何不可用能力都必须披露，不能悄然模拟。
@@ -47,7 +47,7 @@ brief
   -> optional research
   -> assertion-led outline
   -> page storyboard
-  -> mandatory independent manuscript review
+  -> mandatory manuscript review (subagent preferred; inline fallback on attributable failure)
   -> theme and layout planning
   -> two anchor SVGs
   -> batched SVG production
@@ -95,7 +95,7 @@ slides/*.svg
 质量检查报告.md
 ```
 
-`run.json` 使用 `schema_version: 1`，记录 `guided`／`auto` 执行策略、当前阶段、文稿审查状态、可选的 `pending_interaction`／`interaction_history`、`visual_generation_blocker`、`visual_generation_transaction` 和脏页面；入口动作不写入 `mode`。`manuscript_review.cycle` 也是可选 schema-v1 字段，旧运行缺少时按 1。直接视觉修订以 `visual-revision-<N>` 保存在权威 `interaction_history`，并通过 `supersedes` 排除废弃规则。每个 `visual-briefs/<slide-id>.md` 记录锁定内容、主题与风格 provenance、有效修订、层级、构图、模式和 QA 要求；其中 `generation_intent` 与 `generation_trigger_id` 说明当前视觉操作的持久来源，不能从 SVG 是否存在或用户措辞猜测。`generation-prompts/<slide-id>.md` 记录 resolved prompt path、style／brief／theme／storyboard snapshots、`compiled_prompt_sha256`、`prompt_snapshot_id` 和 transaction provenance。这些文件足以让一个受支持宿主把运行交给另一个宿主，而不依赖此前对话。
+`run.json` 使用 `schema_version: 1`，记录 `guided`／`auto` 执行策略、当前阶段、文稿审查状态、可选的 `pending_interaction`／`interaction_history`、嵌套 `manuscript_review.pending_round`、`visual_generation_blocker`、`visual_generation_transaction` 和脏页面；入口动作不写入 `mode`。`manuscript_review.cycle` 也是可选 schema-v1 字段，旧运行缺少时按 1。直接视觉修订以 `visual-revision-<N>` 保存在权威 `interaction_history`，并通过 `supersedes` 排除废弃规则。每个 `visual-briefs/<slide-id>.md` 记录锁定内容、主题与风格 provenance、有效修订、层级、构图、模式和 QA 要求；其中 `generation_intent` 与 `generation_trigger_id` 说明当前视觉操作的持久来源，不能从 SVG 是否存在或用户措辞猜测。`generation-prompts/<slide-id>.md` 记录 resolved prompt path、style／brief／theme／storyboard snapshots、`compiled_prompt_sha256`、`prompt_snapshot_id` 和 transaction provenance。这些文件足以让一个受支持宿主把运行交给另一个宿主，而不依赖此前对话。
 
 中文 Markdown 名称是新运行的标准。为了让既有运行仍能恢复，`resume`／`revise` 可以继续原位读取旧英文名称 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md`、`manuscript-review.md` 和 `qa-report.md`，但不得自动重命名、复制或迁移。实际名称由 `run.json` 的引用字段和目录中的完整文件集合共同决定；无法唯一判定时停止并报告冲突。
 
@@ -107,15 +107,17 @@ slides/*.svg
 - 锚点内纯视觉修改：返回 `anchor`，使受影响锚点 brief、锚点和依赖项失效并保留有效文稿批准；
 - 单页 `recompose`：使该页 brief、SVG 和 QA 失效；单页 `patch`：只使该页 SVG 和 QA 失效，并在 brief 中更新精确 defect 与候选版本。
 
-## 强制独立文稿审查
+## 强制文稿审查（独立优先、inline 降级）
 
 只有 `简报.md`、`研究.md`、`来源.md`、`大纲.md` 和 `故事板.md` 全部完成并冻结，才到达文稿边界。
 
-编排上下文把这五个输入委派给全新独立子 Agent，并只授予只读访问。审稿人能看到五个文稿文件和审查规范，但不能看到创作对话、设计主题、样例或正式页面。审稿人只返回结构化问题与来源载荷，绝不修改工作区文件。创作上下文把载荷原样保存到当前运行的审查报告（新运行为 `文稿审查.md`，旧英文运行沿用 `manuscript-review.md`），后续作者修订说明另行记录；文稿修订只能由创作上下文完成。
+每轮先把五个冻结输入委派给全新独立子 Agent，并只授予只读访问。成功时保存真实 `delegation_evidence`；启动失败、接收者为空、完成事件缺失或结果上下文不匹配时，不空等、不询问用户，而是在当前步骤进入 `inline_fallback`，仅依据同一冻结快照和审查规范直接产生结构化 findings。
 
-独立性需要机器可关联的委派证据，不能只靠文字标签。每轮都把宿主返回的 `child_context_id`、`completion_event_id` 和 `result_context_id` 写入 `delegation_evidence`；子上下文 ID 与结果上下文 ID 必须相等。虚构名称、叙述、休眠或空等待都不能证明委派。如果宿主无法返回可归因的子上下文结果，运行进入 `review_unavailable`，创作上下文不得伪造问题。
+inline round 使用互斥 `fallback_evidence` 并明确声明“当前上下文降级审查，不具备独立上下文隔离”。它不能伪造独立性，但 inline PASS 与 subagent PASS 使用同一严格质量门，均可进入 `manuscript_approved`。`run.json.manuscript_review.pending_round` 在执行前持久化 cycle／round／mode／snapshot／evidence，crash 后复用同一轮，completed round 与删除 pending 在一次原子替换中完成。
 
-状态文件只是可移植记录，不是加密证明：`run.json` 单独存在不能证明 ID 来自宿主事件。带日期的行为验收必须与保存的宿主 transcript 或协作日志交叉核对。该证据核验位于安装后的 Skill 之外，因此不改变纯指令 MVP。
+subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创作上下文负责把载荷保存到 `文稿审查.md`／旧 `manuscript-review.md` 并持久化 review history。inline 模式由创作上下文产生同构载荷并按同一职责持久化，但必须保留 fallback mode 和限制声明。
+
+状态文件只是可移植记录，不是加密证明：subagent 独立性仍需宿主 transcript／协作日志核验；inline 记录只能证明降级契约已执行。
 
 审查至少覆盖：
 
@@ -130,9 +132,9 @@ slides/*.svg
 
 每条问题都包含 `id`、`severity`、`category`、`slide_ids`、`claim`、`evidence`、`recommendation` 和 `status`。严重级别为 `BLOCKER`、`HIGH`、`MEDIUM`、`LOW`；状态为 `OPEN`、`RESOLVED`、`ACCEPTED_RISK`。
 
-只有所有 `BLOCKER` 或 `HIGH` 问题都为 `RESOLVED` 时，质量门才通过；这两个级别的 `OPEN` 与 `ACCEPTED_RISK` 都继续阻断。修订后必须由新的独立审稿人使用相同问题 ID 核验并给出解决证据。审稿身份、文稿快照、修订说明、cycle 和问题历史保存在 `run.json.manuscript_review.review_history`。每个审查周期最多三轮；被阻断周期不得重置。只有已经批准的版本后来发生实质变化时才能递增 cycle 并从 `round: 0` 开启新周期。
+只有所有 `BLOCKER` 或 `HIGH` 问题都为 `RESOLVED` 时，质量门才通过；`OPEN` 与阻断级 `ACCEPTED_RISK` 都继续阻断。修订后下一轮仍先尝试独立子 Agent，失败时由 inline fallback 使用新冻结快照核验相同问题 ID。subagent 与 inline round 共同计入每 cycle 最多三轮；模式切换不能重置计数或开启第 4 轮。只有已经批准的版本后来发生实质变化时才能递增 cycle。
 
-宿主无法启动独立子 Agent 时，运行进入 `review_unavailable` 并停止。同上下文自审可作为补充 QA，但不能满足文稿质量门。
+只有冻结输入不可读、当前上下文也无法执行审查或 pending 状态冲突时才使用 legacy-compatible `review_unavailable`。既有 unavailable 历史可读，resume 可以保留旧原因并创建下一合法 inline pending round。
 
 ## 视觉系统
 
@@ -158,7 +160,7 @@ slides/*.svg
 
 操作触发也必须持久化：首次生成使用 `generation_trigger_id: initial:<slide-id>:<visual_brief_snapshot_id>`，用户重构使用 `interaction:<interaction_history-id>`，两次 patch 后确定性回退使用 `fallback:<slide-id>:<failed-transaction-64hex>:2`，局部修补使用 `patch:<slide-id>:<qa-defect-id>`。deck-scope 用户重构可以共享同一个 trigger，但每页仍有独立 prompt snapshot 和 transaction identity。
 
-当 style prompt、路径、身份或 snapshot 无法解析时，运行写入 `run.json.visual_generation_blocker` 并保持 slide dirty，不启动 generator、不覆盖 SVG、不改用其他风格。成功编译后，`run.json.visual_generation_transaction` 以 `compiling -> compiled -> generating -> candidate_written -> validated -> promoted` 描述可恢复状态；每一步只声称单个 `run.json` 原子替换，跨文件 prompt／候选写入只通过复读 hash 恢复。全局恢复顺序精确为 `pending_interaction > visual_generation_blocker > visual_generation_transaction > stage scan`；前三类 durable control state 均不存在或已完成后才能扫描普通阶段。
+当 style prompt、路径、身份或 snapshot 无法解析时，运行写入 `run.json.visual_generation_blocker` 并保持 slide dirty，不启动 generator、不覆盖 SVG、不改用其他风格。成功编译后，`run.json.visual_generation_transaction` 以 `compiling -> compiled -> generating -> candidate_written -> validated -> promoted` 描述可恢复状态；每一步只声称单个 `run.json` 原子替换，跨文件 prompt／候选写入只通过复读 hash 恢复。全局恢复顺序精确为 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan`；前四类 durable control state 均不存在或已完成后才能扫描普通阶段。
 
 旧 `redesign-prompts/` 目录永远 inert：可作为只读历史保留，但不能写入、移动、删除、激活或用来推断当前风格。当前 prompt 有效性只由新 `generation-prompts/` provenance、visual brief、theme、storyboard 和安装包 prompt snapshot 决定。
 
@@ -207,7 +209,7 @@ MVP 不包含宿主插件 manifest。未来包装器可以引用同一标准包�
 - 由主题、简报、资料或既有运行驱动的演示文稿创建；
 - `guided`／`auto` 持久执行策略与 `new`／`resume`／`revise` 入口动作；
 - 可选研究与离线披露；
-- 强制独立文稿审查；
+- 强制文稿审查（独立 subagent 优先，委派失败时 inline fallback）；
 - 中文和英文内容；
 - 基础图表、流程、比较、架构和 Bento 汇总；
 - 独立 SVG 输出和定向修订；
@@ -231,8 +233,8 @@ MVP 只有在以下条件满足时才算通过相应验收：
 1. 同一 Skill 包在两个宿主中可发现；
 2. 两个宿主生成相同的运行产物协议；
 3. 人为植入且未解决的 `HIGH` 问题阻止主题和页面生成；
-4. 委派不可用时产生 `review_unavailable`，不能同上下文静默自批；
-5. 第二个全新审稿人能够核验修订并推进运行；
+4. 委派不可用时进入 `inline_fallback`，在当前步骤完成同一严格审查；只有 inline 也无法执行时才使用 `review_unavailable`；
+5. 后续正式 subagent／inline round 能够核验修订并推进运行，同时保留实际 review mode；
 6. 两个跨宿主交接方向都能仅凭工作区文件完成；
 7. 内置 SVG 与测试页面都满足 Office-safe 契约；
 8. 代表性页面在浏览器中可打开，并能插入受支持 PowerPoint 版本且不丢失关键内容。

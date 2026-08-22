@@ -10,13 +10,13 @@ MVP 不强制依赖 MCP 服务、SDK、Hook、后台服务、运行时软件包�
 
 1. 规范化需求简报，并按需研究；
 2. 编写结论先行的大纲与逐页故事板；
-3. 在全新子 Agent／上下文中执行强制独立文稿审查；
+3. 优先在全新子 Agent／上下文中执行文稿审查；委派失败时由当前步骤执行正式降级审查；
 4. 确定主题并生成两页视觉锚点；
 5. 逐页生成 Office-safe SVG；
 6. 执行单页与整套演示文稿 QA；
 7. 从文件化状态恢复运行或进行局部修订。
 
-`BLOCKER` 或 `HIGH` 级问题只有在后续独立审稿人提供证据并标记为 `RESOLVED` 后才可放行；这两个级别的 `OPEN` 与 `ACCEPTED_RISK` 都继续阻断。每轮审查还必须具有宿主返回的真实子上下文、完成事件和一致的结果来源；虚构审稿人名称或空等待不构成独立审查。如果宿主无法启动可归因的独立审稿人，运行必须进入 `review_unavailable` 并在设计前停止；同上下文自审不能替代该质量门。每个文稿审查周期最多三轮；只有此前已经 `manuscript_approved` 的版本后来发生实质性修订，才会递增可选 `manuscript_review.cycle` 并从该新周期第 1 轮重新审查。被阻断的周期不能借“新周期”绕过三轮上限。
+`BLOCKER` 或 `HIGH` 级问题只有在后续正式审查 round 提供冻结证据并标记为 `RESOLVED` 后才可放行；`OPEN` 与阻断级 `ACCEPTED_RISK` 都继续阻断。每轮先尝试具有真实宿主证据的独立子 Agent；启动或结果归因失败时，不空等，而是在当前步骤持久化 `inline_fallback` 并执行同一严格审查。inline PASS 可以进入 `manuscript_approved`，但报告必须声明“当前上下文降级审查，不具备独立上下文隔离”，不能冒充独立审查。subagent 与 inline 轮次共同受每 cycle 三轮上限约束；被阻断周期不能借模式切换或“新周期”绕过上限。
 
 ## 安装同一份标准 Skill
 
@@ -88,8 +88,8 @@ Skill 可接收主题、完整简报、资料集合、既有运行目录或定�
 入口动作：
 
 - **new**：创建新运行并把所选执行策略写入 `run.json.mode`；
-- **resume**：先读取 `run.json` 和待回答交互，保留既有 `run.json.mode`，再从第一个未完成或脏阶段继续；
-- **revise**：保留既有 `run.json.mode`，只使受影响的产物失效；事实、来源、主张、大纲或故事板变化必须重新进行文稿审查。
+- **resume**：先读取 `run.json`，按 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan` 恢复；保留既有 `run.json.mode`；
+- **revise**：保留既有 `run.json.mode`，先完成同一 durable control chain，再使受影响产物失效；事实、来源、主张、大纲或故事板变化必须重新进行正式文稿审查。
 
 `run.json.mode` 只保存 `guided` 或 `auto`，不保存 `new`、`resume` 或 `revise`。
 
@@ -109,7 +109,7 @@ Skill 先检查请求和工作区，已有答案不得重复询问。剩余重�
 
 主题确认后，PPT Pilot 为每个待生成或待修订页面创建 `visual-briefs/<slide-id>.md`。visual brief 是权威页面状态和 prompt compiler 输入：它组装已批准内容、当前主题、有效视觉修订、信息层级、构图和 SVG／QA 契约，但不得把 visual brief 直接交给 generator。首次生成、`recompose` 和确定性回退必须先编译 `generation-prompts/<slide-id>.md`；fresh generator 只接收编译后的 `generation-prompts/<slide-id>.md`，不得直接接收 visual brief 或原始风格 prompt。SVG 是派生结果，不是设计状态。
 
-局部碰撞、越界、令牌或对齐错误使用 `patch`；焦点、层级、布局、卡片密度、字体、语义色、品牌方向或视觉参考变化使用 `recompose`。`patch` 读取完整 brief、当前 SVG 和一个精确 defect；`recompose` 从锁定故事板、当前主题和完整 brief 重新构图，不以旧 SVG 为几何底稿。事实和来源变化仍必须重新进行独立文稿审查。
+局部碰撞、越界、令牌或对齐错误使用 `patch`；焦点、层级、布局、卡片密度、字体、语义色、品牌方向或视觉参考变化使用 `recompose`。`patch` 读取完整 brief、当前 SVG 和一个精确 defect；`recompose` 从锁定故事板、当前主题和完整 brief 重新构图，不以旧 SVG 为几何底稿。事实和来源变化仍必须重新进行正式文稿审查：优先 subagent，委派失败时 inline fallback。
 
 已应用视觉决定以单调 `visual-revision-<N>` 保存在 `run.json.interaction_history`，后来的同字段规则显式标记 `supersedes`。废弃规则保留在历史中，但不会进入当前生成指令；整套决定镜像到 `theme.json.user_revision_notes`，页面决定镜像到对应 visual brief。
 
@@ -119,7 +119,7 @@ Skill 先检查请求和工作区，已有答案不得重复询问。剩余重�
 
 四个内置风格各自拥有一份独立可编译的完整模板，即完整、可独立编译的 redesign prompt 模板：`assets/styles/minimal-business.redesign.md`、`assets/styles/tech-dark.redesign.md`、`assets/styles/bold-editorial.redesign.md` 与 `assets/styles/canway-midyear-review/REDESIGN.md`。共享 `references/redesign-prompt.md` 只是 resolver-only 共享契约：解析 selected style、验证 registry／manifest／路径、编译 `generation-prompts/<slide-id>.md`、记录 provenance 和恢复失败；它不再包含跨风格通用的完整视觉 prompt、固定 Bento、固定卡片数量或某个风格的专属构图。只有替换完当前 brief／theme／revision 输入并持久化后的 generation prompt 才能交给 fresh generator，不能直接传递这些原始模板。
 
-`theme.json` 与每份 `visual-briefs/<slide-id>.md` 都持久保存 selected style identity；编译后的 prompt provenance 继续保存 `generation_intent`、`generation_trigger_id`、style prompt snapshot、brief／theme／storyboard snapshot、`compiled_prompt_sha256` 与 `prompt_snapshot_id`。首次生成、用户 `recompose` 和确定性回退都会编译完整风格 prompt；局部 `patch` 只读取完整 brief、当前 SVG 和精确 defect，不加载完整 redesign prompt。风格 prompt 不可用时写入 `run.json.visual_generation_blocker`，可恢复生成过程写入 `run.json.visual_generation_transaction`。全局恢复顺序精确为 `pending_interaction > visual_generation_blocker > visual_generation_transaction > stage scan`；只有前三类 durable control state 都不存在或已经完成，才能执行 stage scan。旧 `redesign-prompts/` 目录始终 inert，只读保留历史，不写、不移动、不删除，也不参与当前 prompt 选择。
+`theme.json` 与每份 `visual-briefs/<slide-id>.md` 都持久保存 selected style identity；编译后的 prompt provenance 继续保存 `generation_intent`、`generation_trigger_id`、style prompt snapshot、brief／theme／storyboard snapshot、`compiled_prompt_sha256` 与 `prompt_snapshot_id`。首次生成、用户 `recompose` 和确定性回退都会编译完整风格 prompt；局部 `patch` 只读取完整 brief、当前 SVG 和精确 defect，不加载完整 redesign prompt。风格 prompt 不可用时写入 `run.json.visual_generation_blocker`，可恢复生成过程写入 `run.json.visual_generation_transaction`。全局恢复顺序精确为 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan`；只有前四类 durable control state 都不存在或已经完成，才能执行 stage scan。旧 `redesign-prompts/` 目录始终 inert，只读保留历史，不写、不移动、不删除，也不参与当前 prompt 选择。
 
 示例需求：
 
@@ -158,7 +158,7 @@ ppt-output/<deck-id>/
 
 可选网络研究不是运行时依赖。用户提供的资料和本地资料优先；默认不得把机密内容发送到网络。当实时研究或渲染不可用时，Skill 必须记录限制、限定未验证主张，并使用 `visual_qa: not_rendered`，不得虚构验证结果。
 
-独立子 Agent 委派与一般能力降级不同：文稿审查属于强制独立质量门，因此委派不可用时必须阻断视觉设计，不能降级为同上下文自审放行。
+文稿审查仍优先独立子 Agent，但委派不可用时使用 `inline_fallback`：当前步骤只依据冻结文稿和同一审查规范完成正式审查，并可按严格 findings 门放行。只有 inline 也无法执行时才使用 legacy-compatible `review_unavailable`。
 
 ## SVG 与 PowerPoint 范围
 

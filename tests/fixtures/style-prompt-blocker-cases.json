@@ -722,6 +722,86 @@
       }
     },
     {
+      "id": "manuscript-pending-round-before-visual-controls",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_file_missing",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "slide_id": "S07",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "state": "compiled",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-3",
+          "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
+          "final_path": "slides/S07.svg",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        },
+        "manuscript_review": {
+          "required": true,
+          "cycle": 1,
+          "round": 0,
+          "mode": "inline_fallback",
+          "state": "pending",
+          "status": "PENDING",
+          "latest_report": "文稿审查.md",
+          "open_blocking_findings": [],
+          "review_history": [],
+          "pending_round": {
+            "cycle": 1,
+            "round": 1,
+            "mode": "inline_fallback",
+            "reviewed_file_snapshot": {
+              "snapshot_id": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "files": [
+                "简报.md",
+                "研究.md",
+                "来源.md",
+                "大纲.md",
+                "故事板.md"
+              ]
+            },
+            "fallback_evidence": {
+              "delegation_attempted": true,
+              "reason": "delegation_capability_unavailable",
+              "host_detail": "subagents disabled"
+            },
+            "status": "in_progress"
+          }
+        }
+      },
+      "expected_first_action": "manuscript_review.pending_round",
+      "stop": true,
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 0,
+        "stage_scan": 0
+      }
+    },
+    {
       "id": "blocker-before-transaction",
       "before_run": {
         "schema_version": 1,

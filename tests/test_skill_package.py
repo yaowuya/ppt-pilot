@@ -67,7 +67,7 @@ class SkillPackageTests(unittest.TestCase):
         for token in (
             "纯指令",
             "可选网络",
-            "强制独立",
+            "独立子 agent",
             "review_unavailable",
             "独立 svg",
             "guided",
@@ -150,7 +150,7 @@ class SkillPackageTests(unittest.TestCase):
             ):
                 self.assertIn(token, text)
             self.assertIn(
-                "pending_interaction > visual_generation_blocker > visual_generation_transaction > stage scan",
+                "pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan",
                 text,
             )
             self.assertIn("独立可编译的完整模板", text)
@@ -201,6 +201,32 @@ class SkillPackageTests(unittest.TestCase):
             "browser-svg.md",
         ):
             self.assertIn(historical, acceptance)
+
+    def test_inline_review_fallback_is_documented_without_independence_overclaim(self):
+        readme = read_text(self.readme)
+        design = read_text(self.design)
+        acceptance = read_text(self.acceptance)
+        for text in (readme, design, acceptance):
+            for token in (
+                "inline_fallback",
+                "优先",
+                "当前上下文降级审查",
+                "不具备独立上下文隔离",
+                "manuscript_approved",
+            ):
+                self.assertIn(token, text)
+        self.assertIn("inline PASS", readme)
+        self.assertIn("pending_round", design)
+        self.assertIn(
+            "| 文稿 inline fallback | Claude Code | — | — | PENDING | — |",
+            acceptance,
+        )
+        self.assertIn(
+            "| 文稿 inline fallback | Codex | — | — | PENDING | — |",
+            acceptance,
+        )
+        self.assertIn("委派不可用（历史旧标识）", acceptance)
+        self.assertNotIn("委派不可用时必须阻断视觉设计，不能降级为同上下文自审放行", readme)
 
     def test_current_readme_and_process_docs_are_chinese(self):
         documents = [
