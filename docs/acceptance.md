@@ -25,10 +25,11 @@
 |---|---|---|---|
 | [`guided-topic-only.md`](../tests/prompts/guided-topic-only.md) | 验证缺省 guided、主题规范化与三个检查点。 | 模式未显式指定时默认 `guided`；先检查已有输入；一次只提出一个实质性问题；简报、大纲和锚点都提出直接问题并等待明确回答。 | 每个问题等待期间保持当前阶段且不得推进下游；批准完成后才进入下一阶段。 |
 | [`source-driven.md`](../tests/prompts/source-driven.md) | 验证 auto 安全默认值、用户资料优先、来源元数据和主张映射。 | `auto` 不提出可选问题；用户资料优先；网络／机密行为仍受用户权限约束；`研究.md`、`来源.md`、大纲和故事板保持稳定来源 ID 与限定。 | 只有每个 `BLOCKER`／`HIGH` 问题都为 `RESOLVED` 才能进入视觉阶段。 |
-| [`review-blocker.md`](../tests/prompts/review-blocker.md) | 使用人为植入的无支持统计值验证严格文稿质量门。 | 独立报告把无支持主张记录为未解决的 `HIGH` 问题，并由 `run.json` 把该 ID 写入阻断列表。 | `manuscript_blocked`；不得生成 `theme.json`、`samples/`，也不得生成 SVG。 |
+| [`review-blocker.md`](../tests/prompts/review-blocker.md) | 使用人为植入的无支持统计值验证严格文稿质量门。 | 正式 subagent／inline 报告把无支持主张记录为未解决的 `HIGH` 问题，并由 `run.json` 把该 ID 写入阻断列表。 | `manuscript_blocked`；不得生成 `theme.json`、`samples/`，也不得生成 SVG。 |
+| inline fallback（宿主场景） | 验证子 Agent 不可用时当前步骤直接审查。 | 先尝试委派并保存失败原因；不空等、不询问；持久化 `pending_round` 和 `fallback_evidence`；当前上下文只依据冻结五文件审查，并声明“当前上下文降级审查，不具备独立上下文隔离”。 | inline PASS 可进入 `manuscript_approved`；inline BLOCK 继续阻断；真实宿主结果在台账中保持 `PENDING` 直到执行。 |
 | [`resume-after-review.md`](../tests/prompts/resume-after-review.md) | 从已批准样例恢复，不重复上游工作。 | 从 [`run-review-approved.json`](../tests/fixtures/run-review-approved.json) 开始；先读 `run.json`；保留已批准文稿；没有失效时不重复研究或审查。 | 推进到 `theme` 与 `anchor`，嵌套审查状态仍为 `manuscript_approved`。 |
 | [`resume-pending-interaction.md`](../tests/prompts/resume-pending-interaction.md) | 验证待回答、已回答和请求修订状态跨轮次／跨宿主恢复。 | 从 [`run-pending-interaction.json`](../tests/fixtures/run-pending-interaction.json) 开始；先读 `run.json`；重发同一个直接问题及完整效果／推荐理由；收到明确回答后先写 `status: answered`、原始 `answer` 和规范化 `decision`。 | 回答前不得推进下游；产物幂等写入后，以一次原子状态替换完成阶段更新和交互对象删除／替换，不重复上游工作。 |
-| [`revise-single-slide.md`](../tests/prompts/revise-single-slide.md) | 验证 patch、recompose 与事实变更的三个独立分支。 | 分支 A 的 24 px 对齐和非事实错字分类为 patch，只读取完整 brief、当前 SVG 与精确 defect；分支 B 的焦点、卡片密度和视觉参考变化分类为 recompose，重建 S05 brief／SVG 且不以旧 SVG 为几何底稿；分支 C 的数字／来源变化不属于视觉模式，使文稿批准和全部依赖视觉产物失效。 | patch 只标脏 S05 SVG 与 QA；recompose 只标脏 S05 brief／SVG 与 QA；factual change 只有新的全新独立审查通过后才能重新生成视觉内容。 |
+| [`revise-single-slide.md`](../tests/prompts/revise-single-slide.md) | 验证 patch、recompose 与事实变更的三个独立分支。 | 分支 A 的 24 px 对齐和非事实错字分类为 patch，只读取完整 brief、当前 SVG 与精确 defect；分支 B 的焦点、卡片密度和视觉参考变化分类为 recompose，重建 S05 brief／SVG 且不以旧 SVG 为几何底稿；分支 C 的数字／来源变化不属于视觉模式，使文稿批准和全部依赖视觉产物失效。 | patch 只标脏 S05 SVG 与 QA；recompose 只标脏 S05 brief／SVG 与 QA；factual change 只有新的正式 subagent／inline 审查通过后才能重新生成视觉内容。 |
 
 静态套件还解析 [`interaction-transition-cases.json`](../tests/fixtures/interaction-transition-cases.json)、[`workspace-run-selection.json`](../tests/fixtures/workspace-run-selection.json)、[`run-outline-reapproval.json`](../tests/fixtures/run-outline-reapproval.json) 和 [`review-cycle-reset.json`](../tests/fixtures/review-cycle-reset.json)，验证 `answered` 崩溃恢复、三个批准阶段映射、修订澄清替换、再次批准历史不覆盖、锚点上游修订重入、歧义目标路由及第 3 轮批准后的新审查周期。夹具只证明书面状态契约内部一致，不替代下面的真实宿主 transcript 验收。
 
@@ -49,7 +50,7 @@
 
 每个场景至少检查：
 
-- `run.json` 的顶层阶段、嵌套审查 cycle／状态／历史、脏页面和可选 `pending_interaction`／`interaction_history`；目标不唯一时还检查工作区 `run-selection.json`；
+- `run.json` 的顶层阶段、嵌套审查 cycle／状态／历史／可选 `pending_round`、脏页面和可选 `pending_interaction`／`interaction_history`；目标不唯一时还检查工作区 `run-selection.json`；
 - 五个冻结文稿文件；
 - 当前运行实际使用的审查报告：新运行检查 `文稿审查.md`，旧英文运行检查 `manuscript-review.md`，并核对审稿来源；
 - 视觉产物是否只在正确质量门后出现；
@@ -127,22 +128,22 @@ python -m unittest discover -s tests -v
 
 ### 双向严格质量门交接
 
-两个方向都要交接一份最新独立报告仍含未解决的 `HIGH` 问题的运行，并在接收宿主中尝试 `resume`。预期仍为 `manuscript_blocked`：不得生成 `theme.json`、样例 SVG 或最终 SVG。接收宿主如果把 `ACCEPTED_RISK`、缺失问题或同上下文自审当作批准，即为失败。
+两个方向都要交接一份最新正式报告仍含未解决 `HIGH` 问题的运行，并在接收宿主中尝试 `resume`。预期仍为 `manuscript_blocked`：不得生成 `theme.json`、样例 SVG 或最终 SVG。接收宿主如果把 `ACCEPTED_RISK`、缺失问题、无 evidence 的随手自审或伪装成独立的 inline 审查当作批准，即为失败。
 
-## 委派不可用场景
+## 委派不可用与 inline fallback 场景
 
 每个宿主都要在独立委派被禁用或确实不可用时运行一次。
 
-预期行为：
+当前预期行为：
 
-- 顶层阶段与嵌套审查状态均为 `review_unavailable`；
-- 记录原因并设置 `manuscript_review.mode: unavailable`，顶层 `run.json.mode` 仍为 `guided` 或 `auto`；
-- 新运行使用 `文稿审查.md`，旧英文运行沿用 `manuscript-review.md`；报告说明不可用原因和没有审稿人运行，`latest_report` 必须指向该运行实际使用的文件；
-- 同上下文自审不得冒充批准；
-- 不得生成 `theme.json`、样例或 SVG；
-- 不能错误标记为 `manuscript_blocked`，因为实际独立审查没有发生。
+- 先尝试委派并保存可归因失败原因；不得空等待或伪造 child／completion／result IDs；
+- 设置 `manuscript_review.mode: inline_fallback`，持久化相同 cycle／round／冻结快照的 `pending_round`；
+- 当前步骤执行同一七维审查，报告记录 `fallback_evidence` 和“当前上下文降级审查，不具备独立上下文隔离”；
+- inline PASS 可以提交 `manuscript_approved`，inline BLOCK 使用同一 `BLOCKER/HIGH` 规则继续阻断；
+- subagent 与 inline round 共同计入每 cycle 三轮上限；
+- 只有冻结输入不可读、inline 也无法执行或状态冲突不可恢复时，才使用 legacy-compatible `review_unavailable`。
 
-如果宿主配置无法安全禁用委派，把该项记录为 `NOT RUN` 并说明原因，不得伪造 unavailable 结果。
+既有 `review_unavailable` 台账行保留为历史旧行为证据，不能证明当前 fallback。当前 Claude Code／Codex inline fallback 场景在真实运行前保持 `PENDING`。
 
 ## SVG 浏览器检查
 
@@ -182,7 +183,7 @@ python -m unittest discover -s tests -v
 | 审查后恢复 | Claude Code | — | — | PENDING | — |
 | 待回答恢复 | Claude Code | — | — | PENDING | — |
 | 单页修订 | Claude Code | — | — | PENDING | — |
-| 委派不可用 | Claude Code | — | — | PENDING | — |
+| 文稿 inline fallback | Claude Code | — | — | PENDING | — |
 | 风格 prompt fresh generator 隔离 | Claude Code | — | — | PENDING | — |
 | 仅主题 guided | Codex | — | — | PENDING | — |
 | 资料驱动 | Codex | — | — | PENDING | — |
@@ -191,6 +192,7 @@ python -m unittest discover -s tests -v
 | 待回答恢复 | Codex | — | — | PENDING | — |
 | 单页修订 | Codex | — | — | PENDING | — |
 | 委派不可用（历史旧标识） | Codex | 2026-08-19 | Codex CLI 0.146.1（`multi_agent` 禁用） | PASS | [`codex-review-unavailable-v3-evaluation.md`](../acceptance-evidence/2026-08-19/host-runs/codex-review-unavailable-v3/codex-review-unavailable-v3-evaluation.md) |
+| 文稿 inline fallback | Codex | — | — | PENDING | — |
 | 风格 prompt fresh generator 隔离 | Codex | — | — | PENDING | — |
 | 已批准交接 | Claude Code -> Codex | — | — | PENDING | — |
 | 已批准交接 | Codex -> Claude Code | — | — | PENDING | — |

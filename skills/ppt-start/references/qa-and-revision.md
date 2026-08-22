@@ -158,12 +158,13 @@ recompose = complete brief + locked storyboard + active theme
 
 `resume` 入口必须先读取 `run.json` 并保留既有 `run.json.mode`。在验证其他阶段字段或寻找第一个未完成阶段前，按全局顺序处理 durable control state：
 
-1. `pending_interaction`：`pending` 原样重发同一个问题和完整选择说明并停止；`status: answered` 使用已保存的 `answer` 与规范化 `decision` 幂等完成产物写入，再以单次原子替换提交阶段更新和交互对象删除／替换，不得再次询问；格式错误则停止并报告冲突。该对象存在时不得创建或处理 `visual_generation_blocker`，不得解析 style，也不得启动 generator。
-2. `visual_generation_blocker`：只有没有 `pending_interaction` 时处理。重新验证同一 slide 的当前资源和快照；仍失败则幂等刷新同一 active blocker 并停止，generator calls 与 SVG writes 为 0。同一运行内另一页已有 active blocker 时先处理原 blocker，不创建并行 blocker。
-3. `visual_generation_transaction`：只有没有 pending 与 blocker 时处理。若 prompt durable 后 crash 留下 `state: compiling` 与 active blocker，先核对 prompt path／hash；匹配时以一次 `run.json` 原子替换同时提交 `compiled` 并移除匹配 blocker。其他状态按 transaction 契约恢复，不做 stage scan。
-4. stage scan：前三者都不存在时，才验证 `schema_version`、精确的产物契约字段名、当前阶段、审查状态、批准信息、`dirty_slides` 和引用产物，寻找第一个未完成或脏阶段。
+1. `pending_interaction`：`pending` 原样重发并停止；`status: answered` 使用已保存的 answer／decision 幂等提交；存在时不得处理其他 durable state。
+2. `manuscript_review.pending_round`：没有 pending interaction 时恢复相同 cycle／round／snapshot 的审查。若匹配的完整报告已 durable，验证后只追加一次 history，并在一次原子 `run.json` 替换中删除 pending；重复 resume 为 no-op。报告不存在时复用同一 pending round，不重复计数。
+3. `visual_generation_blocker`：只有没有更高优先级状态时处理；仍失败则刷新并停止。
+4. `visual_generation_transaction`：只有没有 pending 与 blocker 时处理；按 transaction 契约恢复，不做 stage scan。
+5. stage scan：前四者都不存在时，才验证普通阶段字段并寻找第一个未完成或脏阶段。
 
-只有每轮审查都包含非空的宿主返回委派证据，并且子上下文／结果上下文 ID 一致时，声称的批准才有效。证据缺失或格式错误时，使批准失效；能够独立审查时启动新一轮，否则设置 `review_unavailable`。绝不能根据没有证据的批准恢复到视觉阶段。
+恢复时按每轮 `review_mode` 验证互斥 execution evidence：subagent round 必须有非空且 child/result 一致的宿主 delegation evidence；inline fallback round 必须有合法 fallback evidence、冻结快照和隔离限制，且不能含 delegation evidence。任一模式证据缺失或格式错误时使批准失效；下一轮仍先尝试独立审查，失败则在当前步骤 inline 审查。只有两种方式都不能执行时才设置 `review_unavailable`。绝不能根据无效 evidence 的批准恢复视觉阶段。
 
 先解析该运行实际使用的 Markdown 文件名。新运行使用 `简报.md`、`研究.md`、`来源.md`、`大纲.md`、`故事板.md`、`文稿审查.md` 和 `质量检查报告.md`。旧英文运行可以沿用 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md`、`manuscript-review.md` 和 `qa-report.md`：优先采用 `run.json` 中记录的实际文件名，然后核对目录中是否存在完整对应集合。旧运行必须原位读取并沿用既有名称，不得自动重命名、复制或迁移。中英文集合同时存在且无法唯一判定时，停止并报告冲突。
 
@@ -178,7 +179,7 @@ recompose = complete brief + locked storyboard + active theme
 - **局部修补（patch；visual-only／non-factual copy edit 的受限子集）**：仅处理一个可测量局部 defect。保持页面 brief 的构图与层级，只把受影响页面 SVG 和整套 QA 标脏；不重新运行文稿审查。
 - **页面重构（recompose）**：已批准文案、限定条件、数字、来源映射和受众行动不变，但焦点、层级、阅读路径、布局、卡片密度、字体、语义色、品牌方向或参考发生变化。重新组装该页 brief，只把该页 brief、SVG 和整套 QA 标脏；不重新运行文稿审查，且不以旧 SVG 为几何底稿。
 - **主题变化（theme change）**：记录 deck 级视觉修订并把全部 visual brief、依赖主题的锚点、所有页面及视觉／整套 QA 标脏；文案和含义不变时保留文稿批准。
-- **事实、主张、来源、大纲或故事板变化**：不归入 patch 或 recompose。按产物契约的规范性失效重入表返回最早受影响文稿阶段；在同一原子更新中把嵌套审查授权重置为 `mode: pending`、`state: pending`、`status: PENDING`，保留完整审查历史，并使全部视觉产物失效。此前状态必须是 `manuscript_approved` 才能把 `cycle` 加一并设置 `round: 0`；尚未通过的周期保留轮次计数，`manuscript_blocked` 不得开启新周期。新的全新独立审稿人通过前不得回到视觉阶段。
+- **事实、主张、来源、大纲或故事板变化**：不归入 patch 或 recompose。按产物契约返回最早受影响文稿阶段；把嵌套审查授权重置为 pending，保留历史并使视觉产物失效。此前状态为 `manuscript_approved` 才能开启新 cycle；尚未通过的周期保留计数。新的正式 subagent／inline 审查通过前不得回到视觉阶段。
 
 非事实性文案修正只有在可证明不改变主张、限定条件、数字、来源映射和受众行动时才能作为 patch；如果文案修改可能改变含义、置信度、范围、因果、比较、建议或来源对齐，应按主张变化处理。不得滥用“non-factual copy edit”例外绕过审查。
 

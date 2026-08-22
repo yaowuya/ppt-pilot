@@ -2010,6 +2010,88 @@
       }
     },
     {
+      "id": "manuscript-pending-round-preempts-visual-controls",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "manuscript_review",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f857ed0fd7e15770d2aabf31d51bfcc86a71d2e718a08532622311b5709b7f93",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f857ed0fd7e15770d2aabf31d51bfcc86a71d2e718a08532622311b5709b7f93",
+          "compiled_prompt_sha256": "sha256:20c0878e6c8fda5f7f69701f80a43e678a64b17358422ec188d4652e9e13c5a5",
+          "candidate_path": "slides/.candidates/S07-f857ed0fd7e15770d2aabf31d51bfcc86a71d2e718a08532622311b5709b7f93.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": "generator_timeout"
+        },
+        "visual_generation_blocker": {
+          "state": "style_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_file_missing",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
+          "visual_brief_snapshot_id": "sha256:69bd0b7e96b13ad215e351155607202e50c59bae9e4116992ff62d8244a78bc5",
+          "theme_snapshot_id": "sha256:9e102c171ca680b20d74d117c4c933c019ce5b848ecdd3b57945adddb24f00a6",
+          "status": "active"
+        },
+        "manuscript_review": {
+          "required": true,
+          "cycle": 1,
+          "round": 0,
+          "mode": "inline_fallback",
+          "state": "pending",
+          "status": "PENDING",
+          "latest_report": "文稿审查.md",
+          "open_blocking_findings": [],
+          "review_history": [],
+          "pending_round": {
+            "cycle": 1,
+            "round": 1,
+            "mode": "inline_fallback",
+            "reviewed_file_snapshot": {
+              "snapshot_id": "sha256:inline-transaction-order",
+              "files": [
+                "简报.md",
+                "研究.md",
+                "来源.md",
+                "大纲.md",
+                "故事板.md"
+              ]
+            },
+            "fallback_evidence": {
+              "delegation_attempted": true,
+              "reason": "child_context_unavailable",
+              "host_detail": "no child context returned"
+            },
+            "status": "in_progress"
+          }
+        }
+      },
+      "expected_first_action": "manuscript_review.pending_round",
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 0,
+        "stage_scan": 0
+      }
+    },
+    {
       "id": "style-blocker-preempts-transaction",
       "before_run": {
         "schema_version": 1,

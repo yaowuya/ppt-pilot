@@ -11,8 +11,8 @@
 - `new`：从主题或简报开始创建新演示文稿；它是入口动作，不是写入 `run.json.mode` 的值。新运行未显式指定策略时使用 `guided`。
 - `guided`：持久执行策略；在简报、大纲和锚点批准节点提出一个直接问题，并等待明确批准。
 - `auto`：持久执行策略且只有显式指定时才使用；采用默认值并跳过可选人工批准，但不能跳过用户权限、无安全默认值的决策或任何硬质量门。
-- `resume`：入口动作；重新打开已有运行，先读取 `run.json`，严格按“全局恢复顺序”依次处理 `pending_interaction`、`visual_generation_blocker`、`visual_generation_transaction`；前三项均不存在后才能扫描第一个未完成或脏阶段。始终保留既有 `run.json.mode`。
-- `revise`：入口动作；保留既有 `run.json.mode`，同样必须先完成或停止于“全局恢复顺序”的 `pending_interaction`、`visual_generation_blocker`、`visual_generation_transaction`；只有前三类 durable control state 均不存在后，才能依据失效规则标记受影响下游产物并重新生成。
+- `resume`：入口动作；重新打开已有运行，先读取 `run.json`，严格按“全局恢复顺序”依次处理 `pending_interaction`、`manuscript_review.pending_round`、`visual_generation_blocker`、`visual_generation_transaction`；前四项均不存在后才能扫描第一个未完成或脏阶段。始终保留既有 `run.json.mode`。
+- `revise`：入口动作；保留既有 `run.json.mode`，同样必须先完成或停止于“全局恢复顺序”的 `pending_interaction`、`manuscript_review.pending_round`、`visual_generation_blocker`、`visual_generation_transaction`；只有四类 durable control state 均不存在后，才能依据失效规则标记受影响下游产物并重新生成。
 
 因此，`run.json.mode` 只能持久化 `guided` 或 `auto`；`new`、`resume`、`revise` 都不写入该字段。
 
@@ -24,10 +24,11 @@
 
 | control | order | required action |
 |---|---:|---|
-| `pending_interaction` | 1 | 先验证或消费待回答／已回答交互；存在时不得创建或处理 `visual_generation_blocker`，不得解析 style，也不得启动 generator。 |
-| `visual_generation_blocker` | 2 | 只有没有 `pending_interaction` 时处理；同页 blocker 幂等刷新，同一运行内另一页 active blocker 先被处理，不创建并行 blocker。仍失败时停止，generator／SVG writes 为 0。 |
-| `visual_generation_transaction` | 3 | 只有没有 pending 与 blocker 时恢复；按 transaction 状态继续 compiled／generating／candidate／validated／failed 流程，不做普通 stage scan。 |
-| stage scan | 4 | 只有前三类 durable control state 都不存在时，才寻找第一个未完成或脏阶段继续。 |
+| `pending_interaction` | 1 | 先验证或消费待回答／已回答交互；存在时不得处理其他 durable state。 |
+| `manuscript_review.pending_round` | 2 | 没有 pending interaction 时恢复同一 cycle／round／snapshot 的文稿审查；匹配的 durable 报告存在时幂等提交一次，不能重启或重复计数。 |
+| `visual_generation_blocker` | 3 | 只有没有更高优先级状态时处理；同页 blocker 幂等刷新，同一运行内另一页 active blocker 先被处理。 |
+| `visual_generation_transaction` | 4 | 只有没有 pending 与 blocker 时恢复；按 transaction 状态继续，不做普通 stage scan。 |
+| stage scan | 5 | 只有前四类 durable control state 都不存在时，才寻找第一个未完成或脏阶段继续。 |
 
 `visual_generation_blocker` 不是用户问题，不写入 `pending_interaction`。它只能记录安全 Skill 相对 `resource` 或 `none`，不能持久化未验证绝对路径、URL、工作区路径或机密内容；写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，并保持受影响 slide dirty。prompt 已 durable 后允许恢复者看到 `visual_generation_transaction.state: compiling` 与 active blocker 同时存在；随后只能通过一次 `run.json` 原子替换同时把 transaction 改为 `compiled` 并移除匹配 blocker。阻断期间不得启动 generator、不得写 SVG、不得降级为 patch 或改用其他风格。
 
@@ -45,15 +46,13 @@
 
 完成并冻结 `简报.md`、`研究.md`、`来源.md`、`大纲.md` 和 `故事板.md` 后，必须立即进入文稿审查硬质量门。
 
-- 审稿上下文必须是全新且独立的子 Agent，只能读取指定输入；独立性必须由宿主真实返回的子上下文，以及归属于同一上下文的完成／结果事件证明。
-- 启动必须在任何等待前成功并返回非空子上下文。接收者列表或 Agent 状态为空的等待说明启动没有发生；应立即进入 `review_unavailable`，不得再次等待或推断结果。
-- 审稿人只能看到五个文稿输入：`简报.md`、`研究.md`、`来源.md`、`大纲.md` 和 `故事板.md`。
-- 不得向审稿人提供创作对话、主题上下文、样例、`theme.json` 或任何页面产物。
-- 如果无法启动独立审稿人，或子上下文启动／结果缺少可归因的宿主证据，必须写入当前运行的审查报告文件：新运行使用 `文稿审查.md`，旧英文运行沿用 `run.json.manuscript_review.latest_report` 指向的 `manuscript-review.md`；随后进入 `review_unavailable` 并停止。
-- 最多执行三轮审查。
-- 三轮文稿审查后仍未通过时，进入终止状态 `manuscript_blocked`。
-- 审查未完成或被阻断时，任何生产阶段都不得运行。
-- 同上下文审查不能满足这个质量门。
+- 每轮先尝试全新独立子 Agent；成功时只接收五个冻结文稿和规范，并要求真实 delegation evidence。
+- 启动失败、接收者为空、完成事件缺失或结果上下文不匹配时，不空等、不询问用户，持久化 `inline_fallback` 的 `pending_round`，由当前上下文在当前步骤中直接执行同一审查规范。
+- inline round 使用互斥 `fallback_evidence`，报告必须声明“当前上下文降级审查，不具备独立上下文隔离”；不得伪造 delegation IDs 或称为独立审查。
+- subagent 与 inline 使用相同五文件快照、七维审查、findings schema 和阻断规则；inline PASS 可以正式提交 `manuscript_approved`。
+- 当前上下文也无法读取／审查冻结输入或 pending 状态冲突时才使用 `review_unavailable`；既有 unavailable 历史保持可读。
+- 两种模式共同计入每 cycle 最多三轮；后续轮次仍先尝试子 Agent，失败再 inline。三轮仍有阻断问题时进入 `manuscript_blocked`。
+- 审查未完成、pending、unavailable 或 blocked 时，任何生产阶段都不得运行。
 
 ### 批准检查点与视觉阶段转换
 
@@ -83,7 +82,7 @@
 - 每份报告内的问题 ID 必须唯一；
 - 每条问题必须包含全部必填字段；
 - 只有所有 `BLOCKER` 或 `HIGH` 问题都为 `RESOLVED` 时质量门才通过；任何阻断级问题不是 `RESOLVED` 都会继续阻断；
-- `ACCEPTED_RISK` 对 `BLOCKER` 与 `HIGH` 仍然阻断；修正或限定文稿后，必须再次进行独立审查。
+- `ACCEPTED_RISK` 对 `BLOCKER` 与 `HIGH` 仍然阻断；修正或限定文稿后，必须再次进行正式 subagent／inline 审查。
 
 ### 审查维度
 

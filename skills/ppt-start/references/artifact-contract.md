@@ -127,13 +127,25 @@ This block is intentionally identical in redesign-prompt.md, visual-brief-and-ge
 
 `cycle` 是可选的 schema-version 1 正整数，位于 `manuscript_review.cycle`；缺少时按 `1` 解释，以兼容旧运行。`round` 表示当前 cycle 内已完成的审查轮数，新运行初始化为 `cycle: 1`、`round: 0`、`mode: pending`、`state: pending`、`status: PENDING`。新运行和新周期写入的每条 `review_history` 记录都包含所属 `cycle`；旧记录缺少该字段时按 cycle 1 解释。
 
-不得把 `open_blocking_findings` 改名为 `unresolved_findings`。审查对象保存质量门状态、执行方式、轮次、最新报告、未解决的阻断问题和完整历史。新运行的 `latest_report` 始终是 `文稿审查.md`，包括 `review_unavailable`；该报告说明不可用原因，而 `review_history` 保持为空，因为没有审稿人实际运行。旧英文运行保留其既有 `manuscript-review.md` 值。
+不得把 `open_blocking_findings` 改名为 `unresolved_findings`。审查对象保存质量门状态、执行方式、轮次、最新报告、未解决阻断问题和完整历史。新运行的 `latest_report` 始终是 `文稿审查.md`；旧英文运行保留既有 `manuscript-review.md`。历史 `review_unavailable` 报告继续可读，但新运行的委派失败优先写 `inline_fallback` round，而不是空 review history。
 
-`manuscript_review.review_history` 保存每轮的 `reviewer_id`、`reviewer_context`、`delegation_evidence`、冻结的 `reviewed_file_snapshot`、问题列表和作者修订说明。`delegation_evidence` 必须包含宿主返回且非空的 `child_context_id`、`completion_event_id` 和 `result_context_id`；子上下文与结果上下文 ID 必须一致。此前的阻断问题 ID 必须持续可追踪，直到后续独立审稿人提供证据并把它们标记为 `RESOLVED`。
+`manuscript_review.review_history` 保存每轮的 `cycle`、`round`、`reviewer_id`、`reviewer_context`、`review_mode`、冻结的 `reviewed_file_snapshot`、问题列表和作者修订说明。`review_mode: subagent` 必须包含宿主返回且非空、child/result 一致的 `delegation_evidence`，且不能包含 fallback evidence；`review_mode: inline_fallback` 必须包含 `delegation_attempted: true`、稳定 `reason` 和非空 `host_detail` 的 `fallback_evidence`，且不能包含 delegation evidence。旧记录缺 `review_mode` 但含 delegation evidence 时按 `subagent`。此前阻断问题 ID 必须持续可追踪，直到后续正式 subagent 或 inline round 用冻结证据标为 `RESOLVED`。
 
 这些字段只是可移植的交接记录，不是可以自证的审计证明。行为验收必须把它们与保存的宿主 transcript 或协作日志逐项关联。
 
-独立委派无法运行，或没有宿主可归因的子上下文完成／结果证据时，使用 `review_unavailable`。已经完成且有证据的审查轮次仍含未解决阻断问题时，使用 `manuscript_blocked`；第三轮后该状态终止。审查通过时，先记录顶层 `manuscript_approved` 检查点。此后顶层 `stage` 可以进入 `theme`、`anchor`、`production` 或 `qa`，但每个视觉阶段只有在 `run.json.manuscript_review.state` 持续为 `manuscript_approved` 时才获得授权。
+委派失败或没有可归因结果时，保存失败原因并立即执行 `inline_fallback`；inline PASS 可以记录顶层 `manuscript_approved`。只有冻结输入不可读、当前上下文也无法审查或状态冲突不可恢复时使用 `review_unavailable`。实际审查轮次仍含未解决阻断问题时使用 `manuscript_blocked`；第三轮后该状态终止。视觉阶段只有在 `run.json.manuscript_review.state` 持续为 `manuscript_approved` 时才获得授权。
+
+## 可选 `manuscript_review.pending_round`
+
+`pending_round` 是 schema-version 1 的可选嵌套对象，用于持久化正在执行的 subagent 或 inline 审查轮次。它包含：
+
+- `cycle` 与下一 `round`；
+- `mode: subagent | inline_fallback`；
+- 完整 `reviewed_file_snapshot`；
+- subagent pending 使用只有非空 `child_context_id` 的 `delegation_attempt_evidence`；inline pending 使用完整 `fallback_evidence`；completed subagent round 才包含三字段 `delegation_evidence`；
+- `status: in_progress`。
+
+写入 pending round 后才执行审查。crash／resume 必须复用同一 current cycle、下一合法 round、mode 和 snapshot；round 必须等于已完成 `round + 1` 且不超过 3。completed report 的 `review_mode` 必须匹配 pending `mode`；inline 的 fallback evidence 必须一致，subagent completed delegation evidence 的 child/result context 必须等于 pending `delegation_attempt_evidence.child_context_id`。completed report 不得丢失此前未解决的 `BLOCKER/HIGH` IDs。snapshot 变化时旧 pending 失效并重新冻结。同一运行只能有一个 pending round。匹配 durable 报告存在时，以一次原子 `run.json` 替换追加恰好一条 history、更新 review 状态并删除 pending；重复 resume 为 no-op。格式错误、双 pending、模式／snapshot 冲突或非法第 4 轮时停止，不猜测。
 
 ## 可选 `pending_interaction`
 
@@ -210,7 +222,7 @@ Markdown 记录使用与 JSON 相同的字段名。阶段产物镜像可以随�
 5. prompt durable 后仍允许看到 `visual_generation_transaction.state: compiling` 和 active blocker；随后必须以一次 `run.json` 原子替换同时把匹配 transaction 改为 `compiled` 并移除 blocker。
 6. 阻断期间 generator calls 与 SVG writes 必须为 0，不得降级为 patch、不得改用其他风格、不得创建或覆盖 SVG。
 
-全局恢复顺序固定为：先处理 `pending_interaction`；只有不存在该对象时才处理 `visual_generation_blocker`；再处理 `visual_generation_transaction`；最后才做普通 stage scan。`pending_interaction` 存在时不得创建／处理 blocker，不得解析 style，也不得启动 generator。
+全局恢复顺序固定为：`pending_interaction` > `manuscript_review.pending_round` > `visual_generation_blocker` > `visual_generation_transaction` > stage scan。前一项存在时不得处理后一项。pending review 必须复用同一 cycle／round／snapshot；匹配 durable 报告只提交一次 history 并清除 pending。
 
 ## 可选 `visual_generation_transaction`
 
@@ -269,7 +281,7 @@ No arbitrary delete/cancel：除上述 failed consumer 与 promoted 后最终 QA
 修订范围确定后，按下表返回最早受影响阶段。表中的 `pending` 表示在同一个原子 `run.json` 提交中把 `manuscript_review.mode`、`state`、`status` 分别设为 `pending`、`pending`、`PENDING`，清空 `open_blocking_findings`，并保留完整 `review_history` 作为审计历史；该状态不授权任何视觉工作。
 
 - 尚未通过审查的当前周期发生上游修改时，保留 `cycle`，并根据已完成轮次继续受该周期三轮上限约束；不得借普通作者修订重置计数。
-- 已批准版本之后发生新的事实、来源、主张、大纲或故事板修改时，开启新周期的此前状态必须是 `manuscript_approved`：把 `cycle` 加一、设置 `round: 0`，并让后续全新独立审稿人从该周期第 1 轮开始。旧运行缺少 cycle 时先按 1 解释。
+- 已批准版本之后发生新的事实、来源、主张、大纲或故事板修改时，开启新周期的此前状态必须是 `manuscript_approved`：把 `cycle` 加一、设置 `round: 0`，并让后续正式审查从该周期第 1 轮开始；仍优先 subagent，失败时允许 inline fallback。旧运行缺少 cycle 时先按 1 解释。
 - `manuscript_blocked` 或 `review_unavailable` 不能通过修改字段开启新周期；尤其三轮仍被阻断时不得开启新周期或第 4 轮，只能保持终止／不可用状态。
 
 表中的 `preserve` 表示仅在现有审查状态确为 `manuscript_approved` 时保留授权。
@@ -287,7 +299,7 @@ No arbitrary delete/cancel：除上述 failed consumer 与 promoted 后最终 QA
 
 上表保留以下依赖不变量：`brief` 变化会使全部下游产物失效；`outline` 变化会使 `storyboard` 及全部下游产物失效；`source` 或 `storyboard` 变化会使文稿审查及全部视觉产物失效；`theme` 变化会使全部 visual brief、generation prompt、`samples`、`slides` 和 QA 产物失效。
 
-`request_revision` 刚被回答、范围仍未分类或正在等待澄清时保持批准问题的原阶段；一旦具体范围确定并开始应用修订，就必须使用上表，不能继续停在较晚视觉阶段。事实、来源、主张、大纲或故事板变化后，只有新的全新独立审稿人通过质量门才能重新设置 `manuscript_approved`。
+`request_revision` 刚被回答、范围仍未分类或正在等待澄清时保持批准问题的原阶段；一旦具体范围确定并开始应用修订，就必须使用上表，不能继续停在较晚视觉阶段。事实、来源、主张、大纲或故事板变化后，只有新的正式 subagent／inline 审查通过质量门才能重新设置 `manuscript_approved`。
 
 对全部视觉产物失效时，把所有已知页面 ID 写入 `dirty_slides`，并把主题、锚点、正式页面及 QA 标记为无效，不能因文件仍存在而复用。无论失效范围多大，都保留权威 `interaction_history`；重建阶段产物时从中恢复需要的镜像。如果可选 `approved` 对象存在，同一原子提交还要把受影响镜像改为 `false`；镜像不能覆盖上表。
 
