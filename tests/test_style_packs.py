@@ -1,13 +1,11 @@
 import json
 import sys
 import unittest
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from helpers import read_text, skill_root
-from test_svg_contract import ALLOWED, local_name, numeric_font_size
 
 
 class StylePackTests(unittest.TestCase):
@@ -18,7 +16,10 @@ class StylePackTests(unittest.TestCase):
         self.manifest_path = self.pack_root / "manifest.json"
         self.tokens_path = self.pack_root / "tokens.json"
         self.rules_path = self.pack_root / "STYLE.md"
-        self.reference_path = self.pack_root / "reference.svg"
+        self.runtime_references = (
+            skill_root() / "references" / "design-system.md",
+            skill_root() / "references" / "visual-brief-and-generation.md",
+        )
 
     def test_registry_has_unique_ids_names_and_existing_entrypoints(self):
         payload = json.loads(read_text(self.registry_path))
@@ -33,17 +34,70 @@ class StylePackTests(unittest.TestCase):
         canway = next(style for style in styles if style["id"] == "canway-midyear-review")
         self.assertEqual(canway["display_name"], "嘉为年中总结风格")
         self.assertEqual(canway["kind"], "style_pack")
+        self.assertNotIn("redesign_prompt", canway)
 
-    def test_manifest_references_complete_pack(self):
+    def test_legacy_registry_declares_redesign_prompts(self):
+        styles = json.loads(read_text(self.registry_path))["styles"]
+        actual = {
+            item["id"]: item.get("redesign_prompt")
+            for item in styles
+            if item["kind"] == "legacy_seed"
+        }
+        self.assertEqual(
+            actual,
+            {
+                "minimal-business": "minimal-business.redesign.md",
+                "tech-dark": "tech-dark.redesign.md",
+                "bold-editorial": "bold-editorial.redesign.md",
+            },
+        )
+
+    def test_canway_manifest_owns_redesign_prompt(self):
+        manifest = json.loads(read_text(self.manifest_path))
+        self.assertEqual(manifest["version"], "1.2.0")
+        self.assertEqual(
+            manifest["files"],
+            {
+                "tokens": "tokens.json",
+                "guidance": "STYLE.md",
+                "redesign_prompt": "REDESIGN.md",
+            },
+        )
+
+    def test_manifest_references_complete_style_owned_pack(self):
         manifest = json.loads(read_text(self.manifest_path))
         self.assertEqual(manifest["schema_version"], 1)
         self.assertEqual(manifest["id"], "canway-midyear-review")
         self.assertEqual(manifest["display_name"], "嘉为年中总结风格")
+        self.assertEqual(manifest["kind"], "style_pack")
+        self.assertEqual(manifest["version"], "1.2.0")
         self.assertIn("嘉为年中总结风格", manifest["selection_aliases"])
+        self.assertEqual(
+            manifest["files"],
+            {
+                "tokens": "tokens.json",
+                "guidance": "STYLE.md",
+                "redesign_prompt": "REDESIGN.md",
+            },
+        )
         for path in manifest["files"].values():
             self.assertTrue((self.pack_root / path).is_file())
         self.assertTrue(manifest["compatibility"]["office_safe_svg"])
         self.assertFalse(manifest["default"])
+
+    def test_registered_redesign_prompt_files_exist(self):
+        registry = json.loads(read_text(self.registry_path))
+        for style in registry["styles"]:
+            with self.subTest(style=style["id"]):
+                if style["kind"] == "legacy_seed":
+                    relative = style["redesign_prompt"]
+                    root = self.style_root
+                else:
+                    manifest_path = self.style_root / style["entrypoint"]
+                    manifest = json.loads(read_text(manifest_path))
+                    relative = manifest["files"]["redesign_prompt"]
+                    root = manifest_path.parent
+                self.assertTrue((root / relative).is_file())
 
     def test_tokens_encode_approved_canway_style(self):
         tokens = json.loads(read_text(self.tokens_path))
@@ -89,29 +143,17 @@ class StylePackTests(unittest.TestCase):
         ):
             self.assertIn(token, rules)
 
-    def test_reference_is_standalone_office_safe_svg(self):
-        raw = read_text(self.reference_path)
-        lowered = raw.lower()
-        for forbidden in ("<style", "<defs", "<filter", "<lineargradient", "<image", "url(", "javascript:"):
-            self.assertNotIn(forbidden, lowered)
-        root = ET.fromstring(raw)
-        self.assertEqual(root.attrib.get("width"), "1280")
-        self.assertEqual(root.attrib.get("height"), "720")
-        self.assertEqual(root.attrib.get("viewBox"), "0 0 1280 720")
-        ids = set()
-        for element in root.iter():
-            self.assertIn(local_name(element.tag), ALLOWED)
-            element_id = element.attrib.get("id")
-            if element_id:
-                self.assertNotIn(element_id, ids)
-                ids.add(element_id)
-            if local_name(element.tag) == "text":
-                self.assertTrue(any(local_name(child.tag) == "tspan" for child in element))
-                role = element.attrib.get("data-role", "body")
-                size = numeric_font_size(element.attrib["font-size"])
-                minimum = 40 if role == "title" else 14 if role == "footnote" else 20
-                self.assertGreaterEqual(size, minimum)
-        self.assertEqual(root.find("{http://www.w3.org/2000/svg}path").attrib["fill"], "#F5F8FC")
+    def test_style_pack_has_no_rendered_slide_exemplar(self):
+        self.assertEqual(list(self.pack_root.rglob("*.svg")), [])
+        manifest = read_text(self.manifest_path).lower()
+        active_contract = "\n".join(
+            [read_text(self.rules_path), *(read_text(path) for path in self.runtime_references)]
+        )
+        for forbidden in ("reference.svg", "reference_svg", "参考 svg"):
+            self.assertNotIn(forbidden, manifest)
+            self.assertNotIn(forbidden, active_contract.lower())
+        self.assertIn("不得包含单页成品示例、参考构图或固定区域图", active_contract)
+        self.assertIn("不得从成品示例或既有 SVG 反推构图", active_contract)
 
 
 if __name__ == "__main__":

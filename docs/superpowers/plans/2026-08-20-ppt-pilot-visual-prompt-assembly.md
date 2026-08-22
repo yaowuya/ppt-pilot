@@ -1,6 +1,6 @@
 # PPT Pilot Visual Prompt Assembly Implementation Plan Index
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement these plans in order. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **SUPERSEDED:** redesign prompt 所有权、编译、恢复与相关测试步骤已由 [`2026-08-21-ppt-start-style-owned-redesign-prompts-design.md`](../specs/2026-08-21-ppt-start-style-owned-redesign-prompts-design.md) 取代；本文不再作为当前执行说明。
 
 **Goal:** Implement deterministic file-backed visual prompt assembly and a selectable “嘉为年中总结风格” without changing the FY26 deck or adding a runtime dependency.
 

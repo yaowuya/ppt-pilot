@@ -7,9 +7,15 @@ ppt-output/
 .agents/
 .codex/
 
-# Raw acceptance-run inputs and transcripts
+# Acceptance definitions and Markdown evaluations may be versioned; generated
+# host workspaces, transcripts, screenshots, presentations, and diagnostics stay local.
 acceptance-evidence/**/inputs/
 acceptance-evidence/**/*.jsonl
+acceptance-evidence/**/codex-last-message.md
+acceptance-evidence/**/*.png
+acceptance-evidence/**/*.pptx
+acceptance-evidence/**/*.json
+acceptance-evidence/**/*.txt
 
 # Python caches, virtual environments, and coverage
 __pycache__/

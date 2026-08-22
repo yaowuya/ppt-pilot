@@ -1,0 +1,2912 @@
+{
+  "schema_version": 1,
+  "states": [
+    "compiling",
+    "compiled",
+    "generating",
+    "candidate_written",
+    "validated",
+    "promoted",
+    "failed"
+  ],
+  "failure_reasons": [
+    "generator_unavailable",
+    "generator_refused",
+    "generator_timeout",
+    "generator_output_malformed",
+    "candidate_write_failed",
+    "candidate_hash_mismatch",
+    "svg_contract_failed",
+    "locked_content_mismatch",
+    "visual_qa_failed",
+    "final_promotion_conflict",
+    "transaction_state_conflict"
+  ],
+  "covered_failure_reasons": [
+    "generator_unavailable",
+    "generator_refused",
+    "generator_timeout",
+    "generator_output_malformed",
+    "candidate_write_failed",
+    "candidate_hash_mismatch",
+    "svg_contract_failed",
+    "locked_content_mismatch",
+    "visual_qa_failed",
+    "final_promotion_conflict",
+    "transaction_state_conflict"
+  ],
+  "transaction_schema": [
+    "transaction_id",
+    "slide_id",
+    "generation_intent",
+    "generation_trigger_id",
+    "prompt_path",
+    "prompt_snapshot_id",
+    "compiled_prompt_sha256",
+    "candidate_path",
+    "final_path",
+    "state",
+    "generation_attempt",
+    "candidate_sha256",
+    "failure_reason"
+  ],
+  "legal_transitions": {
+    "normal": [
+      {
+        "from": "compiling",
+        "to": "compiled"
+      },
+      {
+        "from": "compiled",
+        "to": "generating"
+      },
+      {
+        "from": "generating",
+        "to": "candidate_written"
+      },
+      {
+        "from": "candidate_written",
+        "to": "validated"
+      },
+      {
+        "from": "validated",
+        "to": "promoted"
+      }
+    ],
+    "failure": [
+      {
+        "from": "generating",
+        "to": "failed"
+      },
+      {
+        "from": "candidate_written",
+        "to": "failed"
+      },
+      {
+        "from": "validated",
+        "to": "failed"
+      }
+    ],
+    "recovery": [
+      {
+        "from": "failed",
+        "to": "generating"
+      },
+      {
+        "from": "failed",
+        "to": "validated"
+      }
+    ]
+  },
+  "replacement_rules": [
+    {
+      "from_state": "failed",
+      "to_new_state": "compiling",
+      "same_transaction_edge": false,
+      "when": "authoritative_inputs_changed_or_deterministic_fallback"
+    }
+  ],
+  "transaction_cases": [
+    {
+      "id": "compiling-durable-prompt-match-commits-compiled",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:955f090aaab99e2aa34176edc0b9cc2e9ed0acde3908ce896c6e353d2cd7e8be",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:955f090aaab99e2aa34176edc0b9cc2e9ed0acde3908ce896c6e353d2cd7e8be",
+          "compiled_prompt_sha256": "sha256:6bb0272eb9ffed3c9bafee07b9049f9d61ceb0a5c0b15e177ec75b187777f751",
+          "candidate_path": "slides/.candidates/S07-955f090aaab99e2aa34176edc0b9cc2e9ed0acde3908ce896c6e353d2cd7e8be.svg",
+          "final_path": "slides/S07.svg",
+          "state": "compiling",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        },
+        "visual_generation_blocker": {
+          "state": "style_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_file_missing",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
+          "visual_brief_snapshot_id": "sha256:69bd0b7e96b13ad215e351155607202e50c59bae9e4116992ff62d8244a78bc5",
+          "theme_snapshot_id": "sha256:9e102c171ca680b20d74d117c4c933c019ce5b848ecdd3b57945adddb24f00a6",
+          "status": "active"
+        }
+      },
+      "durable_prompt": {
+        "path": "generation-prompts/S07.md",
+        "prompt_snapshot_id": "sha256:955f090aaab99e2aa34176edc0b9cc2e9ed0acde3908ce896c6e353d2cd7e8be",
+        "compiled_prompt_sha256": "sha256:6bb0272eb9ffed3c9bafee07b9049f9d61ceb0a5c0b15e177ec75b187777f751"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:955f090aaab99e2aa34176edc0b9cc2e9ed0acde3908ce896c6e353d2cd7e8be",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:955f090aaab99e2aa34176edc0b9cc2e9ed0acde3908ce896c6e353d2cd7e8be",
+          "compiled_prompt_sha256": "sha256:6bb0272eb9ffed3c9bafee07b9049f9d61ceb0a5c0b15e177ec75b187777f751",
+          "candidate_path": "slides/.candidates/S07-955f090aaab99e2aa34176edc0b9cc2e9ed0acde3908ce896c6e353d2cd7e8be.svg",
+          "final_path": "slides/S07.svg",
+          "state": "compiled",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "first_action": "commit_compiled_and_clear_blocker",
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "compiling-durable-prompt-mismatch-recompiles",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:11c33dabc898369ff482d0e22a44e6b4a533297682c513f735b0f299389f3bfe",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:11c33dabc898369ff482d0e22a44e6b4a533297682c513f735b0f299389f3bfe",
+          "compiled_prompt_sha256": "sha256:0b308147b96badb80cab25ae1fe6fbda22431f5983d7792e73be5e536a183a04",
+          "candidate_path": "slides/.candidates/S07-11c33dabc898369ff482d0e22a44e6b4a533297682c513f735b0f299389f3bfe.svg",
+          "final_path": "slides/S07.svg",
+          "state": "compiling",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "durable_prompt": {
+        "path": "generation-prompts/S07.md",
+        "prompt_snapshot_id": "sha256:11c33dabc898369ff482d0e22a44e6b4a533297682c513f735b0f299389f3bfe",
+        "compiled_prompt_sha256": "sha256:aec01b8eb02477d952e29a124fe38489b119b5151da942ab1c2144bb5fc18896"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:11c33dabc898369ff482d0e22a44e6b4a533297682c513f735b0f299389f3bfe",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:11c33dabc898369ff482d0e22a44e6b4a533297682c513f735b0f299389f3bfe",
+          "compiled_prompt_sha256": "sha256:0b308147b96badb80cab25ae1fe6fbda22431f5983d7792e73be5e536a183a04",
+          "candidate_path": "slides/.candidates/S07-11c33dabc898369ff482d0e22a44e6b4a533297682c513f735b0f299389f3bfe.svg",
+          "final_path": "slides/S07.svg",
+          "state": "compiling",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "first_action": "recompile_prompt",
+        "generator_calls": 0,
+        "prompt_rewrite": true
+      }
+    },
+    {
+      "id": "generating-orphan-candidate-is-never-adopted",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:dde60a83e8ad374f4a6929ac494e8fed69e549e476c823dabf6040e50a5a1095",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:dde60a83e8ad374f4a6929ac494e8fed69e549e476c823dabf6040e50a5a1095",
+          "compiled_prompt_sha256": "sha256:30f6816989be9b64b982278aec3ed81c2774275d081aae84f1838182506e4ddc",
+          "candidate_path": "slides/.candidates/S07-dde60a83e8ad374f4a6929ac494e8fed69e549e476c823dabf6040e50a5a1095.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "orphan_candidate": {
+        "path": "slides/.candidates/S07-dde60a83e8ad374f4a6929ac494e8fed69e549e476c823dabf6040e50a5a1095.svg",
+        "observed_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:dde60a83e8ad374f4a6929ac494e8fed69e549e476c823dabf6040e50a5a1095",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:dde60a83e8ad374f4a6929ac494e8fed69e549e476c823dabf6040e50a5a1095",
+          "compiled_prompt_sha256": "sha256:30f6816989be9b64b982278aec3ed81c2774275d081aae84f1838182506e4ddc",
+          "candidate_path": "slides/.candidates/S07-dde60a83e8ad374f4a6929ac494e8fed69e549e476c823dabf6040e50a5a1095.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "first_action": "discard_orphan_and_restart_generator",
+        "adopt_orphan_candidate": false,
+        "orphan_candidate_action": "delete",
+        "generator_calls": 1
+      }
+    },
+    {
+      "id": "candidate-written-hash-match-continues-validation",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:9ee2d2dfc330a1f8cbc7b76679c253ee8f1e44db40790a6b88ff33ef7f6b538d",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:9ee2d2dfc330a1f8cbc7b76679c253ee8f1e44db40790a6b88ff33ef7f6b538d",
+          "compiled_prompt_sha256": "sha256:c69f044b8c902f272b25011d58fb45148929ae02810cc70ec1e58d11163d8192",
+          "candidate_path": "slides/.candidates/S07-9ee2d2dfc330a1f8cbc7b76679c253ee8f1e44db40790a6b88ff33ef7f6b538d.svg",
+          "final_path": "slides/S07.svg",
+          "state": "candidate_written",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": null
+        }
+      },
+      "observed_candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:9ee2d2dfc330a1f8cbc7b76679c253ee8f1e44db40790a6b88ff33ef7f6b538d",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:9ee2d2dfc330a1f8cbc7b76679c253ee8f1e44db40790a6b88ff33ef7f6b538d",
+          "compiled_prompt_sha256": "sha256:c69f044b8c902f272b25011d58fb45148929ae02810cc70ec1e58d11163d8192",
+          "candidate_path": "slides/.candidates/S07-9ee2d2dfc330a1f8cbc7b76679c253ee8f1e44db40790a6b88ff33ef7f6b538d.svg",
+          "final_path": "slides/S07.svg",
+          "state": "validated",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "first_action": "validate_candidate",
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "candidate-written-hash-mismatch-fails",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:2419271178f084ec521efb01252ceb5d7f58a6125f4be7eb8ca1c91bf62805c7",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:2419271178f084ec521efb01252ceb5d7f58a6125f4be7eb8ca1c91bf62805c7",
+          "compiled_prompt_sha256": "sha256:695c74470b12cd7d982e14660148b33a991f6393fc633dc6674fb1d7541ebe3e",
+          "candidate_path": "slides/.candidates/S07-2419271178f084ec521efb01252ceb5d7f58a6125f4be7eb8ca1c91bf62805c7.svg",
+          "final_path": "slides/S07.svg",
+          "state": "candidate_written",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": null
+        }
+      },
+      "observed_candidate_sha256": "sha256:9e5919a5c2941d0b0710a693d7b20011ed66b8b8fbb7a0c05624f91bee357bbc",
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:2419271178f084ec521efb01252ceb5d7f58a6125f4be7eb8ca1c91bf62805c7",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:2419271178f084ec521efb01252ceb5d7f58a6125f4be7eb8ca1c91bf62805c7",
+          "compiled_prompt_sha256": "sha256:695c74470b12cd7d982e14660148b33a991f6393fc633dc6674fb1d7541ebe3e",
+          "candidate_path": "slides/.candidates/S07-2419271178f084ec521efb01252ceb5d7f58a6125f4be7eb8ca1c91bf62805c7.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "candidate_hash_mismatch"
+        }
+      },
+      "expected": {
+        "first_action": "fail_candidate_hash_mismatch",
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "validated-final-hash-match-promotes",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:cd44e531565bbf1117aa7270bf41920bfd23392c6d94dc13608f14bc74262113",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:cd44e531565bbf1117aa7270bf41920bfd23392c6d94dc13608f14bc74262113",
+          "compiled_prompt_sha256": "sha256:c8a982d15498ac598af8e0fdccd6ac4c9919ef94b556e21940526a35c0c0aac0",
+          "candidate_path": "slides/.candidates/S07-cd44e531565bbf1117aa7270bf41920bfd23392c6d94dc13608f14bc74262113.svg",
+          "final_path": "slides/S07.svg",
+          "state": "validated",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": null
+        }
+      },
+      "observed_final_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:cd44e531565bbf1117aa7270bf41920bfd23392c6d94dc13608f14bc74262113",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:cd44e531565bbf1117aa7270bf41920bfd23392c6d94dc13608f14bc74262113",
+          "compiled_prompt_sha256": "sha256:c8a982d15498ac598af8e0fdccd6ac4c9919ef94b556e21940526a35c0c0aac0",
+          "candidate_path": "slides/.candidates/S07-cd44e531565bbf1117aa7270bf41920bfd23392c6d94dc13608f14bc74262113.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "first_action": "commit_promoted",
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "validated-final-conflict-fails",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:92944b1976fea1257bfacec42d0c98d6d154b8d52274e4bd151ebd91f78013da",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:92944b1976fea1257bfacec42d0c98d6d154b8d52274e4bd151ebd91f78013da",
+          "compiled_prompt_sha256": "sha256:2f0f1505a80b2969e12c0f6e65d11ff50635f6e5d688564b9261634bf89fef9e",
+          "candidate_path": "slides/.candidates/S07-92944b1976fea1257bfacec42d0c98d6d154b8d52274e4bd151ebd91f78013da.svg",
+          "final_path": "slides/S07.svg",
+          "state": "validated",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": null
+        }
+      },
+      "observed_final_sha256": "sha256:3e06d230049695b96dddccca5231587dc78acf953702a8ffb50ca7d7630f03c8",
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:92944b1976fea1257bfacec42d0c98d6d154b8d52274e4bd151ebd91f78013da",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:92944b1976fea1257bfacec42d0c98d6d154b8d52274e4bd151ebd91f78013da",
+          "compiled_prompt_sha256": "sha256:2f0f1505a80b2969e12c0f6e65d11ff50635f6e5d688564b9261634bf89fef9e",
+          "candidate_path": "slides/.candidates/S07-92944b1976fea1257bfacec42d0c98d6d154b8d52274e4bd151ebd91f78013da.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "final_promotion_conflict"
+        }
+      },
+      "expected": {
+        "first_action": "fail_final_promotion_conflict",
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "illegal-recovery-transition-fails",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:45fc149c9aa0a8a0fa2ca5efba883321636ac4af2779680a6964c5e39c1c6f2e",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:45fc149c9aa0a8a0fa2ca5efba883321636ac4af2779680a6964c5e39c1c6f2e",
+          "compiled_prompt_sha256": "sha256:cef104c10dbebcdb499a6fa84c56681cb50129a3b0656b990757f3346e50be3b",
+          "candidate_path": "slides/.candidates/S07-45fc149c9aa0a8a0fa2ca5efba883321636ac4af2779680a6964c5e39c1c6f2e.svg",
+          "final_path": "slides/S07.svg",
+          "state": "compiled",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "requested_transition": {
+        "from": "compiled",
+        "to": "promoted"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:45fc149c9aa0a8a0fa2ca5efba883321636ac4af2779680a6964c5e39c1c6f2e",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:45fc149c9aa0a8a0fa2ca5efba883321636ac4af2779680a6964c5e39c1c6f2e",
+          "compiled_prompt_sha256": "sha256:cef104c10dbebcdb499a6fa84c56681cb50129a3b0656b990757f3346e50be3b",
+          "candidate_path": "slides/.candidates/S07-45fc149c9aa0a8a0fa2ca5efba883321636ac4af2779680a6964c5e39c1c6f2e.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": "transaction_state_conflict"
+        }
+      },
+      "expected": {
+        "first_action": "fail_transaction_state_conflict",
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "promoted-final-qa-cleans-transaction-and-dirty-slide",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:24f33d97376a021407a0e430066416d3d5d45b4df79f4502904c6d29f2ac5521",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:24f33d97376a021407a0e430066416d3d5d45b4df79f4502904c6d29f2ac5521",
+          "compiled_prompt_sha256": "sha256:73596289496c55f28e5ddadf230844af6271ea3b395c79e474afac77e36102d4",
+          "candidate_path": "slides/.candidates/S07-24f33d97376a021407a0e430066416d3d5d45b4df79f4502904c6d29f2ac5521.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": null
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "qa",
+        "dirty_slides": [],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        }
+      },
+      "expected": {
+        "first_action": "final_qa_then_clear_dirty",
+        "final_qa_passed": true,
+        "generator_calls": 0
+      }
+    }
+  ],
+  "failed_consumer_cases": [
+    {
+      "reason": "generator_unavailable",
+      "slide_id": "S07",
+      "consumer": "explicit_resume_retry_same_transaction",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:8742c5d8d89752c6aaeb274b92ba59cd47f795d38158934022f0a10948b41de7",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:8742c5d8d89752c6aaeb274b92ba59cd47f795d38158934022f0a10948b41de7",
+          "compiled_prompt_sha256": "sha256:61c06c5a1e8029aa57992f892920ce4f963a525b0887d968c2de8b18e338e7d0",
+          "candidate_path": "slides/.candidates/S07-8742c5d8d89752c6aaeb274b92ba59cd47f795d38158934022f0a10948b41de7.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 1,
+          "candidate_sha256": null,
+          "failure_reason": "generator_unavailable"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:8742c5d8d89752c6aaeb274b92ba59cd47f795d38158934022f0a10948b41de7",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:8742c5d8d89752c6aaeb274b92ba59cd47f795d38158934022f0a10948b41de7",
+          "compiled_prompt_sha256": "sha256:61c06c5a1e8029aa57992f892920ce4f963a525b0887d968c2de8b18e338e7d0",
+          "candidate_path": "slides/.candidates/S07-8742c5d8d89752c6aaeb274b92ba59cd47f795d38158934022f0a10948b41de7.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 2,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "orphan_candidate_action": "delete",
+        "generator_calls": 1,
+        "max_generator_calls_per_host_call": 1,
+        "same_trigger_and_authoritative_inputs": true
+      }
+    },
+    {
+      "reason": "generator_refused",
+      "slide_id": "S07",
+      "consumer": "explicit_resume_retry_same_transaction",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f9a96e58327de929d70703f3f11f9e1a5179209575cff124a872ddf60be24557",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f9a96e58327de929d70703f3f11f9e1a5179209575cff124a872ddf60be24557",
+          "compiled_prompt_sha256": "sha256:25a63a371d324dde5cf0a548762233142e91ba1396fc196403ccfcdf59bc08d3",
+          "candidate_path": "slides/.candidates/S07-f9a96e58327de929d70703f3f11f9e1a5179209575cff124a872ddf60be24557.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 1,
+          "candidate_sha256": null,
+          "failure_reason": "generator_refused"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f9a96e58327de929d70703f3f11f9e1a5179209575cff124a872ddf60be24557",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f9a96e58327de929d70703f3f11f9e1a5179209575cff124a872ddf60be24557",
+          "compiled_prompt_sha256": "sha256:25a63a371d324dde5cf0a548762233142e91ba1396fc196403ccfcdf59bc08d3",
+          "candidate_path": "slides/.candidates/S07-f9a96e58327de929d70703f3f11f9e1a5179209575cff124a872ddf60be24557.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 2,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "orphan_candidate_action": "delete",
+        "generator_calls": 1,
+        "max_generator_calls_per_host_call": 1,
+        "same_trigger_and_authoritative_inputs": true
+      }
+    },
+    {
+      "reason": "generator_timeout",
+      "slide_id": "S07",
+      "consumer": "explicit_resume_retry_same_transaction",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:bfb55e0eca3407e6da117747fe2b380895aa7f4377a71114454e698f190beeef",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:bfb55e0eca3407e6da117747fe2b380895aa7f4377a71114454e698f190beeef",
+          "compiled_prompt_sha256": "sha256:d33ef25bd2489d9a089127e2e2262f0c22468949ec1445e55acb91fa0afb1548",
+          "candidate_path": "slides/.candidates/S07-bfb55e0eca3407e6da117747fe2b380895aa7f4377a71114454e698f190beeef.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 1,
+          "candidate_sha256": null,
+          "failure_reason": "generator_timeout"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:bfb55e0eca3407e6da117747fe2b380895aa7f4377a71114454e698f190beeef",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:bfb55e0eca3407e6da117747fe2b380895aa7f4377a71114454e698f190beeef",
+          "compiled_prompt_sha256": "sha256:d33ef25bd2489d9a089127e2e2262f0c22468949ec1445e55acb91fa0afb1548",
+          "candidate_path": "slides/.candidates/S07-bfb55e0eca3407e6da117747fe2b380895aa7f4377a71114454e698f190beeef.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 2,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "orphan_candidate_action": "delete",
+        "generator_calls": 1,
+        "max_generator_calls_per_host_call": 1,
+        "same_trigger_and_authoritative_inputs": true
+      }
+    },
+    {
+      "reason": "generator_output_malformed",
+      "slide_id": "S07",
+      "consumer": "explicit_resume_retry_same_transaction",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:e272fbbf3a502e307e9734d63ea219f4400267ead472828671bea3ecfe6662bc",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:e272fbbf3a502e307e9734d63ea219f4400267ead472828671bea3ecfe6662bc",
+          "compiled_prompt_sha256": "sha256:5c8e0afe5ace58c67c0d3944916a472b09a22b937a2ba6489a1a187fd0a8865a",
+          "candidate_path": "slides/.candidates/S07-e272fbbf3a502e307e9734d63ea219f4400267ead472828671bea3ecfe6662bc.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 1,
+          "candidate_sha256": null,
+          "failure_reason": "generator_output_malformed"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:e272fbbf3a502e307e9734d63ea219f4400267ead472828671bea3ecfe6662bc",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:e272fbbf3a502e307e9734d63ea219f4400267ead472828671bea3ecfe6662bc",
+          "compiled_prompt_sha256": "sha256:5c8e0afe5ace58c67c0d3944916a472b09a22b937a2ba6489a1a187fd0a8865a",
+          "candidate_path": "slides/.candidates/S07-e272fbbf3a502e307e9734d63ea219f4400267ead472828671bea3ecfe6662bc.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 2,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "orphan_candidate_action": "delete",
+        "generator_calls": 1,
+        "max_generator_calls_per_host_call": 1,
+        "same_trigger_and_authoritative_inputs": true
+      }
+    },
+    {
+      "reason": "candidate_write_failed",
+      "slide_id": "S07",
+      "consumer": "explicit_resume_retry_same_transaction",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f352d89dba02ff7674d770349b4e5dacbe19b350a8b83a641bda9063e80cbf83",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f352d89dba02ff7674d770349b4e5dacbe19b350a8b83a641bda9063e80cbf83",
+          "compiled_prompt_sha256": "sha256:265eb87f91f5e168ee930530d36b05da661f7f540a25f8ebbc6256132004f235",
+          "candidate_path": "slides/.candidates/S07-f352d89dba02ff7674d770349b4e5dacbe19b350a8b83a641bda9063e80cbf83.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 1,
+          "candidate_sha256": null,
+          "failure_reason": "candidate_write_failed"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f352d89dba02ff7674d770349b4e5dacbe19b350a8b83a641bda9063e80cbf83",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f352d89dba02ff7674d770349b4e5dacbe19b350a8b83a641bda9063e80cbf83",
+          "compiled_prompt_sha256": "sha256:265eb87f91f5e168ee930530d36b05da661f7f540a25f8ebbc6256132004f235",
+          "candidate_path": "slides/.candidates/S07-f352d89dba02ff7674d770349b4e5dacbe19b350a8b83a641bda9063e80cbf83.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 2,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "orphan_candidate_action": "delete",
+        "generator_calls": 1,
+        "max_generator_calls_per_host_call": 1,
+        "same_trigger_and_authoritative_inputs": true
+      }
+    },
+    {
+      "reason": "candidate_hash_mismatch",
+      "slide_id": "S07",
+      "consumer": "explicit_resume_retry_same_transaction",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f419a0d6d5f2bf8a66295bbc8114b6be484ed60e21aca10141427603a28df055",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f419a0d6d5f2bf8a66295bbc8114b6be484ed60e21aca10141427603a28df055",
+          "compiled_prompt_sha256": "sha256:0cb2ba6bdc3bf40b893196e3445cbf2436a0ae5f53cfefb8c8ece520047c08dd",
+          "candidate_path": "slides/.candidates/S07-f419a0d6d5f2bf8a66295bbc8114b6be484ed60e21aca10141427603a28df055.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 1,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "candidate_hash_mismatch"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f419a0d6d5f2bf8a66295bbc8114b6be484ed60e21aca10141427603a28df055",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f419a0d6d5f2bf8a66295bbc8114b6be484ed60e21aca10141427603a28df055",
+          "compiled_prompt_sha256": "sha256:0cb2ba6bdc3bf40b893196e3445cbf2436a0ae5f53cfefb8c8ece520047c08dd",
+          "candidate_path": "slides/.candidates/S07-f419a0d6d5f2bf8a66295bbc8114b6be484ed60e21aca10141427603a28df055.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 2,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "orphan_candidate_action": "delete",
+        "generator_calls": 1,
+        "max_generator_calls_per_host_call": 1,
+        "same_trigger_and_authoritative_inputs": true
+      }
+    },
+    {
+      "reason": "svg_contract_failed",
+      "slide_id": "S07",
+      "consumer": "persist_defect_then_patch",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f761c7dddd8c0e373436347bbcb4769ee34580d2130f222499812a31c791c6ee",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f761c7dddd8c0e373436347bbcb4769ee34580d2130f222499812a31c791c6ee",
+          "compiled_prompt_sha256": "sha256:f6dfe09985d3317c348e6614ea337c43a3c7a6fbc8e2d006835bdf8f1c880a4e",
+          "candidate_path": "slides/.candidates/S07-f761c7dddd8c0e373436347bbcb4769ee34580d2130f222499812a31c791c6ee.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "svg_contract_failed"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        }
+      },
+      "expected": {
+        "defect_persisted_before_next_action": true,
+        "defect_owner": "visual-briefs/S07.md",
+        "next_action": "patch",
+        "durable_defect": {
+          "id": "S07-svg_contract_failed-3810968e48e8",
+          "artifact_owner": "visual-briefs/S07.md",
+          "slide_id": "S07",
+          "failure_reason": "svg_contract_failed",
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "transaction_id": "sha256:f761c7dddd8c0e373436347bbcb4769ee34580d2130f222499812a31c791c6ee"
+        }
+      }
+    },
+    {
+      "reason": "locked_content_mismatch",
+      "slide_id": "S07",
+      "consumer": "persist_defect_then_patch",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:d3e720a0f095f73993b152fc4e5a55ed279c03f777e92dc655c2c33e1ce30a60",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:d3e720a0f095f73993b152fc4e5a55ed279c03f777e92dc655c2c33e1ce30a60",
+          "compiled_prompt_sha256": "sha256:1dfe6b7f7ca6227481cc0e5447846b5eca73fd50e978ca2608526853e71d857e",
+          "candidate_path": "slides/.candidates/S07-d3e720a0f095f73993b152fc4e5a55ed279c03f777e92dc655c2c33e1ce30a60.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "locked_content_mismatch"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        }
+      },
+      "expected": {
+        "defect_persisted_before_next_action": true,
+        "defect_owner": "visual-briefs/S07.md",
+        "next_action": "patch",
+        "durable_defect": {
+          "id": "S07-locked_content_mismatch-99b01308124b",
+          "artifact_owner": "visual-briefs/S07.md",
+          "slide_id": "S07",
+          "failure_reason": "locked_content_mismatch",
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "transaction_id": "sha256:d3e720a0f095f73993b152fc4e5a55ed279c03f777e92dc655c2c33e1ce30a60"
+        }
+      }
+    },
+    {
+      "reason": "visual_qa_failed",
+      "slide_id": "S07",
+      "consumer": "persist_defect_then_deterministic_fallback",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:6866f331e9e6f11ee556dfdf64d94672f9e7afcb2ca021070bcaf5d8f63b9680",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:6866f331e9e6f11ee556dfdf64d94672f9e7afcb2ca021070bcaf5d8f63b9680",
+          "compiled_prompt_sha256": "sha256:1882172df8a272360e2480b61f040ca504b55b5d31471840500fb752f9836044",
+          "candidate_path": "slides/.candidates/S07-6866f331e9e6f11ee556dfdf64d94672f9e7afcb2ca021070bcaf5d8f63b9680.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "visual_qa_failed"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:00b3858deab304d0a9a51e2bfcb888b9ad4de98103b49879bed7de6fa818a3e0",
+          "slide_id": "S07",
+          "generation_intent": "deterministic_fallback",
+          "generation_trigger_id": "fallback:S07:6866f331e9e6f11ee556dfdf64d94672f9e7afcb2ca021070bcaf5d8f63b9680:2",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:00b3858deab304d0a9a51e2bfcb888b9ad4de98103b49879bed7de6fa818a3e0",
+          "compiled_prompt_sha256": "sha256:40c76fdec9ee9db87342a269bef48db53cf9844853a39088ff4eb554d8773219",
+          "candidate_path": "slides/.candidates/S07-00b3858deab304d0a9a51e2bfcb888b9ad4de98103b49879bed7de6fa818a3e0.svg",
+          "final_path": "slides/S07.svg",
+          "state": "compiling",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "defect_persisted_before_next_action": true,
+        "defect_owner": "qa/S07.md",
+        "next_action": "new_deterministic_fallback_transaction",
+        "durable_defect": {
+          "id": "S07-visual_qa_failed-1fb4ab3607ca",
+          "artifact_owner": "qa/S07.md",
+          "slide_id": "S07",
+          "failure_reason": "visual_qa_failed",
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "transaction_id": "sha256:6866f331e9e6f11ee556dfdf64d94672f9e7afcb2ca021070bcaf5d8f63b9680"
+        }
+      }
+    },
+    {
+      "reason": "final_promotion_conflict",
+      "slide_id": "S07",
+      "consumer": "production_blocker_then_user_resolution",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+          "compiled_prompt_sha256": "sha256:fd7b3bf6bd7dfc86ad9e389d54131e3cd552d7ee6857949808370ee97d42a68e",
+          "candidate_path": "slides/.candidates/S07-f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "final_promotion_conflict"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+          "compiled_prompt_sha256": "sha256:fd7b3bf6bd7dfc86ad9e389d54131e3cd552d7ee6857949808370ee97d42a68e",
+          "candidate_path": "slides/.candidates/S07-f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "final_promotion_conflict"
+        },
+        "pending_interaction": {
+          "id": "production-visual-generation-final_promotion_conflict",
+          "stage": "production",
+          "kind": "blocker",
+          "question": "Resolve the workspace SVG conflict before this transaction can continue.",
+          "status": "pending",
+          "options": [
+            "keep_current_final",
+            "accept_candidate_after_review",
+            "restart_from_updated_inputs"
+          ],
+          "recommendation": "accept_candidate_after_review",
+          "recommendation_reason": "The candidate provenance and hash still match unless the user reports authoritative input changes.",
+          "option_effects": {
+            "keep_current_final": "retain failed transaction until a durable replacement choice exists",
+            "accept_candidate_after_review": "failed -> validated and retry promotion",
+            "restart_from_updated_inputs": "replace failed transaction with a new compiling transaction"
+          }
+        }
+      },
+      "expected": {
+        "retain_failed_transaction_until_user_resolution": true,
+        "overwrite_unknown_final": false,
+        "delete_failed_transaction": false
+      },
+      "post_user_resolution_branches": [
+        {
+          "id": "unchanged-valid-candidate",
+          "before_run": {
+            "schema_version": 1,
+            "mode": "guided",
+            "stage": "production",
+            "dirty_slides": [
+              "S07"
+            ],
+            "interaction_history": {
+              "visual-revision-4": {
+                "kind": "visual_revision",
+                "status": "applied",
+                "stage": "production",
+                "affected_scope": "slide"
+              }
+            },
+            "visual_generation_transaction": {
+              "transaction_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+              "slide_id": "S07",
+              "generation_intent": "user_recompose",
+              "generation_trigger_id": "interaction:visual-revision-4",
+              "prompt_path": "generation-prompts/S07.md",
+              "prompt_snapshot_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+              "compiled_prompt_sha256": "sha256:fd7b3bf6bd7dfc86ad9e389d54131e3cd552d7ee6857949808370ee97d42a68e",
+              "candidate_path": "slides/.candidates/S07-f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846.svg",
+              "final_path": "slides/S07.svg",
+              "state": "failed",
+              "generation_attempt": 0,
+              "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+              "failure_reason": "final_promotion_conflict"
+            },
+            "pending_interaction": {
+              "id": "production-visual-generation-final_promotion_conflict",
+              "stage": "production",
+              "kind": "blocker",
+              "question": "Resolve the workspace SVG conflict before this transaction can continue.",
+              "status": "answered",
+              "options": [
+                "keep_current_final",
+                "accept_candidate_after_review",
+                "restart_from_updated_inputs"
+              ],
+              "recommendation": "accept_candidate_after_review",
+              "recommendation_reason": "The candidate provenance and hash still match unless the user reports authoritative input changes.",
+              "option_effects": {
+                "keep_current_final": "retain failed transaction until a durable replacement choice exists",
+                "accept_candidate_after_review": "failed -> validated and retry promotion",
+                "restart_from_updated_inputs": "replace failed transaction with a new compiling transaction"
+              },
+              "answer": "Use the already validated candidate; the candidate bytes and provenance are unchanged.",
+              "decision": "accept_candidate_after_review"
+            }
+          },
+          "after_run": {
+            "schema_version": 1,
+            "mode": "guided",
+            "stage": "production",
+            "dirty_slides": [
+              "S07"
+            ],
+            "interaction_history": {
+              "visual-revision-4": {
+                "kind": "visual_revision",
+                "status": "applied",
+                "stage": "production",
+                "affected_scope": "slide"
+              }
+            },
+            "visual_generation_transaction": {
+              "transaction_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+              "slide_id": "S07",
+              "generation_intent": "user_recompose",
+              "generation_trigger_id": "interaction:visual-revision-4",
+              "prompt_path": "generation-prompts/S07.md",
+              "prompt_snapshot_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+              "compiled_prompt_sha256": "sha256:fd7b3bf6bd7dfc86ad9e389d54131e3cd552d7ee6857949808370ee97d42a68e",
+              "candidate_path": "slides/.candidates/S07-f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846.svg",
+              "final_path": "slides/S07.svg",
+              "state": "validated",
+              "generation_attempt": 0,
+              "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+              "failure_reason": null
+            }
+          },
+          "expected": {
+            "candidate_hash_and_provenance_unchanged": true,
+            "promotion_retry": true
+          }
+        },
+        {
+          "id": "authoritative-inputs-changed",
+          "before_run": {
+            "schema_version": 1,
+            "mode": "guided",
+            "stage": "production",
+            "dirty_slides": [
+              "S07"
+            ],
+            "interaction_history": {
+              "visual-revision-4": {
+                "kind": "visual_revision",
+                "status": "applied",
+                "stage": "production",
+                "affected_scope": "slide"
+              }
+            },
+            "visual_generation_transaction": {
+              "transaction_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+              "slide_id": "S07",
+              "generation_intent": "user_recompose",
+              "generation_trigger_id": "interaction:visual-revision-4",
+              "prompt_path": "generation-prompts/S07.md",
+              "prompt_snapshot_id": "sha256:f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846",
+              "compiled_prompt_sha256": "sha256:fd7b3bf6bd7dfc86ad9e389d54131e3cd552d7ee6857949808370ee97d42a68e",
+              "candidate_path": "slides/.candidates/S07-f9b3eb3affcb438223fbe2b55216119fcd0e2ec5bdfc4c16b1dad74b23fb8846.svg",
+              "final_path": "slides/S07.svg",
+              "state": "failed",
+              "generation_attempt": 0,
+              "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+              "failure_reason": "final_promotion_conflict"
+            },
+            "pending_interaction": {
+              "id": "production-visual-generation-final_promotion_conflict",
+              "stage": "production",
+              "kind": "blocker",
+              "question": "Resolve the workspace SVG conflict before this transaction can continue.",
+              "status": "answered",
+              "options": [
+                "keep_current_final",
+                "accept_candidate_after_review",
+                "restart_from_updated_inputs"
+              ],
+              "recommendation": "accept_candidate_after_review",
+              "recommendation_reason": "The candidate provenance and hash still match unless the user reports authoritative input changes.",
+              "option_effects": {
+                "keep_current_final": "retain failed transaction until a durable replacement choice exists",
+                "accept_candidate_after_review": "failed -> validated and retry promotion",
+                "restart_from_updated_inputs": "replace failed transaction with a new compiling transaction"
+              },
+              "answer": "Authoritative inputs changed; restart from the updated visual brief and theme.",
+              "decision": "restart_from_updated_inputs"
+            }
+          },
+          "durable_choice": {
+            "authoritative_inputs_changed": true,
+            "old_failed_transaction_retained_until_choice": true
+          },
+          "after_run": {
+            "schema_version": 1,
+            "mode": "guided",
+            "stage": "production",
+            "dirty_slides": [
+              "S07"
+            ],
+            "interaction_history": {
+              "visual-revision-4": {
+                "kind": "visual_revision",
+                "status": "applied",
+                "stage": "production",
+                "affected_scope": "slide"
+              }
+            },
+            "visual_generation_transaction": {
+              "transaction_id": "sha256:e12b8a49e61c1ba0d8573b861364f59360236cf4d7f423149fd75a3e8a5ebdec",
+              "slide_id": "S07",
+              "generation_intent": "user_recompose",
+              "generation_trigger_id": "interaction:visual-revision-4",
+              "prompt_path": "generation-prompts/S07.md",
+              "prompt_snapshot_id": "sha256:e12b8a49e61c1ba0d8573b861364f59360236cf4d7f423149fd75a3e8a5ebdec",
+              "compiled_prompt_sha256": "sha256:5208e62d4a50d50b546b8f1758354288f2f06917443e24744bbd908acc40c89f",
+              "candidate_path": "slides/.candidates/S07-e12b8a49e61c1ba0d8573b861364f59360236cf4d7f423149fd75a3e8a5ebdec.svg",
+              "final_path": "slides/S07.svg",
+              "state": "compiling",
+              "generation_attempt": 0,
+              "candidate_sha256": null,
+              "failure_reason": null
+            }
+          },
+          "expected": {
+            "replacement_is_new_compiling_transaction": true,
+            "same_transaction_edge": false
+          }
+        }
+      ]
+    },
+    {
+      "reason": "transaction_state_conflict",
+      "slide_id": "S07",
+      "consumer": "production_blocker_then_user_resolution",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+          "compiled_prompt_sha256": "sha256:afff74394ce3f34ba3a0417b0bdccf6987b12e034b799b5dbb9850740c158a64",
+          "candidate_path": "slides/.candidates/S07-44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "transaction_state_conflict"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+          "compiled_prompt_sha256": "sha256:afff74394ce3f34ba3a0417b0bdccf6987b12e034b799b5dbb9850740c158a64",
+          "candidate_path": "slides/.candidates/S07-44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+          "failure_reason": "transaction_state_conflict"
+        },
+        "pending_interaction": {
+          "id": "production-visual-generation-transaction_state_conflict",
+          "stage": "production",
+          "kind": "blocker",
+          "question": "Resolve the workspace SVG conflict before this transaction can continue.",
+          "status": "pending",
+          "options": [
+            "keep_current_final",
+            "accept_candidate_after_review",
+            "restart_from_updated_inputs"
+          ],
+          "recommendation": "accept_candidate_after_review",
+          "recommendation_reason": "The candidate provenance and hash still match unless the user reports authoritative input changes.",
+          "option_effects": {
+            "keep_current_final": "retain failed transaction until a durable replacement choice exists",
+            "accept_candidate_after_review": "failed -> validated and retry promotion",
+            "restart_from_updated_inputs": "replace failed transaction with a new compiling transaction"
+          }
+        }
+      },
+      "expected": {
+        "retain_failed_transaction_until_user_resolution": true,
+        "overwrite_unknown_final": false,
+        "delete_failed_transaction": false
+      },
+      "post_user_resolution_branches": [
+        {
+          "id": "unchanged-valid-candidate",
+          "before_run": {
+            "schema_version": 1,
+            "mode": "guided",
+            "stage": "production",
+            "dirty_slides": [
+              "S07"
+            ],
+            "interaction_history": {
+              "visual-revision-4": {
+                "kind": "visual_revision",
+                "status": "applied",
+                "stage": "production",
+                "affected_scope": "slide"
+              }
+            },
+            "visual_generation_transaction": {
+              "transaction_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+              "slide_id": "S07",
+              "generation_intent": "user_recompose",
+              "generation_trigger_id": "interaction:visual-revision-4",
+              "prompt_path": "generation-prompts/S07.md",
+              "prompt_snapshot_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+              "compiled_prompt_sha256": "sha256:afff74394ce3f34ba3a0417b0bdccf6987b12e034b799b5dbb9850740c158a64",
+              "candidate_path": "slides/.candidates/S07-44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b.svg",
+              "final_path": "slides/S07.svg",
+              "state": "failed",
+              "generation_attempt": 0,
+              "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+              "failure_reason": "transaction_state_conflict"
+            },
+            "pending_interaction": {
+              "id": "production-visual-generation-transaction_state_conflict",
+              "stage": "production",
+              "kind": "blocker",
+              "question": "Resolve the workspace SVG conflict before this transaction can continue.",
+              "status": "answered",
+              "options": [
+                "keep_current_final",
+                "accept_candidate_after_review",
+                "restart_from_updated_inputs"
+              ],
+              "recommendation": "accept_candidate_after_review",
+              "recommendation_reason": "The candidate provenance and hash still match unless the user reports authoritative input changes.",
+              "option_effects": {
+                "keep_current_final": "retain failed transaction until a durable replacement choice exists",
+                "accept_candidate_after_review": "failed -> validated and retry promotion",
+                "restart_from_updated_inputs": "replace failed transaction with a new compiling transaction"
+              },
+              "answer": "Use the already validated candidate; the candidate bytes and provenance are unchanged.",
+              "decision": "accept_candidate_after_review"
+            }
+          },
+          "after_run": {
+            "schema_version": 1,
+            "mode": "guided",
+            "stage": "production",
+            "dirty_slides": [
+              "S07"
+            ],
+            "interaction_history": {
+              "visual-revision-4": {
+                "kind": "visual_revision",
+                "status": "applied",
+                "stage": "production",
+                "affected_scope": "slide"
+              }
+            },
+            "visual_generation_transaction": {
+              "transaction_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+              "slide_id": "S07",
+              "generation_intent": "user_recompose",
+              "generation_trigger_id": "interaction:visual-revision-4",
+              "prompt_path": "generation-prompts/S07.md",
+              "prompt_snapshot_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+              "compiled_prompt_sha256": "sha256:afff74394ce3f34ba3a0417b0bdccf6987b12e034b799b5dbb9850740c158a64",
+              "candidate_path": "slides/.candidates/S07-44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b.svg",
+              "final_path": "slides/S07.svg",
+              "state": "validated",
+              "generation_attempt": 0,
+              "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+              "failure_reason": null
+            }
+          },
+          "expected": {
+            "candidate_hash_and_provenance_unchanged": true,
+            "promotion_retry": true
+          }
+        },
+        {
+          "id": "authoritative-inputs-changed",
+          "before_run": {
+            "schema_version": 1,
+            "mode": "guided",
+            "stage": "production",
+            "dirty_slides": [
+              "S07"
+            ],
+            "interaction_history": {
+              "visual-revision-4": {
+                "kind": "visual_revision",
+                "status": "applied",
+                "stage": "production",
+                "affected_scope": "slide"
+              }
+            },
+            "visual_generation_transaction": {
+              "transaction_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+              "slide_id": "S07",
+              "generation_intent": "user_recompose",
+              "generation_trigger_id": "interaction:visual-revision-4",
+              "prompt_path": "generation-prompts/S07.md",
+              "prompt_snapshot_id": "sha256:44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b",
+              "compiled_prompt_sha256": "sha256:afff74394ce3f34ba3a0417b0bdccf6987b12e034b799b5dbb9850740c158a64",
+              "candidate_path": "slides/.candidates/S07-44855ad7cf5bed747831406fb58155412e72db8c97df5441978e78b09db6c89b.svg",
+              "final_path": "slides/S07.svg",
+              "state": "failed",
+              "generation_attempt": 0,
+              "candidate_sha256": "sha256:c0bd7a7bb759de9b08f79e87d27b9d3c98e46bf872ddb91f780fb273f0c7d7bb",
+              "failure_reason": "transaction_state_conflict"
+            },
+            "pending_interaction": {
+              "id": "production-visual-generation-transaction_state_conflict",
+              "stage": "production",
+              "kind": "blocker",
+              "question": "Resolve the workspace SVG conflict before this transaction can continue.",
+              "status": "answered",
+              "options": [
+                "keep_current_final",
+                "accept_candidate_after_review",
+                "restart_from_updated_inputs"
+              ],
+              "recommendation": "accept_candidate_after_review",
+              "recommendation_reason": "The candidate provenance and hash still match unless the user reports authoritative input changes.",
+              "option_effects": {
+                "keep_current_final": "retain failed transaction until a durable replacement choice exists",
+                "accept_candidate_after_review": "failed -> validated and retry promotion",
+                "restart_from_updated_inputs": "replace failed transaction with a new compiling transaction"
+              },
+              "answer": "Authoritative inputs changed; restart from the updated visual brief and theme.",
+              "decision": "restart_from_updated_inputs"
+            }
+          },
+          "durable_choice": {
+            "authoritative_inputs_changed": true,
+            "old_failed_transaction_retained_until_choice": true
+          },
+          "after_run": {
+            "schema_version": 1,
+            "mode": "guided",
+            "stage": "production",
+            "dirty_slides": [
+              "S07"
+            ],
+            "interaction_history": {
+              "visual-revision-4": {
+                "kind": "visual_revision",
+                "status": "applied",
+                "stage": "production",
+                "affected_scope": "slide"
+              }
+            },
+            "visual_generation_transaction": {
+              "transaction_id": "sha256:c705f7312eb34658c0c09af50d5959b24fa8bfc371bba485b6f706b1ca673225",
+              "slide_id": "S07",
+              "generation_intent": "user_recompose",
+              "generation_trigger_id": "interaction:visual-revision-4",
+              "prompt_path": "generation-prompts/S07.md",
+              "prompt_snapshot_id": "sha256:c705f7312eb34658c0c09af50d5959b24fa8bfc371bba485b6f706b1ca673225",
+              "compiled_prompt_sha256": "sha256:d1fc1b7ea4cc4e9ab479947110c4e7bca8e7bcb76dc5e6f806235ba47f6e175c",
+              "candidate_path": "slides/.candidates/S07-c705f7312eb34658c0c09af50d5959b24fa8bfc371bba485b6f706b1ca673225.svg",
+              "final_path": "slides/S07.svg",
+              "state": "compiling",
+              "generation_attempt": 0,
+              "candidate_sha256": null,
+              "failure_reason": null
+            }
+          },
+          "expected": {
+            "replacement_is_new_compiling_transaction": true,
+            "same_transaction_edge": false
+          }
+        }
+      ]
+    }
+  ],
+  "recovery_order_cases": [
+    {
+      "id": "pending-interaction-preempts-transaction",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:7e999a95cd575fe1b0989d4e8200bf4fd00d0d9988e7bde1b17ed6d4e1a05251",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:7e999a95cd575fe1b0989d4e8200bf4fd00d0d9988e7bde1b17ed6d4e1a05251",
+          "compiled_prompt_sha256": "sha256:d4fb1a7e76ab2c9042257c7c2264920db68c60d32d8cdb9769e6434401e0a048",
+          "candidate_path": "slides/.candidates/S07-7e999a95cd575fe1b0989d4e8200bf4fd00d0d9988e7bde1b17ed6d4e1a05251.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": "generator_timeout"
+        },
+        "pending_interaction": {
+          "id": "production-visual-generation-resume-blocker",
+          "stage": "production",
+          "kind": "blocker",
+          "question": "Resolve the existing production blocker before resuming the failed visual generation transaction.",
+          "status": "pending"
+        }
+      },
+      "expected_first_action": "pending_interaction",
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 0,
+        "stage_scan": 0
+      }
+    },
+    {
+      "id": "style-blocker-preempts-transaction",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:f857ed0fd7e15770d2aabf31d51bfcc86a71d2e718a08532622311b5709b7f93",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:f857ed0fd7e15770d2aabf31d51bfcc86a71d2e718a08532622311b5709b7f93",
+          "compiled_prompt_sha256": "sha256:20c0878e6c8fda5f7f69701f80a43e678a64b17358422ec188d4652e9e13c5a5",
+          "candidate_path": "slides/.candidates/S07-f857ed0fd7e15770d2aabf31d51bfcc86a71d2e718a08532622311b5709b7f93.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": "generator_timeout"
+        },
+        "visual_generation_blocker": {
+          "state": "style_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_file_missing",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
+          "visual_brief_snapshot_id": "sha256:69bd0b7e96b13ad215e351155607202e50c59bae9e4116992ff62d8244a78bc5",
+          "theme_snapshot_id": "sha256:9e102c171ca680b20d74d117c4c933c019ce5b848ecdd3b57945adddb24f00a6",
+          "status": "active"
+        }
+      },
+      "expected_first_action": "visual_generation_blocker",
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 0,
+        "stage_scan": 0
+      }
+    },
+    {
+      "id": "transaction-preempts-stage-scan",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:1766c3c1e5355665913d519818af0a4bb09aab51ed75189bf41721b98a0af1cb",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:1766c3c1e5355665913d519818af0a4bb09aab51ed75189bf41721b98a0af1cb",
+          "compiled_prompt_sha256": "sha256:ab1ea21345f7088dd12113713a9f0f7fd64e8a1fa4e5b7dd7ecbfffe3cb73384",
+          "candidate_path": "slides/.candidates/S07-1766c3c1e5355665913d519818af0a4bb09aab51ed75189bf41721b98a0af1cb.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": "generator_timeout"
+        }
+      },
+      "expected_first_action": "visual_generation_transaction",
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 1,
+        "stage_scan": 0
+      }
+    },
+    {
+      "id": "stage-scan-only-after-control-state-absent",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        }
+      },
+      "expected_first_action": "stage scan",
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 0,
+        "stage_scan": 1
+      }
+    }
+  ],
+  "negative_invariant_cases": [
+    {
+      "id": "generation-failure-preserves-pre-existing-final",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:83c5fa4e587de52475ed3addbfa143630d5927de4a92be50014d140c69fe306d",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:83c5fa4e587de52475ed3addbfa143630d5927de4a92be50014d140c69fe306d",
+          "compiled_prompt_sha256": "sha256:b0daa0dc6110b0525c05e0031ec54385ae164419261363b423153c35ae44a0f5",
+          "candidate_path": "slides/.candidates/S07-83c5fa4e587de52475ed3addbfa143630d5927de4a92be50014d140c69fe306d.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:83c5fa4e587de52475ed3addbfa143630d5927de4a92be50014d140c69fe306d",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:83c5fa4e587de52475ed3addbfa143630d5927de4a92be50014d140c69fe306d",
+          "compiled_prompt_sha256": "sha256:b0daa0dc6110b0525c05e0031ec54385ae164419261363b423153c35ae44a0f5",
+          "candidate_path": "slides/.candidates/S07-83c5fa4e587de52475ed3addbfa143630d5927de4a92be50014d140c69fe306d.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": "generator_timeout"
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        }
+      },
+      "expected": {
+        "retained_final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "final_overwritten": false
+      }
+    },
+    {
+      "id": "qa-failure-preserves-pre-existing-final",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:29ad12c62dc970b09a2fb5b9c67f30902e3bd0ab000377c1cc192b2195f6dfeb",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:29ad12c62dc970b09a2fb5b9c67f30902e3bd0ab000377c1cc192b2195f6dfeb",
+          "compiled_prompt_sha256": "sha256:23cac82ad3f9a345dd00ca2e28c54b23f65d4d011ee21312248259966e52bc8d",
+          "candidate_path": "slides/.candidates/S07-29ad12c62dc970b09a2fb5b9c67f30902e3bd0ab000377c1cc192b2195f6dfeb.svg",
+          "final_path": "slides/S07.svg",
+          "state": "candidate_written",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:29ad12c62dc970b09a2fb5b9c67f30902e3bd0ab000377c1cc192b2195f6dfeb",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:29ad12c62dc970b09a2fb5b9c67f30902e3bd0ab000377c1cc192b2195f6dfeb",
+          "compiled_prompt_sha256": "sha256:23cac82ad3f9a345dd00ca2e28c54b23f65d4d011ee21312248259966e52bc8d",
+          "candidate_path": "slides/.candidates/S07-29ad12c62dc970b09a2fb5b9c67f30902e3bd0ab000377c1cc192b2195f6dfeb.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": "visual_qa_failed"
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        }
+      },
+      "expected": {
+        "retained_final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "final_overwritten": false
+      }
+    },
+    {
+      "id": "promotion-failure-preserves-pre-existing-final",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:c193e6c3983409cd52a4701fe25993df50057fe0a15541701ec6232f97e8a03f",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:c193e6c3983409cd52a4701fe25993df50057fe0a15541701ec6232f97e8a03f",
+          "compiled_prompt_sha256": "sha256:465cedeb4838203db75d581d4614bea4047fbfe140ff61cd3b54fd359690132c",
+          "candidate_path": "slides/.candidates/S07-c193e6c3983409cd52a4701fe25993df50057fe0a15541701ec6232f97e8a03f.svg",
+          "final_path": "slides/S07.svg",
+          "state": "validated",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:c193e6c3983409cd52a4701fe25993df50057fe0a15541701ec6232f97e8a03f",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:c193e6c3983409cd52a4701fe25993df50057fe0a15541701ec6232f97e8a03f",
+          "compiled_prompt_sha256": "sha256:465cedeb4838203db75d581d4614bea4047fbfe140ff61cd3b54fd359690132c",
+          "candidate_path": "slides/.candidates/S07-c193e6c3983409cd52a4701fe25993df50057fe0a15541701ec6232f97e8a03f.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": "final_promotion_conflict"
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        }
+      },
+      "expected": {
+        "retained_final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "final_overwritten": false
+      }
+    },
+    {
+      "id": "promoted-page-qa-pending-retains-transaction-and-dirty",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:53d99f4bf97b4624966da134c6d724bc14cd96ba5fb7bb9be78e10ef57a752f3",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:53d99f4bf97b4624966da134c6d724bc14cd96ba5fb7bb9be78e10ef57a752f3",
+          "compiled_prompt_sha256": "sha256:03e1087570ab6c11bd5c81aeb1f4d98363634a72cb0a40031958d2d4d0246132",
+          "candidate_path": "slides/.candidates/S07-53d99f4bf97b4624966da134c6d724bc14cd96ba5fb7bb9be78e10ef57a752f3.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "qa_status": {
+          "scope": "page",
+          "status": "pending"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:53d99f4bf97b4624966da134c6d724bc14cd96ba5fb7bb9be78e10ef57a752f3",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:53d99f4bf97b4624966da134c6d724bc14cd96ba5fb7bb9be78e10ef57a752f3",
+          "compiled_prompt_sha256": "sha256:03e1087570ab6c11bd5c81aeb1f4d98363634a72cb0a40031958d2d4d0246132",
+          "candidate_path": "slides/.candidates/S07-53d99f4bf97b4624966da134c6d724bc14cd96ba5fb7bb9be78e10ef57a752f3.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "qa_status": {
+          "scope": "page",
+          "status": "pending"
+        }
+      },
+      "expected": {
+        "qa_scope": "page",
+        "qa_status": "pending",
+        "retain_transaction": true
+      }
+    },
+    {
+      "id": "promoted-page-qa-failing-retains-transaction-and-dirty",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:987490954c39874a7311236e2581dc83aa03a94f7894c55ea32f1f8a93e5011f",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:987490954c39874a7311236e2581dc83aa03a94f7894c55ea32f1f8a93e5011f",
+          "compiled_prompt_sha256": "sha256:d38571da7e4b6cbb2b50303598c578eafb41aad1f8224d86d84452c805db3d95",
+          "candidate_path": "slides/.candidates/S07-987490954c39874a7311236e2581dc83aa03a94f7894c55ea32f1f8a93e5011f.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "qa_status": {
+          "scope": "page",
+          "status": "failed"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:987490954c39874a7311236e2581dc83aa03a94f7894c55ea32f1f8a93e5011f",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:987490954c39874a7311236e2581dc83aa03a94f7894c55ea32f1f8a93e5011f",
+          "compiled_prompt_sha256": "sha256:d38571da7e4b6cbb2b50303598c578eafb41aad1f8224d86d84452c805db3d95",
+          "candidate_path": "slides/.candidates/S07-987490954c39874a7311236e2581dc83aa03a94f7894c55ea32f1f8a93e5011f.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "qa_status": {
+          "scope": "page",
+          "status": "failed"
+        }
+      },
+      "expected": {
+        "qa_scope": "page",
+        "qa_status": "failed",
+        "retain_transaction": true
+      }
+    },
+    {
+      "id": "promoted-deck-qa-pending-retains-transaction-and-dirty",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:a0393b14c73f7f3d0c591e42ca6b5c78797d98c8c1f6b57563b323dc24b05e47",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:a0393b14c73f7f3d0c591e42ca6b5c78797d98c8c1f6b57563b323dc24b05e47",
+          "compiled_prompt_sha256": "sha256:8f4ca239471e681cc33e18795d4dccce13b4b04d8c72a10f0e663f146139c6a3",
+          "candidate_path": "slides/.candidates/S07-a0393b14c73f7f3d0c591e42ca6b5c78797d98c8c1f6b57563b323dc24b05e47.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "qa_status": {
+          "scope": "deck",
+          "status": "pending"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:a0393b14c73f7f3d0c591e42ca6b5c78797d98c8c1f6b57563b323dc24b05e47",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:a0393b14c73f7f3d0c591e42ca6b5c78797d98c8c1f6b57563b323dc24b05e47",
+          "compiled_prompt_sha256": "sha256:8f4ca239471e681cc33e18795d4dccce13b4b04d8c72a10f0e663f146139c6a3",
+          "candidate_path": "slides/.candidates/S07-a0393b14c73f7f3d0c591e42ca6b5c78797d98c8c1f6b57563b323dc24b05e47.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "qa_status": {
+          "scope": "deck",
+          "status": "pending"
+        }
+      },
+      "expected": {
+        "qa_scope": "deck",
+        "qa_status": "pending",
+        "retain_transaction": true
+      }
+    },
+    {
+      "id": "promoted-deck-qa-failing-retains-transaction-and-dirty",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:58e5fe7f9cd1e86a236f6cc8394eb3ac4808b6d2cecbf116941863ab3160c010",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:58e5fe7f9cd1e86a236f6cc8394eb3ac4808b6d2cecbf116941863ab3160c010",
+          "compiled_prompt_sha256": "sha256:c9d2ed551d17afd646eb4495007998e623cff7464a31fc232ca6e76cf3825ce0",
+          "candidate_path": "slides/.candidates/S07-58e5fe7f9cd1e86a236f6cc8394eb3ac4808b6d2cecbf116941863ab3160c010.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "qa_status": {
+          "scope": "deck",
+          "status": "failed"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:58e5fe7f9cd1e86a236f6cc8394eb3ac4808b6d2cecbf116941863ab3160c010",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:58e5fe7f9cd1e86a236f6cc8394eb3ac4808b6d2cecbf116941863ab3160c010",
+          "compiled_prompt_sha256": "sha256:c9d2ed551d17afd646eb4495007998e623cff7464a31fc232ca6e76cf3825ce0",
+          "candidate_path": "slides/.candidates/S07-58e5fe7f9cd1e86a236f6cc8394eb3ac4808b6d2cecbf116941863ab3160c010.svg",
+          "final_path": "slides/S07.svg",
+          "state": "promoted",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "qa_status": {
+          "scope": "deck",
+          "status": "failed"
+        }
+      },
+      "expected": {
+        "qa_scope": "deck",
+        "qa_status": "failed",
+        "retain_transaction": true
+      }
+    },
+    {
+      "id": "new-operation-nonterminal-transaction-recovers-stops-no-replace",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:d8e06da4e5052e93b8f604db7c1e146f40bc6954bbd87fda692b4179f3a0d04c",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:d8e06da4e5052e93b8f604db7c1e146f40bc6954bbd87fda692b4179f3a0d04c",
+          "compiled_prompt_sha256": "sha256:a7d2ed121dc6e059cacbf8f550f99b05bcbcaa5aadf34df99ade297b51c562b8",
+          "candidate_path": "slides/.candidates/S07-d8e06da4e5052e93b8f604db7c1e146f40bc6954bbd87fda692b4179f3a0d04c.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "attempted_operation": {
+          "kind": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-9"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:d8e06da4e5052e93b8f604db7c1e146f40bc6954bbd87fda692b4179f3a0d04c",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:d8e06da4e5052e93b8f604db7c1e146f40bc6954bbd87fda692b4179f3a0d04c",
+          "compiled_prompt_sha256": "sha256:a7d2ed121dc6e059cacbf8f550f99b05bcbcaa5aadf34df99ade297b51c562b8",
+          "candidate_path": "slides/.candidates/S07-d8e06da4e5052e93b8f604db7c1e146f40bc6954bbd87fda692b4179f3a0d04c.svg",
+          "final_path": "slides/S07.svg",
+          "state": "generating",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        }
+      },
+      "expected": {
+        "recover_or_stop_before_new_operation": true,
+        "replace_active_transaction": false,
+        "operation_started": false
+      }
+    },
+    {
+      "id": "arbitrary-cancel-delete-request-rejected",
+      "slide_id": "S07",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:30cb5e363e47be925b11a011de12f0ccfc2f79954a40c238a25e56630377d355",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:30cb5e363e47be925b11a011de12f0ccfc2f79954a40c238a25e56630377d355",
+          "compiled_prompt_sha256": "sha256:c63d9f56e7d0cb8f00f68591918ef74470dd485d118dc875fa49831c30e571c4",
+          "candidate_path": "slides/.candidates/S07-30cb5e363e47be925b11a011de12f0ccfc2f79954a40c238a25e56630377d355.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": "transaction_state_conflict"
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "attempted_operation": {
+          "kind": "delete_visual_generation_transaction"
+        }
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "kind": "visual_revision",
+            "status": "applied",
+            "stage": "production",
+            "affected_scope": "slide"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:30cb5e363e47be925b11a011de12f0ccfc2f79954a40c238a25e56630377d355",
+          "slide_id": "S07",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-4",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:30cb5e363e47be925b11a011de12f0ccfc2f79954a40c238a25e56630377d355",
+          "compiled_prompt_sha256": "sha256:c63d9f56e7d0cb8f00f68591918ef74470dd485d118dc875fa49831c30e571c4",
+          "candidate_path": "slides/.candidates/S07-30cb5e363e47be925b11a011de12f0ccfc2f79954a40c238a25e56630377d355.svg",
+          "final_path": "slides/S07.svg",
+          "state": "failed",
+          "generation_attempt": 0,
+          "candidate_sha256": "sha256:c4cc8aa872d2f58c15959b954e63be379510c3d032fdcc3d4b715d350a2a9706",
+          "failure_reason": "transaction_state_conflict"
+        },
+        "final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        }
+      },
+      "expected": {
+        "retained_final_svg": {
+          "path": "slides/S07.svg",
+          "sha256": "sha256:8eb82ddbffa7a70e174c11876a9371efc760a0374b4ffdaca4448021a6e7d38f",
+          "bytes_label": "previous final SVG bytes"
+        },
+        "final_overwritten": false,
+        "cancelled": false,
+        "deleted_transaction": false
+      }
+    }
+  ]
+}

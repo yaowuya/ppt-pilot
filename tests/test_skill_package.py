@@ -9,6 +9,11 @@ from helpers import parse_frontmatter, read_text, repo_root, skill_root
 
 
 class SkillPackageTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.readme = repo_root() / "README.md"
+        self.design = repo_root() / "docs" / "design.md"
+        self.acceptance = repo_root() / "docs" / "acceptance.md"
+
     def test_shared_frontmatter_uses_only_portable_fields(self):
         fields = parse_frontmatter(skill_root() / "SKILL.md")
         self.assertEqual(fields["name"], "ppt-start")
@@ -127,6 +132,76 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("受支持的 PowerPoint", text)
         self.assertIn("浏览器", text)
 
+    def test_style_owned_prompt_architecture_and_evidence_boundaries(self):
+        readme = read_text(self.readme)
+        design = read_text(self.design)
+        acceptance = read_text(self.acceptance)
+
+        for text in (readme, design):
+            for token in (
+                "minimal-business.redesign.md",
+                "tech-dark.redesign.md",
+                "bold-editorial.redesign.md",
+                "canway-midyear-review/REDESIGN.md",
+                "1.2.0",
+                "generation_trigger_id",
+                "visual_generation_blocker",
+                "visual_generation_transaction",
+            ):
+                self.assertIn(token, text)
+            self.assertIn(
+                "pending_interaction > visual_generation_blocker > visual_generation_transaction > stage scan",
+                text,
+            )
+            self.assertIn("独立可编译的完整模板", text)
+            self.assertNotIn("可独立交给 fresh generator", text)
+
+        self.assertIn("visual brief 是权威页面状态和 prompt compiler 输入", readme)
+        self.assertIn("fresh generator 只接收编译后的 `generation-prompts/<slide-id>.md`", readme)
+        self.assertIn("不得直接接收 visual brief 或原始风格 prompt", readme)
+        self.assertIn("完整、可独立编译的 redesign prompt 模板", readme)
+        self.assertNotIn("可独立交给 fresh generator", readme)
+        self.assertIn("visual brief 是页面视觉权威状态与 compiler 输入", design)
+        self.assertIn("generation prompt 是 fresh generator 的唯一执行输入", design)
+        self.assertIn("fresh generator 不得直接接收 visual brief 或原始风格 prompt", design)
+
+        focused = "python -m unittest tests.test_skill_package tests.test_redesign_prompt_contract -v"
+        full = "python -m unittest discover -s tests -v"
+        for text in (readme, acceptance):
+            self.assertIn(focused, text)
+            self.assertIn(full, text)
+
+        evidence_contracts = {
+            "static package": "只证明包结构、书面契约和 fixture oracle",
+            "EVIDENCE_CLASS: DIAGNOSTIC": "不得作为 Claude Code、Codex、fresh generator、浏览器或 PowerPoint 验收通过依据",
+            "deployment hash": "只证明部署的 `skills/ppt-start/` 与仓库源一致",
+            "real host": "只有记录真实宿主版本、启动命令、transcript",
+        }
+        for evidence_class, limitation in evidence_contracts.items():
+            self.assertIn(evidence_class, acceptance)
+            self.assertIn(limitation, acceptance)
+        self.assertIn("测试中的 resolver／hash oracle 不是运行时代码", acceptance)
+
+        for row in (
+            "| 风格 prompt fresh generator 隔离 | Claude Code | — | — | PENDING | — |",
+            "| 风格 prompt fresh generator 隔离 | Codex | — | — | PENDING | — |",
+            "| 仅主题 guided | Claude Code | — | — | PENDING | — |",
+            "| 仅主题 guided | Codex | — | — | PENDING | — |",
+            "| 完整生成演示文稿 SVG 渲染 | 浏览器 | — | — | PENDING | — |",
+            "| 生成演示文稿 SVG 导入 | 受支持的 PowerPoint | — | — | PENDING | — |",
+        ):
+            self.assertIn(row, acceptance)
+
+        for historical in (
+            "Claude Code 2.1.223",
+            "Codex CLI 0.146.1",
+            "codex-blocker-v3-evaluation.md",
+            "内置示例 SVG 渲染（历史资产证据，仍适用于未改变资产）",
+            "Chrome 151.0.0.0 / Windows 11",
+            "browser-svg.md",
+        ):
+            self.assertIn(historical, acceptance)
+
     def test_current_readme_and_process_docs_are_chinese(self):
         documents = [
             repo_root() / "README.md",
@@ -145,6 +220,33 @@ class SkillPackageTests(unittest.TestCase):
                     80,
                     f"{path.relative_to(repo_root())} 缺少足量中文正文",
                 )
+
+    def test_style_prompt_supersession_is_unambiguous(self):
+        current = "2026-08-21-ppt-start-style-owned-redesign-prompts-design.md"
+        plans = (
+            "2026-08-20-ppt-pilot-style-registry.md",
+            "2026-08-20-ppt-pilot-canway-reference-svg.md",
+            "2026-08-20-ppt-pilot-canway-style-guidance.md",
+            "2026-08-20-ppt-pilot-visual-brief-contract.md",
+            "2026-08-20-ppt-pilot-visual-prompt-assembly.md",
+            "2026-08-20-ppt-pilot-visual-integration.md",
+        )
+        for filename in plans:
+            text = read_text(repo_root() / "docs" / "superpowers" / "plans" / filename)
+            lines = text.splitlines()
+            self.assertIn("SUPERSEDED", lines[2])
+            self.assertIn(current, lines[2])
+        old_design = read_text(
+            repo_root() / "docs" / "superpowers" / "specs"
+            / "2026-08-20-ppt-pilot-visual-prompt-assembly-design.md"
+        )
+        self.assertIn("部分已被 2026-08-21", old_design)
+        self.assertIn("当前风格由 tokens 与 `STYLE.md` 表达身份，并由风格自有 `REDESIGN.md` 提供完整生成模板。", old_design)
+        self.assertIn("`visual-briefs/<slide-id>.md` 是该页已消解冲突的权威视觉输入，但不是可直接交给生成器的完整 prompt。", old_design)
+        self.assertIn("按照 2026-08-21 规范，首次生成、`recompose` 与确定性回退还必须解析所选风格自有模板，编译并持久化 `generation-prompts/<slide-id>.md`，再由 fresh generator 生成候选 SVG。", old_design)
+        self.assertIn("风格身份仍由 tokens 与抽象 `STYLE.md` 表达；完整 `REDESIGN.md` 是风格自有生成模板而非单页成品", old_design)
+        self.assertIn("每个风格另外拥有一份 `REDESIGN.md`（legacy 使用同级 `*.redesign.md`）作为可独立交给 fresh generator 的完整生成指令模板；", old_design)
+        self.assertNotIn("manifest 只引用机器可读 tokens 与中文 `STYLE.md", old_design)
 
     def test_legacy_skill_identifier_is_absent_from_current_docs(self):
         documents = [

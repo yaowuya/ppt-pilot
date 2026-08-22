@@ -1,5 +1,7 @@
 # PPT Pilot 视觉提示组装机制设计
 
+> **部分已被 2026-08-21 规范取代：** 视觉 prompt 的资产所有权、编译、恢复、兼容与相关测试边界以 [`2026-08-21-ppt-start-style-owned-redesign-prompts-design.md`](2026-08-21-ppt-start-style-owned-redesign-prompts-design.md) 为准；当前风格由 tokens 与 `STYLE.md` 表达身份，并由风格自有 `REDESIGN.md` 提供完整生成模板。本文其余未冲突内容保留为历史设计背景。
+
 - **日期**：2026-08-20
 - **状态**：设计已逐节批准
 - **范围**：仅改造 PPT Pilot 通用机制；不修改或重新生成 FY26 年中总结的正式 SVG
@@ -10,7 +12,7 @@ PPT Pilot 是纯指令型 Agent Skill，没有独立运行时或确定性的 pro
 
 另一个问题是视觉修订没有区分局部缺陷修补和完整页面重组。“重点不突出”“更高级”“改变卡片层级”等请求可能继续沿用旧 SVG 几何，只做局部修改。模型因此能够满足每一条局部要求，却没有重新执行内容优先级、焦点、阅读路径和布局选择，产生视觉债务。
 
-本设计将一次性完整 prompt 中有效的设计过程固化为文件契约：每页先形成一份自包含视觉 brief，再生成或修订 SVG。
+本设计先把设计上下文固化为逐页自包含 visual brief；按照 2026-08-21 规范，首次生成、`recompose` 与确定性回退还必须解析所选风格自有模板，编译并持久化 `generation-prompts/<slide-id>.md`，再由 fresh generator 生成候选 SVG。
 
 ## 2. 目标
 
@@ -21,6 +23,7 @@ PPT Pilot 是纯指令型 Agent Skill，没有独立运行时或确定性的 pro
 5. 保留 PPT Pilot 的纯指令、无运行时依赖和 Office-safe SVG 架构。
 6. 使用合成夹具验证状态归并与修订行为，不把内部演示材料写入共享测试。
 7. 把已确认的管理汇报视觉语言固化为可选择的“嘉为年中总结风格”，并建立可继续扩展新风格的包结构。
+8. 风格包以机器可读 tokens 与抽象 `STYLE.md` 表达风格身份，并以风格自有 `REDESIGN.md` 承载可独立交给 fresh generator 的完整生成指令模板；该模板不是单页成品示例或固定版式。
 
 ## 3. 非目标
 
@@ -48,7 +51,7 @@ brief
   -> complete
 ```
 
-在 `theme` 阶段内部增加视觉上下文组装：
+在 `theme` 阶段内部增加视觉上下文组装和 prompt 编译：
 
 ```text
 approved storyboard
@@ -57,9 +60,12 @@ approved storyboard
 + SVG and QA contracts
 = active visual contract
 = visual-briefs/<slide-id>.md
++ selected style-owned redesign template
+= generation-prompts/<slide-id>.md
+= fresh generator candidate SVG
 ```
 
-`visual-briefs/<slide-id>.md` 是该页正式视觉生成的唯一入口。锚点和正式页面都必须先有有效 brief。最终 SVG 是生成结果，不再承担主题、构图或修订历史的权威状态。
+`visual-briefs/<slide-id>.md` 是该页已消解冲突的权威视觉输入，但不是可直接交给生成器的完整 prompt。首次生成、`recompose` 和确定性回退必须按已持久化的风格 ID 解析风格自有模板，编译并持久化 generation prompt，再启动 fresh generator；`patch` 仍使用完整 brief、当前 SVG 和唯一 defect。最终 SVG 是生成结果，不承担主题、构图、prompt 或修订历史的权威状态。
 
 ### 4.1 组件边界
 
@@ -68,7 +74,9 @@ approved storyboard
 | 已批准故事板 | 内容、主张、限定条件、来源与视觉意图 | 文稿权威 |
 | `run.json.interaction_history` | 用户视觉决定和覆盖关系的完整历史 | 修订权威 |
 | `theme.json` | 整套演示当前有效的设计令牌和主题决定镜像 | 主题镜像 |
-| `visual-briefs/Sxx.md` | 已消解冲突的逐页自包含生成包 | 页面视觉输入 |
+| `visual-briefs/Sxx.md` | 已消解冲突的逐页自包含视觉输入与持久风格身份 | 页面视觉权威输入 |
+| 风格自有 `REDESIGN.md` | 所选风格的完整、版本化生成模板 | 风格生成指令权威 |
+| `generation-prompts/Sxx.md` | 由 brief、theme、有效修订和风格模板确定性编译的完整 prompt | 当前生成事务输入 |
 | `slides/Sxx.svg` | Office-safe 最终结果 | 非权威派生产物 |
 | QA 报告 | 结构、内容、几何和真实渲染结论 | 验证记录 |
 
@@ -83,6 +91,9 @@ approved storyboard
 - 当前主题快照 ID
 - 已应用的 `visual-revision-<N>` 交互 ID
 - brief 自身稳定快照 ID
+- 所选风格 ID、显示名、`style_kind` 与 manifest 版本；legacy seed 的版本写字符串 `none`
+- 风格 token 路径与抽象 guidance 路径
+- 已解析的风格自有 redesign prompt 路径、模板 snapshot，以及对应 generation prompt／transaction provenance；不得记录单页成品参考路径
 
 ### 5.2 锁定内容
 
@@ -225,17 +236,17 @@ visual-revision-3
 
 每次锚点或正式页面生成按固定顺序执行：
 
-1. 读取 `run.json` 并验证文稿批准状态。
+1. 读取 `run.json`，先处理 `pending_interaction`，再恢复已有 visual generation blocker／transaction，并验证文稿批准状态。
 2. 读取已批准故事板、当前 `theme.json` 和权威视觉修订历史。
 3. 归并当前有效契约并显式排除废弃规则。
-4. 创建或更新逐页视觉 brief。
-5. 验证 brief 完整性与内部一致性。
-6. 先压缩和排序信息，再确定焦点和阅读顺序。
-7. 选择语义布局并分配面积、字体和语义色。
-8. 按 `patch` 或 `recompose` 规则生成 SVG。
-9. 与锁定内容、来源和 forbidden claims 逐项核对。
-10. 执行结构硬检查和真实渲染 QA。
-11. 只有验证成功后才清除该页脏状态。
+4. 创建或更新逐页 visual brief，持久化唯一风格身份、`generation_intent` 与 trigger。
+5. 验证 brief 完整性、内部一致性以及 theme／brief 的风格身份握手。
+6. 对首次生成、`recompose` 或确定性回退，按 brief 中的风格 ID 解析 registry／manifest 或受限 legacy fallback，读取该风格自有 `REDESIGN.md`（legacy 使用声明或 companion prompt）；`patch` 不加载完整风格 prompt。
+7. 建立可恢复 transaction，将 brief 各章节、active theme、有效规范化修订和低权威用户措辞编译为 `generation-prompts/<slide-id>.md`；prompt 持久且 hash 核对成功后才可启动 fresh generator。
+8. fresh generator 只接收 compiled prompt，不接收旧 SVG 或工作区写权限；创建上下文提取唯一 SVG 并写入 transaction 的确定性 candidate 路径。
+9. 与锁定内容、来源和 forbidden claims 逐项核对，并执行结构硬检查和真实渲染 QA。
+10. 候选验证成功后才原子提升为 final SVG；失败保持上一有效 SVG 和 dirty 状态，并按稳定 reason 恢复或阻断。
+11. 只有 promoted transaction 的最终 QA 成功后才清除该页脏状态。
 
 ## 9. 失效规则
 
@@ -247,16 +258,13 @@ visual-revision-3
 | 单页 patch | 该页 SVG、视觉与整套 QA；brief 记录 defect | 保留 |
 | 主张／来源／故事板 | 按现有最早阶段重入，全部视觉产物失效 | 重置为 pending |
 
-## 10. 旧运行兼容
+## 10. 旧运行与缺 Registry 兼容
 
-缺少 `visual-briefs/` 的 schema-v1 运行仍然可读取。若其有效 SVG 不需要修改，可以保持原状；当它进入新的锚点生成、正式页面生成或视觉修订时，必须先从以下内容合成缺失 brief：
+缺少 `visual-briefs/` 的 schema-v1 运行仍然可读取。若其有效 SVG 不需要修改，可以保持原状；当它进入新的锚点生成、正式页面生成或视觉修订时，必须先从已批准故事板、当前有效主题、`run.json.interaction_history`、当前 SVG 契约和 QA 规则重建缺失 brief，并补齐可验证的持久风格身份与 generation intent。无法从权威 artifact 唯一重建时返回 `prompt_snapshot_conflict`，不得从文案、目录、旧 SVG、未知预览或对话猜测。
 
-- 已批准故事板
-- 当前有效主题
-- `run.json.interaction_history`
-- 当前 SVG 契约和 QA 规则
+registry 路径只有经 no-follow／`lstat` 确认为不存在时才能进入兼容 fallback；已存在但不安全、不可读或 malformed 的 registry 必须按对应稳定 reason 阻断，不能伪装成 missing。完整 fallback 仅允许三个内置 legacy seed，并要求三份 seed JSON 与三份 companion `*.redesign.md` 全部存在、身份匹配且模板有效；六个文件中任一个缺失或无效都使 fallback 不成立并返回 `registry_missing`。缺 registry 时不得发现 Canway 或其他 style pack，也不得只因所选 seed 的一对文件存在而部分回退。
 
-如果旧运行没有权威视觉历史，只能使用可验证的主题与故事板；不得从未知的旧预览或对话中猜测决定。若现有主题内部矛盾，则停止并报告冲突。
+registry 存在时，三个已知 legacy 条目缺 `redesign_prompt` 字段可确定性使用 `<entrypoint-stem>.redesign.md`；其他 legacy 或 style-pack 缺少 prompt 声明时返回 `prompt_field_missing`，声明目标缺失时返回 `prompt_file_missing`。旧运行中的有效 SVG 在没有视觉请求时可只读保留；下一次首次生成、`recompose` 或 fallback 必须使用当前风格 prompt 重新编译 generation prompt。
 
 ## 11. 视觉质量门
 
@@ -275,13 +283,16 @@ visual-revision-3
 
 ## 12. 错误处理
 
-- brief 缺少必需章节：停止生成，补齐 brief。
+- brief 缺少必需章节、持久风格身份或 generation intent：停止生成；只能从唯一权威 owner 重建，无法唯一解释时记录 `prompt_snapshot_conflict`。
 - 锁定内容与故事板不一致：停止并修正 brief；若主张本身变化则返回文稿阶段。
 - 当前规则存在未消解冲突：停止并持久化冲突，不生成折中 SVG。
-- `patch` 请求实际涉及层级或构图：重新分类为 `recompose`。
-- `recompose` 仍沿用旧 SVG 几何：视为流程失败，重新从 brief 生成。
+- registry／entrypoint／manifest／style asset／prompt 的路径、结构、身份、版本、读取或模板契约失败：写入 `run.json.visual_generation_blocker`，使用 2026-08-21 规范定义的单一稳定 reason，保持 slide dirty，不启动 generator、不覆盖 SVG，也不改用其他风格。
+- blocker 恢复必须先重新验证同一 slide 的资源与 snapshots；prompt 已 durable 且 hash 匹配时只补交 transaction `compiled` 状态和 blocker 清除，否则重新编译。任何时刻只处理一个 active blocker。
+- `patch` 请求实际涉及层级或构图：重新分类为 `recompose`，重新解析风格 prompt 并建立新 transaction。
+- `recompose` 或首次生成仍沿用旧 SVG 几何，或 fresh generator 获得 compiled prompt 之外的旧 SVG／工作区写权限：视为流程失败。
+- generator、候选写入／hash、SVG 契约、锁定内容、视觉 QA 或 final promotion 失败：以 transaction 的稳定 `failure_reason` 持久化；按唯一恢复 consumer 重试、进入 patch／deterministic fallback 或询问冲突，不能静默删除 transaction。
 - 视觉渲染不可用：记录 `visual_qa: not_rendered`，不得声称视觉质量门通过。
-- 旧运行没有足够信息合成 brief：停止并披露缺失项，不依赖对话猜测。
+- 旧运行信息或缺 registry fallback 文件集不完整：按第 10 节阻断，不依赖对话猜测，也不执行部分 fallback。
 
 ## 13. 测试策略
 
@@ -289,9 +300,10 @@ visual-revision-3
 
 验证：
 
-- `SKILL.md` 在视觉生成前链接本规范。
-- `visual-briefs/` 被定义为视觉阶段必需派生产物。
-- brief 包含来源、锁定内容、层级、构图、视觉系统、修订模式和输出质量章节。
+- `SKILL.md` 在视觉生成前链接 visual brief 与风格 prompt resolver 规范。
+- `visual-briefs/` 被定义为视觉阶段必需的权威输入，`generation-prompts/` 被定义为首次生成、`recompose` 与确定性回退的必需编译产物。
+- brief 包含来源、持久风格身份、锁定内容、层级、构图、视觉系统、修订模式、generation intent 和输出质量章节。
+- `patch` 不加载完整风格 prompt；其他生成分支必须使用持久风格 ID 解析模板并建立可恢复 transaction。
 - 纯指令包未引入宿主专属工具名或运行时依赖。
 
 ### 13.2 状态归并测试
@@ -310,24 +322,25 @@ visual-revision-3: 采用层级 Bento
 - 当前有效契约包含品牌蓝、无标题竖条和层级 Bento。
 - 标题竖条只出现在废弃历史，不出现在生成 brief 的有效规则。
 
-### 13.3 风格包测试
+### 13.3 风格包与 Prompt 编译测试
 
 快速验证：
 
-- `assets/styles/registry.json` 可以解析，风格 ID 和中文显示名唯一。
-- `canway-midyear-review/manifest.json` 引用的 tokens、设计说明和参考 SVG 均存在。
-- 颜色、字体、间距和形状令牌符合风格包 schema。
-- 合成 `reference.svg` 通过现有 XML、Office-safe 元素、1280×720 画布、安全区和字体检查。
-- Skill 可以按稳定 ID `canway-midyear-review` 或中文显示名“嘉为年中总结风格”选择该风格。
+- `assets/styles/registry.json` 可以解析，风格 ID 和中文显示名唯一；registry／manifest／legacy entrypoint 的身份、kind 与 containment 握手一致。
+- `canway-midyear-review/manifest.json` 引用存在且包内安全的 `tokens`、`guidance` 与 `redesign_prompt`，内容版本为 `1.2.0`；不再断言 files 精确只有两键或版本为 `1.1.0`。
+- 四个内置风格各有完整 prompt；模板 `STYLE_ID`、schema、hard-constraint markers 和十一个唯一占位符满足表面契约，Canway 专属视觉字面量不泄漏到共享 resolver 或三个 legacy prompt。
+- 风格包目录仍不得包含单页成品 SVG、参考构图或固定区域图；`REDESIGN.md` 是完整生成指令模板，不是成品示例。
+- resolver／hash oracle 覆盖安全路径、缺失资源、identity mismatch、完整缺-registry fallback、blocker、compiled prompt provenance、snapshot 失效和 generation transaction；这些静态测试不宣称真实宿主行为通过。
+- Skill 可以按稳定 ID `canway-midyear-review` 或中文显示名“嘉为年中总结风格”选择该风格，但实际生成只使用 visual brief 已持久化的唯一 ID。
 
 ### 13.4 修订分支契约测试
 
 使用静态合成夹具断言三条分支，不启动模型做耗时行为验收：
 
-- 24 px 对齐修正：`patch`，契约要求读取当前 SVG 和完整 brief。
-- “重点不突出，使用新的参考图重组”：`recompose`，契约禁止把旧 SVG 作为几何底稿。
+- 24 px 对齐修正：`patch`，契约要求读取当前 SVG 和完整 brief，且不加载完整风格 prompt。
+- “重点不突出，使用新的参考图重组”：`recompose`，契约禁止把旧 SVG 作为几何底稿，并要求按持久风格 ID 编译 generation prompt 后启动 fresh generator。
 - 把 12% 改为 27% 并更换来源：事实变更，契约要求重新进入文稿审查。
-- 旧 schema-v1 已批准运行缺少 briefs 时仍可读取，并在下一次视觉生产前补建 brief。
+- 旧 schema-v1 已批准运行缺少 briefs 时仍可读取，并在下一次视觉生产前按权威 owner 补建 brief、风格身份与 generation intent；无法唯一重建则阻断。
 
 ### 13.5 验证时限与排除项
 
@@ -347,16 +360,19 @@ visual-revision-3: 采用层级 Bento
 skills/ppt-start/assets/styles/
 ├── registry.json
 ├── minimal-business.json
+├── minimal-business.redesign.md
 ├── tech-dark.json
+├── tech-dark.redesign.md
 ├── bold-editorial.json
+├── bold-editorial.redesign.md
 └── canway-midyear-review/
     ├── manifest.json
     ├── tokens.json
     ├── STYLE.md
-    └── reference.svg
+    └── REDESIGN.md
 ```
 
-`registry.json` 是新安装的风格发现入口，列出稳定 ID、中文显示名、资产类型和入口路径。现有三个 JSON 作为 legacy seed 继续使用；新风格统一使用目录式 style pack。缺少 registry 的旧安装仍按现有三个种子工作。
+`registry.json` 是新安装的风格发现入口，列出稳定 ID、中文显示名、资产类型和入口路径。三个 legacy seed 保留平面 JSON，并由 registry 的可选 `redesign_prompt` 字段或已知 `<entrypoint-stem>.redesign.md` companion 声明完整 prompt。目录式 style pack 的 manifest 在 `files` 中声明 `tokens`、`guidance` 和 `redesign_prompt`；Canway manifest schema 保持 1，当前内容版本为 `1.2.0`。缺 registry 只允许第 10 节定义的完整六文件 legacy fallback，不允许无条件按三个种子工作，也不能发现 style pack。
 
 ### 14.2 “嘉为年中总结风格”身份
 
@@ -394,9 +410,11 @@ skills/ppt-start/assets/styles/
 - 禁止左侧长蓝条、背景图片、渐变、等权卡片墙和机械复用同一版式。
 - 根据内容选择论证、流程、时间箱、决策矩阵等构图。
 
-### 14.5 合成参考 SVG
+### 14.5 风格自有 Prompt 与防同质化边界
 
-`reference.svg` 使用无客户、无项目、无 FY26 数据的管理假设页，展示浅灰蓝画布、短语级标题强调、深色中央主卡、白色事实卡、浅蓝证据边界、紫色有界试点、嵌套 KPI、编号与完整字体阶梯。它必须遵守现有 Office-safe SVG 契约，并只作为风格参考，不能覆盖具体页面视觉 brief 的内容语义。
+风格身份继续由 tokens 与 `STYLE.md` 中的抽象规则表达：颜色、字体、间距、形状、语义角色和内容驱动的构图原则可以复用。每个风格另外拥有一份 `REDESIGN.md`（legacy 使用同级 `*.redesign.md`）作为可独立交给 fresh generator 的完整生成指令模板；它必须包含通用硬约束和该风格艺术方向，但不是成品示例、参考图、固定区域图或可复制页面。
+
+风格包仍不得包含单页成品 SVG，也不得把某一页的区域、卡片数量、连接关系或阅读路径作为固定模板。每个 visual brief 必须从本页论证、流程、时间、比较或决策语义重新推导构图；页面语义与常用风格构图冲突时，由 brief 的 `视觉系统.exceptions` 明确覆盖。首次生成、`recompose` 与确定性回退将该 brief 编译进所选风格模板，Office-safe 能力由模板 hard constraints、生成 SVG 的通用契约与 QA 共同验证。
 
 ## 15. 影响文件
 
@@ -404,6 +422,7 @@ skills/ppt-start/assets/styles/
 
 - `skills/ppt-start/SKILL.md`
 - `skills/ppt-start/references/visual-brief-and-generation.md`（新增）
+- `skills/ppt-start/references/redesign-prompt.md`
 - `skills/ppt-start/references/design-system.md`
 - `skills/ppt-start/references/layout-catalog.md`
 - `skills/ppt-start/references/qa-and-revision.md`
@@ -414,29 +433,35 @@ skills/ppt-start/assets/styles/
 - `skills/ppt-start/assets/styles/canway-midyear-review/manifest.json`（新增）
 - `skills/ppt-start/assets/styles/canway-midyear-review/tokens.json`（新增）
 - `skills/ppt-start/assets/styles/canway-midyear-review/STYLE.md`（新增）
-- `skills/ppt-start/assets/styles/canway-midyear-review/reference.svg`（新增）
+- `skills/ppt-start/assets/styles/minimal-business.redesign.md`
+- `skills/ppt-start/assets/styles/tech-dark.redesign.md`
+- `skills/ppt-start/assets/styles/bold-editorial.redesign.md`
+- `skills/ppt-start/assets/styles/canway-midyear-review/REDESIGN.md`
 - `README.md`
 - `docs/design.md`
 - `docs/acceptance.md`
 - `tests/test_visual_generation_contract.py`（新增）
+- `tests/test_redesign_prompt_contract.py`
 - 相关 workflow、interaction、asset 和 package contract tests
 - 合成 visual revision、visual brief 和三分支修订夹具
 
 ## 16. 验收标准
 
-1. 任一新生成或视觉修订页面都有自包含 brief。
-2. 新宿主无需对话历史即可恢复同一锁定内容和当前有效视觉约束。
-3. 后续决定能够显式覆盖旧规则，旧规则不会回流到生成 prompt。
-4. 广泛视觉反馈稳定分类为 `recompose`，局部 defect 稳定分类为 `patch`。
+1. 任一首次生成、`recompose` 或确定性回退页面都有自包含 brief、可验证的持久风格身份、风格自有完整模板和已持久化 compiled generation prompt；局部 `patch` 保持其独立输入边界。
+2. 新宿主无需对话历史即可从 blocker、prompt provenance、snapshot 和 generation transaction 恢复同一锁定内容、当前视觉约束与操作 intent。
+3. 后续决定能够显式覆盖旧规则；raw 历史 answer 和已废弃字段不会回流到 compiled prompt。
+4. 广泛视觉反馈稳定分类为 `recompose`，局部 defect 稳定分类为 `patch`；首次生成、`recompose` 和确定性回退都按 brief 已持久化风格 ID 解析模板并使用 fresh generator。
 5. 内容或来源变化仍触发独立文稿审查，不被视觉模式绕过。
-6. 视觉 QA 同时检查文件正确性和焦点、阅读路径、层级、语义色及卡片密度。
-7. PPT Pilot 可以按 `canway-midyear-review` 或“嘉为年中总结风格”发现并选择完整风格包。
-8. 风格包的合成参考 SVG 通过 Office-safe、画布、安全区和字体静态检查。
-9. 快速本地测试通过：
+6. 视觉 QA 同时检查文件正确性和焦点、阅读路径、层级、语义色及卡片密度；transaction 未 promoted 且最终 QA 未通过时不得清除 dirty。
+7. 四个现有风格各自拥有完整 redesign prompt；Canway 由 manifest 声明 `REDESIGN.md`，内容版本为 `1.2.0`，registry／manifest／prompt identity 与安全 containment 一致。
+8. 风格身份仍由 tokens 与抽象 `STYLE.md` 表达；完整 `REDESIGN.md` 是风格自有生成模板而非单页成品，风格包中不存在可被当作固定版式模仿的 SVG、参考构图或固定区域图。
+9. 缺 registry 只对完整且全部有效的三 seed／三 companion prompt 文件集执行 legacy fallback；其他缺失、非法或冲突状态使用稳定 blocker reason，不静默换风格或部分回退。
+10. 聚焦 package-contract 测试与完整本地测试通过：
 
 ```bash
+python -m unittest tests.test_redesign_prompt_contract tests.test_style_packs tests.test_visual_generation_contract -v
 python -m unittest discover -s tests -v
 ```
 
-10. 验证不依赖跨宿主现场运行、PowerPoint 人工导入、整套浏览器检查或 FY26 页面重生成。
-11. 共享 Skill 未引入运行时依赖、远程资源、宿主专属调用或内部 FY26 内容。
+11. 静态测试只证明仓库文件契约与 oracle；Claude Code／Codex、fresh delegation、浏览器和 PowerPoint 行为在没有真实证据前保持 `PENDING`。
+12. 共享 Skill 未引入运行时依赖、远程资源、宿主专属调用或内部 FY26 内容。

@@ -1,6 +1,6 @@
 # PPT Pilot Canway Style Guidance Integration Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **SUPERSEDED:** redesign prompt 所有权、编译、恢复与相关测试步骤已由 [`2026-08-21-ppt-start-style-owned-redesign-prompts-design.md`](../specs/2026-08-21-ppt-start-style-owned-redesign-prompts-design.md) 取代；本文不再作为当前执行说明。
 
 **Goal:** Encode the human-readable “嘉为年中总结风格” art direction and wire registry-based selection into visual brief assembly.
 
@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - This is Plan 5 of 7 and depends on the style registry/tokens plan.
-- The reference SVG is added separately in Plan 6.
+- The style pack contains only tokens and abstract guidance; it must not add a rendered slide exemplar.
 - The style remains non-default and cannot override locked page semantics.
 - Run fast local tests only; do not modify FY26 files.
 - This workspace is not a Git repository; do not initialize Git or attempt commits.
@@ -58,8 +58,8 @@ Use these required sections and rules:
 ## 禁止项
 禁止左侧长蓝条、背景图片、渐变、等权卡片墙、全页阴影、无语义装饰线、把阶段交付写成最终验收，以及用颜色替代必要文字。
 
-## 参考 SVG
-reference.svg 只证明风格语言和 Office-safe 构造，不提供业务事实，不覆盖逐页 visual brief。
+## 抽象风格资产
+风格包只包含机器可读 tokens 与抽象设计规则，不得包含单页成品示例、参考构图或固定区域图。每页必须根据当前 visual brief 的内容语义重新推导构图。
 ```
 
 - [ ] **Step 2: Add registry-based discovery to `design-system.md`**
@@ -67,7 +67,7 @@ reference.svg 只证明风格语言和 Office-safe 构造，不提供业务事�
 State:
 
 ```markdown
-新安装先读取 `assets/styles/registry.json`。`legacy_seed` 直接读取入口 JSON；`style_pack` 读取 manifest，再读取 tokens、STYLE.md 和 reference.svg。用户给出稳定 ID 或唯一中文显示名时直接选择；未明确选择时仍按现有 guided/auto 规则决定，不得因新增风格包把它设为默认。
+新安装先读取 `assets/styles/registry.json`。`legacy_seed` 直接读取入口 JSON；`style_pack` 读取 manifest，再读取 tokens 和 STYLE.md。用户给出稳定 ID 或唯一中文显示名时直接选择；未明确选择时仍按现有 guided/auto 规则决定，不得因新增风格包把它设为默认。风格包不得携带单页成品 SVG 或固定构图参考。
 ```
 
 Retain fallback behavior for installations without a registry: use the three existing flat seeds.
@@ -80,13 +80,14 @@ In `visual-brief-and-generation.md`, require:
 selected_style_id
 selected_style_display_name
 style_manifest_version
-style_reference_path
+style_token_path
+style_guidance_path
 ```
 
 Add this exact precedence rule:
 
 ```markdown
-风格包说明服从已批准内容、证据边界和逐页语义。`reference.svg` 只提供视觉语言，不是内容模板；其区域、文案和卡片数量不得覆盖 visual brief 的布局选择。
+风格包说明服从已批准内容、证据边界和逐页语义。tokens 与 guidance 只提供抽象视觉规则；不得从成品示例或既有 SVG 反推构图，也不得把单页区域、卡片数量或连接关系当成模板。
 ```
 
 - [ ] **Step 4: Run guidance tests**

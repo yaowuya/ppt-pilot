@@ -5,19 +5,22 @@
       "id": "minimal-business",
       "display_name": "极简商务",
       "kind": "legacy_seed",
-      "entrypoint": "minimal-business.json"
+      "entrypoint": "minimal-business.json",
+      "redesign_prompt": "minimal-business.redesign.md"
     },
     {
       "id": "tech-dark",
       "display_name": "深色科技",
       "kind": "legacy_seed",
-      "entrypoint": "tech-dark.json"
+      "entrypoint": "tech-dark.json",
+      "redesign_prompt": "tech-dark.redesign.md"
     },
     {
       "id": "bold-editorial",
       "display_name": "强调编辑",
       "kind": "legacy_seed",
-      "entrypoint": "bold-editorial.json"
+      "entrypoint": "bold-editorial.json",
+      "redesign_prompt": "bold-editorial.redesign.md"
     },
     {
       "id": "canway-midyear-review",

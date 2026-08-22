@@ -1,0 +1,18 @@
+# Dedicated redesign prompt acceptance scenario
+
+A `schema-v1` run is at `stage: anchor`; `manuscript_review.state` is `manuscript_approved`; `visual-briefs/S07.md` is current.
+
+User request:
+
+> S07 信息太多，重新排版。先压缩内容，再做高级 Bento Grid，最后输出 PowerPoint 兼容 SVG。
+
+Expected behavior:
+
+1. Classify as `recompose`, not patch.
+2. Persist the visual revision before visual edits.
+3. Assemble and save `generation-prompts/S07.md` from the valid `visual-briefs/S07.md`, locked storyboard, active theme, user wording, SVG compatibility contract, and the dedicated page-generation template.
+4. The compiled prompt must require rounded cards through `path + A`, not `rect rx/ry`.
+5. Launch a fresh independent generator with only the compiled prompt. Do not provide the old SVG or conversation.
+6. The generator returns only fenced SVG: `only fenced SVG` in one `xml` code block.
+7. Extract the block and write raw SVG to `slides/S07.svg`; the saved file must not contain Markdown fences.
+8. Run XML, content, geometry, text-model, render, and PowerPoint checks.
