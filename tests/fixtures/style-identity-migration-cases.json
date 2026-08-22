@@ -1,0 +1,823 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "identity": {
+      "selected_style_id": "canway-midyear-review",
+      "selected_style_display_name": "嘉为年中总结风格",
+      "style_kind": "style_pack",
+      "style_manifest_version": "1.2.0"
+    },
+    "registry": {
+      "state": "present",
+      "styles": [
+        {
+          "id": "canway-midyear-review",
+          "display_name": "嘉为年中总结风格",
+          "kind": "style_pack"
+        }
+      ]
+    },
+    "manifest": {
+      "id": "canway-midyear-review",
+      "display_name": "嘉为年中总结风格",
+      "kind": "style_pack",
+      "version": "1.2.0"
+    },
+    "persisted_operation_owner": {
+      "generation_intent": "user_recompose",
+      "generation_trigger_id": "interaction:visual-revision-3",
+      "trigger_owner_state": "valid",
+      "trigger_owner_count": 1,
+      "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "old_directory": {
+      "path": "redesign-prompts/S05.md",
+      "action": "read_only",
+      "write": false,
+      "move": false,
+      "delete": false
+    },
+    "interaction_history": [
+      {
+        "id": "visual-revision-3",
+        "status": "applied",
+        "answer": "默认重新排版 owner"
+      }
+    ]
+  },
+  "fallback_identity_table": {
+    "minimal-business": {
+      "selected_style_id": "minimal-business",
+      "selected_style_display_name": "极简商务",
+      "style_kind": "legacy_seed",
+      "style_manifest_version": "none"
+    },
+    "tech-dark": {
+      "selected_style_id": "tech-dark",
+      "selected_style_display_name": "深色科技",
+      "style_kind": "legacy_seed",
+      "style_manifest_version": "none"
+    },
+    "bold-editorial": {
+      "selected_style_id": "bold-editorial",
+      "selected_style_display_name": "强调编辑",
+      "style_kind": "legacy_seed",
+      "style_manifest_version": "none"
+    }
+  },
+  "operation_matrix": {
+    "initial_generation": {
+      "mode": "recompose",
+      "trigger": "initial:<slide-id>:<visual_brief_snapshot_id>",
+      "reason": "initial generation from approved visual brief",
+      "USER_WORDING": "none (initial generation)",
+      "prior_candidate": "none"
+    },
+    "user_recompose": {
+      "mode": "recompose",
+      "trigger": "interaction:<applied-history-id>",
+      "USER_WORDING_source": "applied history raw answer",
+      "USER_WORDING": "raw answer from applied history record only"
+    },
+    "deterministic_fallback": {
+      "mode": "recompose",
+      "trigger": "fallback:<slide-id>:<failed-transaction-64hex>:2",
+      "reason": "deterministic single-column or two-column fallback after two failed patches",
+      "USER_WORDING": "none (deterministic fallback after two failed patches)"
+    },
+    "local_patch": {
+      "mode": "patch",
+      "trigger": "patch:<slide-id>:<qa-defect-id>",
+      "requires_current_svg": true,
+      "compile_full_prompt": false
+    }
+  },
+  "cases": [
+    {
+      "id": "valid-complete-style-pack-identity",
+      "expected": "valid"
+    },
+    {
+      "id": "missing-brief-id-rebuilds",
+      "brief_identity": {
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      },
+      "expected": "rebuild",
+      "expected_backfill": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      }
+    },
+    {
+      "id": "missing-theme-id-rebuilds",
+      "theme_identity": {
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      },
+      "expected": "rebuild",
+      "expected_backfill": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      }
+    },
+    {
+      "id": "missing-both-ids-conflicts-without-owner",
+      "brief_identity": {},
+      "theme_identity": {},
+      "persisted_operation_owner": null,
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "missing-both-ids-rebuilds-from-persisted-owner",
+      "brief_identity": {},
+      "theme_identity": {},
+      "persisted_operation_owner": {
+        "generation_intent": "user_recompose",
+        "generation_trigger_id": "interaction:visual-revision-3",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "style_identity": {
+          "selected_style_id": "canway-midyear-review",
+          "selected_style_display_name": "嘉为年中总结风格",
+          "style_kind": "style_pack",
+          "style_manifest_version": "1.2.0"
+        }
+      },
+      "expected": "rebuild",
+      "expected_backfill": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      }
+    },
+    {
+      "id": "derives-non-id-fields-from-manifest",
+      "brief_identity": {
+        "selected_style_id": "canway-midyear-review"
+      },
+      "theme_identity": {
+        "selected_style_id": "canway-midyear-review"
+      },
+      "expected": "rebuild",
+      "expected_backfill": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      }
+    },
+    {
+      "id": "missing-non-id-fields-rebuilds-with-backfill",
+      "brief_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "style_kind": "style_pack"
+      },
+      "theme_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格"
+      },
+      "expected": "rebuild",
+      "expected_backfill": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      }
+    },
+    {
+      "id": "stale-display-name-is-ordinary-stale",
+      "brief_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "旧嘉为风格名",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      },
+      "expected": "ordinary_stale",
+      "theme_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "旧嘉为风格名",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      }
+    },
+    {
+      "id": "stale-version-is-ordinary-stale",
+      "theme_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.1.0"
+      },
+      "expected": "ordinary_stale",
+      "brief_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.1.0"
+      }
+    },
+    {
+      "id": "direct-style-id-conflict",
+      "theme_identity": {
+        "selected_style_id": "tech-dark",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "legacy-version-non-none-conflicts",
+      "brief_identity": {
+        "selected_style_id": "minimal-business",
+        "selected_style_display_name": "极简商务",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "1.0.0"
+      },
+      "theme_identity": {
+        "selected_style_id": "minimal-business",
+        "selected_style_display_name": "极简商务",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "1.0.0"
+      },
+      "registry": {
+        "state": "missing"
+      },
+      "manifest": {},
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "fallback-minimal-business-valid",
+      "brief_identity": {
+        "selected_style_id": "minimal-business",
+        "selected_style_display_name": "极简商务",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "none"
+      },
+      "theme_identity": {
+        "selected_style_id": "minimal-business",
+        "selected_style_display_name": "极简商务",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "none"
+      },
+      "registry": {
+        "state": "missing"
+      },
+      "manifest": {},
+      "expected": "valid"
+    },
+    {
+      "id": "fallback-minimal-business-default-table-valid",
+      "brief_identity": {
+        "selected_style_id": "minimal-business",
+        "selected_style_display_name": "极简商务",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "none"
+      },
+      "theme_identity": {
+        "selected_style_id": "minimal-business",
+        "selected_style_display_name": "极简商务",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "none"
+      },
+      "registry": {
+        "state": "missing"
+      },
+      "manifest": {},
+      "expected": "valid"
+    },
+    {
+      "id": "fallback-tech-dark-default-table-valid",
+      "brief_identity": {
+        "selected_style_id": "tech-dark",
+        "selected_style_display_name": "深色科技",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "none"
+      },
+      "theme_identity": {
+        "selected_style_id": "tech-dark",
+        "selected_style_display_name": "深色科技",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "none"
+      },
+      "registry": {
+        "state": "missing"
+      },
+      "manifest": {},
+      "expected": "valid"
+    },
+    {
+      "id": "fallback-bold-editorial-default-table-valid",
+      "brief_identity": {
+        "selected_style_id": "bold-editorial",
+        "selected_style_display_name": "强调编辑",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "none"
+      },
+      "theme_identity": {
+        "selected_style_id": "bold-editorial",
+        "selected_style_display_name": "强调编辑",
+        "style_kind": "legacy_seed",
+        "style_manifest_version": "none"
+      },
+      "registry": {
+        "state": "missing"
+      },
+      "manifest": {},
+      "expected": "valid"
+    },
+    {
+      "id": "missing-operation-owner-conflicts",
+      "persisted_operation_owner": null,
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "missing-trigger-owner-conflicts",
+      "persisted_operation_owner": {
+        "trigger_owner_state": "missing",
+        "trigger_owner_count": 0
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "invalid-trigger-owner-conflicts",
+      "persisted_operation_owner": {
+        "trigger_owner_state": "invalid",
+        "trigger_owner_count": 1
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "multiple-trigger-owners-conflict",
+      "persisted_operation_owner": {
+        "trigger_owner_state": "multiple",
+        "trigger_owner_count": 2
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "user-recompose-valid-owner",
+      "persisted_operation_owner": {
+        "generation_intent": "user_recompose",
+        "generation_trigger_id": "interaction:visual-revision-7",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "interaction_history": [
+        {
+          "id": "visual-revision-7",
+          "status": "applied",
+          "answer": "换个排版，突出风险边界"
+        }
+      ],
+      "expected_user_wording": "换个排版，突出风险边界",
+      "expected": "valid"
+    },
+    {
+      "id": "user-recompose-missing-history-conflicts",
+      "persisted_operation_owner": {
+        "generation_intent": "user_recompose",
+        "generation_trigger_id": "interaction:visual-revision-404",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "interaction_history": [],
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "user-recompose-non-applied-history-conflicts",
+      "persisted_operation_owner": {
+        "generation_intent": "user_recompose",
+        "generation_trigger_id": "interaction:visual-revision-8",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "interaction_history": [
+        {
+          "id": "visual-revision-8",
+          "status": "pending",
+          "answer": "重新排版"
+        }
+      ],
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "user-recompose-multiple-history-conflicts",
+      "persisted_operation_owner": {
+        "generation_intent": "user_recompose",
+        "generation_trigger_id": "interaction:visual-revision-8",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "interaction_history": [
+        {
+          "id": "visual-revision-8",
+          "status": "applied",
+          "answer": "A"
+        },
+        {
+          "id": "visual-revision-8",
+          "status": "applied",
+          "answer": "B"
+        }
+      ],
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "deck-scope-fanout-shares-trigger-not-transaction",
+      "persisted_operation_owner": {
+        "generation_intent": "user_recompose",
+        "generation_trigger_id": "interaction:visual-revision-9",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "interaction_history": [
+        {
+          "id": "visual-revision-9",
+          "status": "applied",
+          "answer": "整套重新排版",
+          "affected_scope": "deck"
+        }
+      ],
+      "affected_briefs": [
+        {
+          "slide_id": "S05",
+          "generation_trigger_id": "interaction:visual-revision-9",
+          "transaction_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "prompt_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        {
+          "slide_id": "S06",
+          "generation_trigger_id": "interaction:visual-revision-9",
+          "transaction_id": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "prompt_snapshot_id": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        }
+      ],
+      "expected": "valid"
+    },
+    {
+      "id": "old-directory-only-is-inert",
+      "brief_identity": {},
+      "theme_identity": {},
+      "registry": {
+        "state": "missing"
+      },
+      "manifest": {},
+      "persisted_operation_owner": null,
+      "old_directory": {
+        "path": "redesign-prompts/S05.md",
+        "action": "read_only",
+        "write": false,
+        "move": false,
+        "delete": false,
+        "new_directory_present": false
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "new-stale-with-old-directory-rebuilds-from-new-owner",
+      "theme_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.1.0"
+      },
+      "old_directory": {
+        "path": "redesign-prompts/S05.md",
+        "action": "read_only",
+        "write": false,
+        "move": false,
+        "delete": false,
+        "new_directory_present": true
+      },
+      "expected": "ordinary_stale",
+      "brief_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.1.0"
+      }
+    },
+    {
+      "id": "dual-directory-prefers-new-owner",
+      "old_directory": {
+        "path": "redesign-prompts/S05.md",
+        "action": "read_only",
+        "write": false,
+        "move": false,
+        "delete": false,
+        "new_directory_present": true,
+        "legacy_copy_present": true
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "old-directory-different-slide-is-inert",
+      "old_directory": {
+        "path": "redesign-prompts/S04.md",
+        "slide_id": "S04",
+        "action": "read_only",
+        "write": false,
+        "move": false,
+        "delete": false
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "conflicting-legacy-provenance-is-inert",
+      "old_directory": {
+        "path": "redesign-prompts/S05.md",
+        "action": "read_only",
+        "write": false,
+        "move": false,
+        "delete": false,
+        "legacy_copy_present": true,
+        "legacy_selected_style_id": "tech-dark",
+        "new_directory_present": true
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "prompt-hash-changed-is-ordinary-stale",
+      "persisted_operation_owner": {
+        "current_prompt_hash_64hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "expected": "ordinary_stale"
+    },
+    {
+      "id": "stored-body-mismatch-conflicts",
+      "persisted_operation_owner": {
+        "current_body_hash_64hex": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "initial-generation-valid-owner",
+      "persisted_operation_owner": {
+        "generation_intent": "initial_generation",
+        "generation_trigger_id": "initial:S05:sha256:briefsnap",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "reason": "initial generation from approved visual brief",
+        "USER_WORDING": "none (initial generation)",
+        "prior_candidate": "none",
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "initial-generation-malformed-trigger-conflicts",
+      "persisted_operation_owner": {
+        "generation_intent": "initial_generation",
+        "generation_trigger_id": "interaction:visual-revision-3",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reason": "initial generation from approved visual brief",
+        "USER_WORDING": "none (initial generation)",
+        "prior_candidate": "none"
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "initial-generation-wrong-sentinel-conflicts",
+      "persisted_operation_owner": {
+        "generation_intent": "initial_generation",
+        "generation_trigger_id": "initial:S05:sha256:briefsnap",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reason": "initial generation from approved visual brief",
+        "USER_WORDING": "use user text",
+        "prior_candidate": "none"
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "deterministic-fallback-valid-owner",
+      "persisted_operation_owner": {
+        "generation_intent": "deterministic_fallback",
+        "generation_trigger_id": "fallback:S05:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff:2",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reason": "deterministic single-column or two-column fallback after two failed patches",
+        "USER_WORDING": "none (deterministic fallback after two failed patches)"
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "deterministic-fallback-malformed-trigger-conflicts",
+      "persisted_operation_owner": {
+        "generation_intent": "deterministic_fallback",
+        "generation_trigger_id": "fallback:S05:not64:2",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reason": "deterministic single-column or two-column fallback after two failed patches",
+        "USER_WORDING": "none (deterministic fallback after two failed patches)"
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "local-patch-valid-owner",
+      "persisted_operation_owner": {
+        "generation_intent": "local_patch",
+        "generation_trigger_id": "patch:S05:qa-overlap-1",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "requires_current_svg": true,
+        "compile_full_prompt": false
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "local-patch-malformed-trigger-conflicts",
+      "persisted_operation_owner": {
+        "generation_intent": "local_patch",
+        "generation_trigger_id": "interaction:visual-revision-3",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "requires_current_svg": true,
+        "compile_full_prompt": false
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "local-patch-missing-current-svg-conflicts",
+      "persisted_operation_owner": {
+        "generation_intent": "local_patch",
+        "generation_trigger_id": "patch:S05:qa-overlap-1",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "requires_current_svg": false,
+        "compile_full_prompt": false
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "local-patch-compiles-full-prompt-conflicts",
+      "persisted_operation_owner": {
+        "generation_intent": "local_patch",
+        "generation_trigger_id": "patch:S05:qa-overlap-1",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "requires_current_svg": true,
+        "compile_full_prompt": true
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "missing-both-ids-owner-unregistered-identity-conflicts",
+      "brief_identity": {},
+      "theme_identity": {},
+      "persisted_operation_owner": {
+        "generation_intent": "user_recompose",
+        "generation_trigger_id": "interaction:visual-revision-3",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "style_identity": {
+          "selected_style_id": "unknown-style",
+          "selected_style_display_name": "嘉为年中总结风格",
+          "style_kind": "style_pack",
+          "style_manifest_version": "1.2.0"
+        }
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "missing-both-ids-owner-stale-identity-conflicts",
+      "brief_identity": {},
+      "theme_identity": {},
+      "persisted_operation_owner": {
+        "generation_intent": "user_recompose",
+        "generation_trigger_id": "interaction:visual-revision-3",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "style_identity": {
+          "selected_style_id": "canway-midyear-review",
+          "selected_style_display_name": "嘉为年中总结风格",
+          "style_kind": "style_pack",
+          "style_manifest_version": "1.1.0"
+        }
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "missing-both-ids-owner-inconsistent-identity-conflicts",
+      "brief_identity": {},
+      "theme_identity": {},
+      "persisted_operation_owner": {
+        "generation_intent": "user_recompose",
+        "generation_trigger_id": "interaction:visual-revision-3",
+        "trigger_owner_state": "valid",
+        "trigger_owner_count": 1,
+        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "style_identity": {
+          "selected_style_id": "canway-midyear-review",
+          "selected_style_display_name": "嘉为年中总结风格",
+          "style_kind": "legacy_seed",
+          "style_manifest_version": "1.2.0"
+        }
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "brief-theme-display-name-conflict",
+      "brief_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "旧嘉为风格名",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.2.0"
+      },
+      "expected": "prompt_snapshot_conflict"
+    },
+    {
+      "id": "brief-theme-manifest-version-conflict",
+      "theme_identity": {
+        "selected_style_id": "canway-midyear-review",
+        "selected_style_display_name": "嘉为年中总结风格",
+        "style_kind": "style_pack",
+        "style_manifest_version": "1.1.0"
+      },
+      "expected": "prompt_snapshot_conflict"
+    }
+  ]
+}

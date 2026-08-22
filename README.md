@@ -107,7 +107,7 @@ Skill 先检查请求和工作区，已有答案不得重复询问。剩余重�
 
 ### 逐页视觉 brief 与修订
 
-主题确认后，PPT Pilot 为每个待生成或待修订页面创建 `visual-briefs/<slide-id>.md`。该文件组装已批准内容、当前主题、有效视觉修订、信息层级、构图和 SVG／QA 契约，是跨对话和跨宿主恢复视觉意图的唯一页面输入。SVG 是派生结果，不是设计状态；没有有效的逐页视觉 brief 就不能生成页面。
+主题确认后，PPT Pilot 为每个待生成或待修订页面创建 `visual-briefs/<slide-id>.md`。visual brief 是权威页面状态和 prompt compiler 输入：它组装已批准内容、当前主题、有效视觉修订、信息层级、构图和 SVG／QA 契约，但不得把 visual brief 直接交给 generator。首次生成、`recompose` 和确定性回退必须先编译 `generation-prompts/<slide-id>.md`；fresh generator 只接收编译后的 `generation-prompts/<slide-id>.md`，不得直接接收 visual brief 或原始风格 prompt。SVG 是派生结果，不是设计状态。
 
 局部碰撞、越界、令牌或对齐错误使用 `patch`；焦点、层级、布局、卡片密度、字体、语义色、品牌方向或视觉参考变化使用 `recompose`。`patch` 读取完整 brief、当前 SVG 和一个精确 defect；`recompose` 从锁定故事板、当前主题和完整 brief 重新构图，不以旧 SVG 为几何底稿。事实和来源变化仍必须重新进行独立文稿审查。
 
@@ -115,7 +115,11 @@ Skill 先检查请求和工作区，已有答案不得重复询问。剩余重�
 
 ### 可选风格
 
-新安装从 `assets/styles/registry.json` 发现可选风格。三个既有扁平种子继续兼容；内置 rich style pack `canway-midyear-review` 的中文显示名为“嘉为年中总结风格”。只有用户明确选择或主题阶段按既有 guided／auto 规则安全选中时使用，不是新的默认主题。风格包中的 `reference.svg` 只表达视觉语言，不能覆盖逐页 brief 的内容和构图语义。
+新安装从 `assets/styles/registry.json` 发现可选风格。三个既有扁平种子继续兼容；内置 rich style pack `canway-midyear-review` 的中文显示名为“嘉为年中总结风格”，当前内容版本为 `1.2.0`。只有用户明确选择或主题阶段按既有 guided／auto 规则安全选中时使用，不是新的默认主题。
+
+四个内置风格各自拥有一份独立可编译的完整模板，即完整、可独立编译的 redesign prompt 模板：`assets/styles/minimal-business.redesign.md`、`assets/styles/tech-dark.redesign.md`、`assets/styles/bold-editorial.redesign.md` 与 `assets/styles/canway-midyear-review/REDESIGN.md`。共享 `references/redesign-prompt.md` 只是 resolver-only 共享契约：解析 selected style、验证 registry／manifest／路径、编译 `generation-prompts/<slide-id>.md`、记录 provenance 和恢复失败；它不再包含跨风格通用的完整视觉 prompt、固定 Bento、固定卡片数量或某个风格的专属构图。只有替换完当前 brief／theme／revision 输入并持久化后的 generation prompt 才能交给 fresh generator，不能直接传递这些原始模板。
+
+`theme.json` 与每份 `visual-briefs/<slide-id>.md` 都持久保存 selected style identity；编译后的 prompt provenance 继续保存 `generation_intent`、`generation_trigger_id`、style prompt snapshot、brief／theme／storyboard snapshot、`compiled_prompt_sha256` 与 `prompt_snapshot_id`。首次生成、用户 `recompose` 和确定性回退都会编译完整风格 prompt；局部 `patch` 只读取完整 brief、当前 SVG 和精确 defect，不加载完整 redesign prompt。风格 prompt 不可用时写入 `run.json.visual_generation_blocker`，可恢复生成过程写入 `run.json.visual_generation_transaction`。全局恢复顺序精确为 `pending_interaction > visual_generation_blocker > visual_generation_transaction > stage scan`；只有前三类 durable control state 都不存在或已经完成，才能执行 stage scan。旧 `redesign-prompts/` 目录始终 inert，只读保留历史，不写、不移动、不删除，也不参与当前 prompt 选择。
 
 示例需求：
 
@@ -136,6 +140,8 @@ ppt-output/<deck-id>/
 ├── 文稿审查.md
 ├── theme.json
 ├── visual-briefs/
+│   └── <slide-id>.md
+├── generation-prompts/
 │   └── <slide-id>.md
 ├── samples/
 ├── slides/
@@ -164,10 +170,16 @@ MVP 不生成 PPTX、不导入既有 PowerPoint 模板、不搜索图库图片�
 
 ## 开发验证
 
-运行仓库一致性测试：
+运行仓库一致性测试。Task 10 文档边界的聚焦命令是：
+
+```bash
+python -m unittest tests.test_skill_package tests.test_redesign_prompt_contract -v
+```
+
+完整本地命令是：
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-架构说明见[设计文档](docs/design.md)，Claude Code、Codex 与跨宿主交接检查见[验收文档](docs/acceptance.md)。尚未执行的人工结果必须继续标记为 `PENDING`；自动化测试本身不能证明宿主行为或 PowerPoint 渲染结果。
+证据按类别记录：`static package` 只证明包结构、书面契约和 fixture oracle；`EVIDENCE_CLASS: DIAGNOSTIC` 只用于压力提示或诊断，不得当作 Claude Code、Codex、fresh generator、浏览器或 PowerPoint 验收；`deployment hash` 只证明同步后的安装文件集与仓库源一致；`real host` 才能证明带版本、transcript 和运行目录的真实宿主行为。架构说明见[设计文档](docs/design.md)，Claude Code、Codex 与跨宿主交接检查见[验收文档](docs/acceptance.md)。尚未执行的人工结果必须继续标记为 `PENDING`；自动化测试本身不能证明宿主行为、fresh 上下文、浏览器渲染或 PowerPoint 导入。

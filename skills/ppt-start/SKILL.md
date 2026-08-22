@@ -20,8 +20,8 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 
 `resume` 和 `revise` 是入口动作，不写入 `run.json.mode`：
 
-- **resume**：先读取 `run.json` 并处理待回答交互，保留既有 `run.json.mode`，再从第一个未完成或脏阶段继续。
-- **revise**：先读取并保留既有 `run.json.mode`，再按照产物契约只使受影响的产物失效；修改类别无法唯一判断时先询问。
+- **resume**：先读取 `run.json` 并按全局恢复顺序处理 durable control state：`pending_interaction` > `visual_generation_blocker` > `visual_generation_transaction` > stage scan；保留既有 `run.json.mode`，只有前三者都不存在或已完成时才从第一个未完成或脏阶段继续。
+- **revise**：先读取并保留既有 `run.json.mode`，同样先应用 `pending_interaction` > `visual_generation_blocker` > `visual_generation_transaction` > stage scan 的顺序，再按照产物契约只使受影响的产物失效；修改类别无法唯一判断时先询问。
 
 推荐不是确认。提出阻塞问题后必须停止，不得在收到并持久化明确答案前推进下游工作。每次运行写入 `ppt-output/<deck-id>/`。禁止把产物写入本 Skill 或宿主配置目录。新运行的过程 Markdown 使用中文文件名；`resume`／`revise` 对旧英文运行只做原位读取并沿用既有名称，不自动重命名、复制或迁移，具体规则见产物契约。
 
@@ -34,8 +34,9 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 3. 独立文稿审查——[文稿审查](references/manuscript-review.md)
 4. 主题、风格包与语义布局选择——[设计系统](references/design-system.md)和[布局目录](references/layout-catalog.md)
 5. 在生成任何视觉页面前，先按[逐页视觉 brief 与生成](references/visual-brief-and-generation.md)组装并验证对应 `visual-briefs/<slide-id>.md`；没有有效 brief 不得生成 SVG。
-6. 两页锚点 SVG——[SVG 契约](references/svg-contract.md)
-7. 生成任何正式页面前，先读取 [QA、恢复与修订](references/qa-and-revision.md)；按每批 3–4 页生产，但每次只写入并验证一个 SVG，通过后才能继续。
+6. 每个页面的首次生成和任何 `recompose` 都必须按[页面生成与重新排版专用 Prompt](references/redesign-prompt.md)写入 `generation-prompts/<slide-id>.md`，并在 fresh 独立上下文中只用该 Prompt 生成候选；不得由 visual brief 直接生成 SVG。旧 `redesign-prompts/` 只读兼容。
+7. 两页锚点 SVG——[SVG 契约](references/svg-contract.md)
+8. 生成任何正式页面前，先读取 [QA、恢复与修订](references/qa-and-revision.md)；按每批 3–4 页生产，但每次只写入并验证一个 SVG，通过后才能继续。
 
 阶段转换遵循[工作流](references/workflow.md)，文件和状态字段遵循[产物契约](references/artifact-contract.md)。
 
@@ -80,6 +81,8 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 - 每页最多修复两次，之后使用简单布局回退；回退后仍有硬检查失败时必须停止。
 - `resume` 入口必须先读取 `run.json` 并保留既有 `run.json.mode`；除非产物缺失、格式错误或被标记为脏，否则不得重新计算已批准的上游工作。
 - 纯视觉修改或可证明不改变事实的文字修正，只把受影响页面和 QA 标记为脏，不重新进行文稿审查。
+- 所有首次页面生成和 `recompose` 必须持久化 `generation-prompts/<slide-id>.md`，由 fresh 独立生成上下文只返回 fenced SVG；创作上下文提取裸 SVG 后再执行正式 QA。旧 `redesign-prompts/` 仅作只读兼容。
+- 风格 prompt 解析或编译失败时写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 与 dirty slide，不启动 generator、不写 SVG、不改用其他风格、不降级为 patch。prompt durable 但 `run.json` 尚未提交时，`compiling` transaction 与 active blocker 可同时存在；恢复时只能用一次 `run.json` 替换同时提交 `compiled` 并移除匹配 blocker。
 - 主张、来源、事实性文案、大纲或故事板变化会使批准失效；重新生成视觉页面前必须进行新的文稿审查。
 
 ## 输出规则

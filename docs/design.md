@@ -26,10 +26,13 @@ MVP 刻意保持纯指令架构。它只使用宿主常规的工作区能力，�
 - `references/`：各阶段流程与契约；
 - `assets/styles/registry.json`：风格发现注册表；
 - `assets/styles/*.json`：三个兼容的扁平风格种子；
-- `assets/styles/<style-id>/`：包含 manifest、tokens、中文指导和参考 SVG 的 rich style packs；
+- `assets/styles/minimal-business.redesign.md`、`assets/styles/tech-dark.redesign.md`、`assets/styles/bold-editorial.redesign.md`：三个 legacy seed 自有完整 redesign prompt；
+- `assets/styles/<style-id>/`：包含 manifest、tokens、中文抽象设计指导与自有完整 prompt 的 rich style packs；当前 `canway-midyear-review/REDESIGN.md` 由 Canway manifest 声明；
 - `assets/examples/`：一份 Office-safe SVG 示例。
 
-运行目录中的 `visual-briefs/<slide-id>.md` 是自包含的逐页视觉生成状态，不属于共享 Skill 安装资产。
+运行目录中的 `visual-briefs/<slide-id>.md` 是自包含的逐页视觉生成状态，不属于共享 Skill 安装资产；首次生成、用户 `recompose` 与确定性回退还会编译并持久化 `generation-prompts/<slide-id>.md`，其中包含所选风格完整 prompt 的替换后正文和 provenance。
+
+共享 `references/redesign-prompt.md` 是 resolver-only contract：它只规定 selected style identity、registry／manifest／legacy companion 解析、路径 containment、模板 marker、snapshot、blocker、transaction、fresh generator 输入隔离和失败恢复。它不得保存四个风格的完整视觉生成正文，也不得把某个风格的布局语言作为共享默认。
 
 共享 frontmatter 只包含 `name` 与 `description`，其中 `name` 为 `ppt-start`。运行时指令使用“读取、写入、委派、检查”等语义动作，不依赖宿主专属工具名、变量、权限语法或调用语法。
 
@@ -86,12 +89,13 @@ run.json
 文稿审查.md
 theme.json
 visual-briefs/<slide-id>.md
+generation-prompts/<slide-id>.md
 samples/*.svg
 slides/*.svg
 质量检查报告.md
 ```
 
-`run.json` 使用 `schema_version: 1`，记录 `guided`／`auto` 执行策略、当前阶段、文稿审查状态、可选的 `pending_interaction`／`interaction_history` 和脏页面；入口动作不写入 `mode`。`manuscript_review.cycle` 也是可选 schema-v1 字段，旧运行缺少时按 1。直接视觉修订以 `visual-revision-<N>` 保存在权威 `interaction_history`，并通过 `supersedes` 排除废弃规则。每个 `visual-briefs/<slide-id>.md` 记录锁定内容、主题与风格 provenance、有效修订、层级、构图、模式和 QA 要求。这些文件足以让一个受支持宿主把运行交给另一个宿主，而不依赖此前对话。
+`run.json` 使用 `schema_version: 1`，记录 `guided`／`auto` 执行策略、当前阶段、文稿审查状态、可选的 `pending_interaction`／`interaction_history`、`visual_generation_blocker`、`visual_generation_transaction` 和脏页面；入口动作不写入 `mode`。`manuscript_review.cycle` 也是可选 schema-v1 字段，旧运行缺少时按 1。直接视觉修订以 `visual-revision-<N>` 保存在权威 `interaction_history`，并通过 `supersedes` 排除废弃规则。每个 `visual-briefs/<slide-id>.md` 记录锁定内容、主题与风格 provenance、有效修订、层级、构图、模式和 QA 要求；其中 `generation_intent` 与 `generation_trigger_id` 说明当前视觉操作的持久来源，不能从 SVG 是否存在或用户措辞猜测。`generation-prompts/<slide-id>.md` 记录 resolved prompt path、style／brief／theme／storyboard snapshots、`compiled_prompt_sha256`、`prompt_snapshot_id` 和 transaction provenance。这些文件足以让一个受支持宿主把运行交给另一个宿主，而不依赖此前对话。
 
 中文 Markdown 名称是新运行的标准。为了让既有运行仍能恢复，`resume`／`revise` 可以继续原位读取旧英文名称 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md`、`manuscript-review.md` 和 `qa-report.md`，但不得自动重命名、复制或迁移。实际名称由 `run.json` 的引用字段和目录中的完整文件集合共同决定；无法唯一判定时停止并报告冲突。
 
@@ -140,11 +144,23 @@ slides/*.svg
 - `tech-dark`
 - `bold-editorial`
 
-并提供非默认 rich style pack `canway-midyear-review`，中文显示名为“嘉为年中总结风格”。它的 manifest 引用机器可读 tokens、中文 `STYLE.md` 与合成 Office-safe `reference.svg`；参考 SVG 只提供视觉语言，不能覆盖逐页 visual brief。
+并提供非默认 rich style pack `canway-midyear-review`，中文显示名为“嘉为年中总结风格”，manifest 内容版本必须精确为 `1.2.0`，并在 `files.redesign_prompt` 中声明 `canway-midyear-review/REDESIGN.md`。它的 manifest 引用机器可读 tokens、中文 `STYLE.md` 抽象规则和风格自有完整 prompt；这些都不是单页成品 SVG 或固定构图参考。颜色、字体、间距、形状和语义角色可以复用；每页区域、卡片数量、连接关系和阅读路径必须由当前 visual brief 重新推导，避免把风格身份固化为同一张版式。
 
 布局根据内容语义选择，不机械轮换。支持封面／章节、单一结论、比较、时间线／流程、层级／架构、数据／图表、Bento 汇总和收束／行动。除非内容要求，相邻页面不得重复同一家族。
 
 全面生产前生成两个锚点：封面，以及最困难或信息密度最高的内容页。`guided` 策略等待批准，`auto` 策略执行同等内部检查。
+
+### 风格 prompt、身份与恢复边界
+
+四个内置风格的完整 prompt 是风格自有的独立可编译的完整模板：`minimal-business.redesign.md`、`tech-dark.redesign.md`、`bold-editorial.redesign.md` 与 `canway-midyear-review/REDESIGN.md`。legacy seed 可以通过 registry 的 `redesign_prompt` 字段或已知 companion 规则定位；style pack 只能通过自己的 manifest 定位。新增 style pack 只新增 registry 条目和 manifest／prompt 资产，不修改共享 resolver schema 或逻辑。visual brief 是页面视觉权威状态与 compiler 输入；编译后的 generation prompt 是 fresh generator 的唯一执行输入，fresh generator 不得直接接收 visual brief 或原始风格 prompt。
+
+`theme.json` 与 visual brief 持久保存同一组 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind` 与 `style_manifest_version`。编译 prompt 时只信任这些持久字段、registry／manifest 和快照；display name 或 manifest version 升级属于 ordinary stale 并触发重建，互相矛盾或无法唯一重建才是 `prompt_snapshot_conflict`。
+
+操作触发也必须持久化：首次生成使用 `generation_trigger_id: initial:<slide-id>:<visual_brief_snapshot_id>`，用户重构使用 `interaction:<interaction_history-id>`，两次 patch 后确定性回退使用 `fallback:<slide-id>:<failed-transaction-64hex>:2`，局部修补使用 `patch:<slide-id>:<qa-defect-id>`。deck-scope 用户重构可以共享同一个 trigger，但每页仍有独立 prompt snapshot 和 transaction identity。
+
+当 style prompt、路径、身份或 snapshot 无法解析时，运行写入 `run.json.visual_generation_blocker` 并保持 slide dirty，不启动 generator、不覆盖 SVG、不改用其他风格。成功编译后，`run.json.visual_generation_transaction` 以 `compiling -> compiled -> generating -> candidate_written -> validated -> promoted` 描述可恢复状态；每一步只声称单个 `run.json` 原子替换，跨文件 prompt／候选写入只通过复读 hash 恢复。全局恢复顺序精确为 `pending_interaction > visual_generation_blocker > visual_generation_transaction > stage scan`；前三类 durable control state 均不存在或已完成后才能扫描普通阶段。
+
+旧 `redesign-prompts/` 目录永远 inert：可作为只读历史保留，但不能写入、移动、删除、激活或用来推断当前风格。当前 prompt 有效性只由新 `generation-prompts/` provenance、visual brief、theme、storyboard 和安装包 prompt snapshot 决定。
 
 ## Office-safe SVG 契约
 
@@ -221,4 +237,4 @@ MVP 只有在以下条件满足时才算通过相应验收：
 7. 内置 SVG 与测试页面都满足 Office-safe 契约；
 8. 代表性页面在浏览器中可打开，并能插入受支持 PowerPoint 版本且不丢失关键内容。
 
-可重复流程与证据台账见 [`docs/acceptance.md`](acceptance.md)。自动一致性测试只覆盖包结构与书面契约，不能证明 Claude Code 行为、Codex 行为、审稿来源、跨宿主交接、浏览器渲染或 PowerPoint 导入。相关结论必须以台账中带日期的 `PASS`、`FAIL`、`NOT RUN` 或 `PENDING` 为准，不能把绿色测试套件描述成人工宿主／应用验收通过。
+可重复流程与证据台账见 [`docs/acceptance.md`](acceptance.md)。自动一致性测试只覆盖包结构与书面契约，不能证明 Claude Code 行为、Codex 行为、fresh generator 行为、审稿来源、跨宿主交接、浏览器渲染或 PowerPoint 导入。证据类别必须区分 `static package`、`EVIDENCE_CLASS: DIAGNOSTIC`、`deployment hash` 和 `real host`：测试 oracle 不是运行时代码，诊断压力场景不是人工验收，部署 hash 只证明文件同步，只有真实宿主版本、transcript 和运行目录才能更新当前宿主行为结果。相关结论必须以台账中带日期的 `PASS`、`FAIL`、`NOT RUN` 或 `PENDING` 为准，不能把绿色测试套件描述成人工宿主／应用验收通过。

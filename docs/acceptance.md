@@ -1,8 +1,8 @@
 # 跨宿主验收
 
-本文档给出同一标准 `skills/ppt-start/` 包在 Claude Code 与 OpenAI Codex 中的可重复人工验收矩阵。自动一致性测试验证书面契约，但不能证明宿主委派、跨宿主续作、浏览器渲染或 PowerPoint 导入。
+本文档给出同一标准 `skills/ppt-start/` 包在 Claude Code 与 OpenAI Codex 中的可重复人工验收矩阵。自动一致性测试验证书面契约，但不能证明宿主委派、跨宿主续作、fresh generator 隔离、浏览器渲染或 PowerPoint 导入。
 
-未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。
+未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前四个 style-owned full prompts、Canway `1.2.0`、blocker 和 transaction 变更只新增静态与诊断边界；真实 Claude Code、Codex、fresh、浏览器和 PowerPoint 行为在重新执行前仍保持原台账状态。
 
 ## 前置条件
 
@@ -12,7 +12,7 @@
 4. 执行 `resume-after-review.md` 前，创建 `ppt-output/resume-approved/`，把 `tests/fixtures/run-review-approved.json` 复制为其中的 `run.json`，再把 `tests/fixtures/resume-approved/` 的六个文件复制到同一目录，并把 `tests/inputs/` 复制到工作区的 `inputs/`。这是专门验证只读恢复能力的**旧英文运行兼容夹具**，所有文件名与内容必须保持不变，接收宿主不得自动重命名或迁移。
 5. 执行 `resume-pending-interaction.md` 前，创建 `ppt-output/pending-outline-approval/`，把 `tests/fixtures/run-pending-interaction.json` 复制为其中的 `run.json`，并准备与其 `outline` 阶段匹配的已批准简报、研究、来源和当前大纲。接收宿主必须先处理同一个待回答问题，不得创建新问题或重做上游工作。
 6. 执行 `revise-single-slide.md` 前，准备三个相互独立、完整且已通过的 source-driven 合成运行副本。patch、recompose 和 factual change 三个分支分别在不同副本中执行，避免一条分支污染另一条分支的起始状态。
-7. 保存完整 `ppt-output/<deck-id>/` 和宿主 transcript／日志作为证据。
+7. 保存完整 `ppt-output/<deck-id>/` 和宿主 transcript／日志作为**本地证据**，但不得提交运行时产物。版本库只保留可复现提示、人工整理的 Markdown 评估／索引和必要的验收自动化脚本；运行工作区、原始 transcript、last-message、截图、PPTX 和 JSON／TXT 诊断由 `.gitignore` 排除。
 8. 验证审稿独立性时，保存宿主返回的子上下文 ID、完成事件 ID、匹配的结果来源上下文 ID 及审稿人受限输入。审稿人只能接收五个冻结文稿文件和审查规范。只有文字叙述，或没有子上下文／接收者状态的空等待，均视为失败，不构成来源证据。`run.json` 单独存在不是证据；每个声明的 ID 都必须与宿主 transcript 或协作日志关联。
 9. 跨宿主交接时，不得向接收宿主提供发起宿主的对话。
 10. 实时网络或渲染不可用时，应保留运行中明确的降级状态，不能将其解释为通过。
@@ -34,17 +34,18 @@
 
 ## 快速视觉机制验证
 
-本次机制改造只要求本地契约测试与 SVG 静态检查：visual brief 完整性、视觉修订优先级、patch/recompose 分支、风格注册表、嘉为年中总结风格资产引用，以及合成 `reference.svg` 的 Office-safe 结构。
+本次机制改造只要求本地契约测试与 SVG 静态检查：visual brief 完整性、视觉修订优先级、patch/recompose 分支、风格注册表、四份 style-owned full prompts、嘉为年中总结风格的抽象资产边界，以及生成 SVG 的 Office-safe 结构。
 
-本次不新增 Claude Code／Codex 现场运行、PowerPoint 导入、整套浏览器视觉检查或 FY26 页面重生成证据。历史验收台账保持原状态，不能把本地绿色测试描述为这些人工验收已经通过。
+本次不新增 Claude Code／Codex 现场运行、PowerPoint 导入、整套生成页面浏览器视觉检查或 FY26 页面重生成证据。历史验收台账保持原状态，不能把本地绿色测试描述为这些人工验收已经通过。所有 Task-10 影响的真实 Claude Code、Codex、fresh generator、完整生成页面浏览器和 PowerPoint 行在重新执行前继续 `PENDING`；带“历史旧标识”的行仅保留历史证据含义。2026-08-19 的内置示例 SVG 浏览器 PASS 是历史但仍适用于未改变内置资产的资产级证据，不证明本次 style prompt 或生成行为。
 
 静态验证还检查：
 
 - `visual-briefs/<slide-id>.md` 的七个必需章节、风格 provenance 与锁定来源边界；
 - `visual-revision-<N>`、`supersedes` 和 deck／slide 作用域归并；
 - `patch`、`recompose` 和事实重入三个互斥分支；
-- `assets/styles/registry.json`、`canway-midyear-review` manifest／tokens／`STYLE.md`／`reference.svg`；
-- 合成参考 SVG 的允许元素、禁止特性、画布、字号和唯一 ID。
+- `assets/styles/registry.json`、`minimal-business.redesign.md`、`tech-dark.redesign.md`、`bold-editorial.redesign.md`、`canway-midyear-review` manifest／tokens／`STYLE.md`／`canway-midyear-review/REDESIGN.md`，且风格包不包含单页成品 SVG 或固定构图参考；Canway manifest 内容版本为 `1.2.0`；
+- shared `references/redesign-prompt.md` 只作为 resolver-only 共享契约，检查 identity／provenance、`generation_trigger_id`、`visual_generation_blocker`、`visual_generation_transaction`、旧 `redesign-prompts/` inert 迁移和全局恢复顺序；
+- 生成 SVG 的允许元素、禁止特性、画布、字号和唯一 ID。
 
 每个场景至少检查：
 
@@ -55,6 +56,29 @@
 - 每个待生成／修订页面是否先有有效 `visual-briefs/<slide-id>.md`，并且只含当前有效视觉规则；
 - 当前运行实际使用的 QA 报告：新运行检查 `质量检查报告.md`，旧英文运行检查 `qa-report.md`，包括真实的 `visual_qa` 状态；
 - 独立 SVG 结构和运行目录内容。
+
+### 证据类别与命令边界
+
+本轮验收必须按证据类别记录，不得互相冒充：
+
+- `static package`：本地测试和文件检查只证明包结构、书面契约和 fixture oracle，并验证标准 Skill 包、manifest、四份完整 prompt 与文档一致；测试中的 resolver／hash oracle 不是运行时代码，也不能证明宿主 Agent 会按这些规则执行。
+- `EVIDENCE_CLASS: DIAGNOSTIC`：诊断压力提示（例如 style isolation、registry fallback、style blocker）只暴露风险或辅助复测，不得作为 Claude Code、Codex、fresh generator、浏览器或 PowerPoint 验收通过依据。
+- `deployment hash`：同步到用户级或项目级安装目录后的文件集 hash，只证明部署的 `skills/ppt-start/` 与仓库源一致，不证明运行行为。
+- `real host`：只有记录真实宿主版本、启动命令、transcript／协作日志、运行目录和必要截图／PPTX 的证据，才能更新当前 Claude Code、Codex、fresh、浏览器或 PowerPoint 行。
+
+Task 10 聚焦 GREEN 命令固定为：
+
+```bash
+python -m unittest tests.test_skill_package tests.test_redesign_prompt_contract -v
+```
+
+完整本地命令固定为：
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+这些命令的通过只能更新 `static package` 结论；真实宿主、浏览器和 PowerPoint 行仍按下方结果台账单独执行。
 
 ### 交互行为证据
 
@@ -159,6 +183,7 @@
 | 待回答恢复 | Claude Code | — | — | PENDING | — |
 | 单页修订 | Claude Code | — | — | PENDING | — |
 | 委派不可用 | Claude Code | — | — | PENDING | — |
+| 风格 prompt fresh generator 隔离 | Claude Code | — | — | PENDING | — |
 | 仅主题 guided | Codex | — | — | PENDING | — |
 | 资料驱动 | Codex | — | — | PENDING | — |
 | 审查阻断（历史旧标识） | Codex | 2026-08-19 | Codex CLI 0.146.1 | FAIL — 空等待并虚构子上下文／结果来源 | [`codex-blocker-v3-evaluation.md`](../acceptance-evidence/2026-08-19/host-runs/codex-blocker-v3/codex-blocker-v3-evaluation.md) |
@@ -166,11 +191,12 @@
 | 待回答恢复 | Codex | — | — | PENDING | — |
 | 单页修订 | Codex | — | — | PENDING | — |
 | 委派不可用（历史旧标识） | Codex | 2026-08-19 | Codex CLI 0.146.1（`multi_agent` 禁用） | PASS | [`codex-review-unavailable-v3-evaluation.md`](../acceptance-evidence/2026-08-19/host-runs/codex-review-unavailable-v3/codex-review-unavailable-v3-evaluation.md) |
+| 风格 prompt fresh generator 隔离 | Codex | — | — | PENDING | — |
 | 已批准交接 | Claude Code -> Codex | — | — | PENDING | — |
 | 已批准交接 | Codex -> Claude Code | — | — | PENDING | — |
 | 被阻断交接 | Claude Code -> Codex | — | — | PENDING | — |
 | 被阻断交接 | Codex -> Claude Code | — | — | PENDING | — |
-| 内置示例 SVG 渲染 | 浏览器 | 2026-08-19 | Chrome 151.0.0.0 / Windows 11 | PASS | [`browser-svg.md`](../acceptance-evidence/2026-08-19/browser-svg.md) |
+| 内置示例 SVG 渲染（历史资产证据，仍适用于未改变资产） | 浏览器 | 2026-08-19 | Chrome 151.0.0.0 / Windows 11 | PASS | [`browser-svg.md`](../acceptance-evidence/2026-08-19/browser-svg.md) |
 | 生成锚点 SVG 渲染（历史旧标识） | 浏览器 | 2026-08-19 | Chrome 151.0.0.0 / Windows 11 | PASS — Codex 恢复场景的两个锚点 | [`codex-resume-v3-evaluation.md`](../acceptance-evidence/2026-08-19/host-runs/codex-resume-v3/codex-resume-v3-evaluation.md) |
 | 完整生成演示文稿 SVG 渲染 | 浏览器 | — | — | PENDING | — |
 | 内置示例 SVG 导入 | 受支持的 PowerPoint | 2026-08-19 | Microsoft PowerPoint 16.0.20228.20190 / Windows 11 | PENDING — 当前资产重验被 COM 注册阻断 | [`powerpoint-svg.md`](../acceptance-evidence/2026-08-19/powerpoint-svg.md) |

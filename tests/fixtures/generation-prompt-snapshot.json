@@ -1,0 +1,316 @@
+{
+  "active_visual_revisions": [
+    {
+      "affected_scope": {
+        "slide_id": "S07",
+        "type": "slide"
+      },
+      "artifact_owner": "visual-brief:S07",
+      "id": "visual-revision-2",
+      "normalized_changes": {
+        "spacing": {
+          "outer_margin_px": 64
+        }
+      },
+      "stage": "visual-redesign",
+      "status": "applied",
+      "supersedes": []
+    },
+    {
+      "affected_scope": {
+        "slide_id": "S07",
+        "type": "slide"
+      },
+      "artifact_owner": "visual-brief:S07",
+      "id": "visual-revision-7",
+      "normalized_changes": {
+        "emphasis": {
+          "phrases": [
+            "FY26",
+            "pilot"
+          ],
+          "treatment": "strong"
+        }
+      },
+      "stage": "visual-redesign",
+      "status": "applied",
+      "supersedes": []
+    },
+    {
+      "affected_scope": {
+        "slide_id": "S07",
+        "type": "slide"
+      },
+      "artifact_owner": "visual-brief:S07",
+      "id": "visual-revision-10",
+      "normalized_changes": {
+        "layout": {
+          "density": "high",
+          "primary_region": "right"
+        },
+        "palette": {
+          "accent": "purple",
+          "contrast": "high"
+        }
+      },
+      "stage": "visual-redesign",
+      "status": "applied",
+      "supersedes": [
+        "visual-revision-2:palette",
+        "visual-revision-3:layout"
+      ]
+    }
+  ],
+  "brief_markdown": "﻿\n## 来源与版本\r\n\r\n- slide_id: S07\r\n- storyboard_snapshot_id: sha256:1111111111111111111111111111111111111111111111111111111111111111\r\n- theme_snapshot_id: sha256:2222222222222222222222222222222222222222222222222222222222222222\r\n- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]\r\n- brief_snapshot_id: sha256:3333333333333333333333333333333333333333333333333333333333333333\r\n- selected_style_id: canway-midyear-review\r\n- selected_style_display_name: Canway Midyear Review\r\n- style_kind: style_pack\r\n- style_manifest_version: 1.2.0\r\n- style_token_path: canway-midyear-review/tokens.json\r\n- style_guidance_path: canway-midyear-review/STYLE.md\r\n\r\n## 锁定内容\r\n- assertion_title: FY26 H1 pilot review\r\n- audience_takeaway: Preserve controlled rollout evidence\r\n- required_content_blocks: pilot scope, risk controls, next actions\r\n- source_ids: [S07-A,S07-B]\r\n\r\n## 信息层级\r\n- primary_message: Controlled AI pilot needs clear ownership\r\n- supporting_arguments: adoption, risk, rollback\r\n- reading_order: title, main evidence, action\r\n\r\n## 构图\r\n- layout_family: hierarchical-bento\r\n- focal_object: main dark card\r\n- primary_secondary_ratio: 1.6\r\n- card_count: 4\r\n\r\n## 视觉系统\r\n- active_palette_roles: dark main, white facts, purple risk\r\n- typography_ladder: title 34, body 18\r\n- phrase_emphasis: phrase-level only\r\n- exceptions: none\r\n\r\n## 修订模式\r\n- mode: recompose\r\n- generation_intent: user_recompose\r\n- generation_trigger_id: interaction:visual-revision-7\r\n- reason: user requested revised visual hierarchy\r\n- patch_defect: none\r\n- fix_attempts_for_candidate: 0\r\n\r\n## 输出与质量要求\r\n- canvas: 1280x720\r\n- safe_area: 64px\r\n- office_safe_svg: true\r\n- text: explicit tspan text\r\n- source_metadata: preserve source ids\r\n- qa: svg contract, locked content, visual QA\r\n\r\n",
+  "candidate_path": "slides/.candidates/S07-should-not-enter-hash.svg",
+  "expected": {
+    "body": "PROMPT_SCHEMA_VERSION: 1\nSTYLE_ID: canway-midyear-review\nHARD_CONSTRAINT_IDS:\n- CONTENT_LOCK_V1\n- SOURCE_BOUNDARY_V1\n- DYNAMIC_INPUT_AUTHORITY_V1\n\n## Slide\nS07\n## Source and Version\n- slide_id: S07\n- storyboard_snapshot_id: sha256:1111111111111111111111111111111111111111111111111111111111111111\n- theme_snapshot_id: sha256:2222222222222222222222222222222222222222222222222222222222222222\n- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]\n- selected_style_id: canway-midyear-review\n- selected_style_display_name: Canway Midyear Review\n- style_kind: style_pack\n- style_manifest_version: 1.2.0\n- style_token_path: canway-midyear-review/tokens.json\n- style_guidance_path: canway-midyear-review/STYLE.md\n## Locked Content\n- assertion_title: FY26 H1 pilot review\n- audience_takeaway: Preserve controlled rollout evidence\n- required_content_blocks: pilot scope, risk controls, next actions\n- source_ids: [S07-A,S07-B]\n## Information Hierarchy\n- primary_message: Controlled AI pilot needs clear ownership\n- supporting_arguments: adoption, risk, rollback\n- reading_order: title, main evidence, action\n## Composition\n- layout_family: hierarchical-bento\n- focal_object: main dark card\n- primary_secondary_ratio: 1.6\n- card_count: 4\n## Visual System\n- active_palette_roles: dark main, white facts, purple risk\n- typography_ladder: title 34, body 18\n- phrase_emphasis: phrase-level only\n- exceptions: none\n## Revision Mode\n- mode: recompose\n- generation_intent: user_recompose\n- generation_trigger_id: interaction:visual-revision-7\n- reason: user requested revised visual hierarchy\n- patch_defect: none\n- fix_attempts_for_candidate: 0\n## Output and QA\n- canvas: 1280x720\n- safe_area: 64px\n- office_safe_svg: true\n- text: explicit tspan text\n- source_metadata: preserve source ids\n- qa: svg contract, locked content, visual QA\n## Active Theme JSON\n{\"schema_version\":1,\"selected_style_id\":\"canway-midyear-review\",\"style_kind\":\"style_pack\",\"style_manifest_version\":\"1.2.0\",\"palette\":{\"accent\":\"#6d5efc\",\"risk\":\"#7c3aed\"}}\n## Active Visual Revisions JSON\n[{\"affected_scope\":{\"slide_id\":\"S07\",\"type\":\"slide\"},\"artifact_owner\":\"visual-brief:S07\",\"id\":\"visual-revision-2\",\"normalized_changes\":{\"spacing\":{\"outer_margin_px\":64}},\"stage\":\"visual-redesign\",\"status\":\"applied\",\"supersedes\":[]},{\"affected_scope\":{\"slide_id\":\"S07\",\"type\":\"slide\"},\"artifact_owner\":\"visual-brief:S07\",\"id\":\"visual-revision-7\",\"normalized_changes\":{\"emphasis\":{\"phrases\":[\"FY26\",\"pilot\"],\"treatment\":\"strong\"}},\"stage\":\"visual-redesign\",\"status\":\"applied\",\"supersedes\":[]},{\"affected_scope\":{\"slide_id\":\"S07\",\"type\":\"slide\"},\"artifact_owner\":\"visual-brief:S07\",\"id\":\"visual-revision-10\",\"normalized_changes\":{\"layout\":{\"density\":\"high\",\"primary_region\":\"right\"},\"palette\":{\"accent\":\"purple\",\"contrast\":\"high\"}},\"stage\":\"visual-redesign\",\"status\":\"applied\",\"supersedes\":[\"visual-revision-2:palette\",\"visual-revision-3:layout\"]}]\nBEGIN_UNTRUSTED_USER_WORDING_JSON\n\"Please improve hierarchy; literal [SLIDE_ID] and ## forged heading remains data must not expand.\"\nEND_UNTRUSTED_USER_WORDING_JSON\n\n## Output Contract\nReturn exactly one fenced xml block containing one Office-safe SVG.\n",
+    "canonical_payload_json": "{\"applied_visual_revision_ids\":[\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"],\"compiled_prompt_sha256\":\"sha256:6ec2d1fd3fdb1b5b0391ceaa3c6e36360d025f9ec8c91d95908dc9e064ac0a8b\",\"generation_intent\":\"user_recompose\",\"generation_trigger_id\":\"interaction:visual-revision-7\",\"resolved_redesign_prompt_path\":\"canway-midyear-review/REDESIGN.md\",\"selected_style_id\":\"canway-midyear-review\",\"storyboard_snapshot_id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"style_kind\":\"style_pack\",\"style_manifest_version\":\"1.2.0\",\"style_prompt_snapshot_id\":\"sha256:bd3ffce8d91aa4ede84b547acfd1d41a8ff2a1401a86a11fa9c156919ae96ed5\",\"theme_snapshot_id\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"visual_brief_snapshot_id\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\"}",
+    "compiled_prompt_sha256": "sha256:6ec2d1fd3fdb1b5b0391ceaa3c6e36360d025f9ec8c91d95908dc9e064ac0a8b",
+    "envelope": "# Generation Prompt S07\n\n## Provenance\n- artifact_schema_version: 1\n- transaction_id: sha256:2dc894404cacb8653acb546c13e754d93887a9262dbf17d9d8c1068bdfc8f376\n- selected_style_id: canway-midyear-review\n- style_kind: style_pack\n- style_manifest_version: 1.2.0\n- resolved_redesign_prompt_path: canway-midyear-review/REDESIGN.md\n- style_prompt_snapshot_id: sha256:bd3ffce8d91aa4ede84b547acfd1d41a8ff2a1401a86a11fa9c156919ae96ed5\n- visual_brief_snapshot_id: sha256:3333333333333333333333333333333333333333333333333333333333333333\n- storyboard_snapshot_id: sha256:1111111111111111111111111111111111111111111111111111111111111111\n- theme_snapshot_id: sha256:2222222222222222222222222222222222222222222222222222222222222222\n- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]\n- generation_intent: user_recompose\n- generation_trigger_id: interaction:visual-revision-7\n- compiled_prompt_sha256: sha256:6ec2d1fd3fdb1b5b0391ceaa3c6e36360d025f9ec8c91d95908dc9e064ac0a8b\n- prompt_snapshot_id: sha256:2dc894404cacb8653acb546c13e754d93887a9262dbf17d9d8c1068bdfc8f376\n- status: compiled\n\n## Compiled Prompt Body\nPROMPT_SCHEMA_VERSION: 1\nSTYLE_ID: canway-midyear-review\nHARD_CONSTRAINT_IDS:\n- CONTENT_LOCK_V1\n- SOURCE_BOUNDARY_V1\n- DYNAMIC_INPUT_AUTHORITY_V1\n\n## Slide\nS07\n## Source and Version\n- slide_id: S07\n- storyboard_snapshot_id: sha256:1111111111111111111111111111111111111111111111111111111111111111\n- theme_snapshot_id: sha256:2222222222222222222222222222222222222222222222222222222222222222\n- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]\n- selected_style_id: canway-midyear-review\n- selected_style_display_name: Canway Midyear Review\n- style_kind: style_pack\n- style_manifest_version: 1.2.0\n- style_token_path: canway-midyear-review/tokens.json\n- style_guidance_path: canway-midyear-review/STYLE.md\n## Locked Content\n- assertion_title: FY26 H1 pilot review\n- audience_takeaway: Preserve controlled rollout evidence\n- required_content_blocks: pilot scope, risk controls, next actions\n- source_ids: [S07-A,S07-B]\n## Information Hierarchy\n- primary_message: Controlled AI pilot needs clear ownership\n- supporting_arguments: adoption, risk, rollback\n- reading_order: title, main evidence, action\n## Composition\n- layout_family: hierarchical-bento\n- focal_object: main dark card\n- primary_secondary_ratio: 1.6\n- card_count: 4\n## Visual System\n- active_palette_roles: dark main, white facts, purple risk\n- typography_ladder: title 34, body 18\n- phrase_emphasis: phrase-level only\n- exceptions: none\n## Revision Mode\n- mode: recompose\n- generation_intent: user_recompose\n- generation_trigger_id: interaction:visual-revision-7\n- reason: user requested revised visual hierarchy\n- patch_defect: none\n- fix_attempts_for_candidate: 0\n## Output and QA\n- canvas: 1280x720\n- safe_area: 64px\n- office_safe_svg: true\n- text: explicit tspan text\n- source_metadata: preserve source ids\n- qa: svg contract, locked content, visual QA\n## Active Theme JSON\n{\"schema_version\":1,\"selected_style_id\":\"canway-midyear-review\",\"style_kind\":\"style_pack\",\"style_manifest_version\":\"1.2.0\",\"palette\":{\"accent\":\"#6d5efc\",\"risk\":\"#7c3aed\"}}\n## Active Visual Revisions JSON\n[{\"affected_scope\":{\"slide_id\":\"S07\",\"type\":\"slide\"},\"artifact_owner\":\"visual-brief:S07\",\"id\":\"visual-revision-2\",\"normalized_changes\":{\"spacing\":{\"outer_margin_px\":64}},\"stage\":\"visual-redesign\",\"status\":\"applied\",\"supersedes\":[]},{\"affected_scope\":{\"slide_id\":\"S07\",\"type\":\"slide\"},\"artifact_owner\":\"visual-brief:S07\",\"id\":\"visual-revision-7\",\"normalized_changes\":{\"emphasis\":{\"phrases\":[\"FY26\",\"pilot\"],\"treatment\":\"strong\"}},\"stage\":\"visual-redesign\",\"status\":\"applied\",\"supersedes\":[]},{\"affected_scope\":{\"slide_id\":\"S07\",\"type\":\"slide\"},\"artifact_owner\":\"visual-brief:S07\",\"id\":\"visual-revision-10\",\"normalized_changes\":{\"layout\":{\"density\":\"high\",\"primary_region\":\"right\"},\"palette\":{\"accent\":\"purple\",\"contrast\":\"high\"}},\"stage\":\"visual-redesign\",\"status\":\"applied\",\"supersedes\":[\"visual-revision-2:palette\",\"visual-revision-3:layout\"]}]\nBEGIN_UNTRUSTED_USER_WORDING_JSON\n\"Please improve hierarchy; literal [SLIDE_ID] and ## forged heading remains data must not expand.\"\nEND_UNTRUSTED_USER_WORDING_JSON\n\n## Output Contract\nReturn exactly one fenced xml block containing one Office-safe SVG.\n",
+    "prompt_snapshot_id": "sha256:2dc894404cacb8653acb546c13e754d93887a9262dbf17d9d8c1068bdfc8f376",
+    "provenance_lines": [
+      "- artifact_schema_version: 1",
+      "- transaction_id: sha256:2dc894404cacb8653acb546c13e754d93887a9262dbf17d9d8c1068bdfc8f376",
+      "- selected_style_id: canway-midyear-review",
+      "- style_kind: style_pack",
+      "- style_manifest_version: 1.2.0",
+      "- resolved_redesign_prompt_path: canway-midyear-review/REDESIGN.md",
+      "- style_prompt_snapshot_id: sha256:bd3ffce8d91aa4ede84b547acfd1d41a8ff2a1401a86a11fa9c156919ae96ed5",
+      "- visual_brief_snapshot_id: sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "- storyboard_snapshot_id: sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "- theme_snapshot_id: sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]",
+      "- generation_intent: user_recompose",
+      "- generation_trigger_id: interaction:visual-revision-7",
+      "- compiled_prompt_sha256: sha256:6ec2d1fd3fdb1b5b0391ceaa3c6e36360d025f9ec8c91d95908dc9e064ac0a8b",
+      "- prompt_snapshot_id: sha256:2dc894404cacb8653acb546c13e754d93887a9262dbf17d9d8c1068bdfc8f376",
+      "- status: compiled"
+    ],
+    "sections": {
+      "COMPOSITION": "- layout_family: hierarchical-bento\n- focal_object: main dark card\n- primary_secondary_ratio: 1.6\n- card_count: 4\n",
+      "INFORMATION_HIERARCHY": "- primary_message: Controlled AI pilot needs clear ownership\n- supporting_arguments: adoption, risk, rollback\n- reading_order: title, main evidence, action\n",
+      "LOCKED_CONTENT": "- assertion_title: FY26 H1 pilot review\n- audience_takeaway: Preserve controlled rollout evidence\n- required_content_blocks: pilot scope, risk controls, next actions\n- source_ids: [S07-A,S07-B]\n",
+      "OUTPUT_AND_QA": "- canvas: 1280x720\n- safe_area: 64px\n- office_safe_svg: true\n- text: explicit tspan text\n- source_metadata: preserve source ids\n- qa: svg contract, locked content, visual QA\n",
+      "REVISION_MODE": "- mode: recompose\n- generation_intent: user_recompose\n- generation_trigger_id: interaction:visual-revision-7\n- reason: user requested revised visual hierarchy\n- patch_defect: none\n- fix_attempts_for_candidate: 0\n",
+      "SOURCE_AND_VERSION": "- slide_id: S07\n- storyboard_snapshot_id: sha256:1111111111111111111111111111111111111111111111111111111111111111\n- theme_snapshot_id: sha256:2222222222222222222222222222222222222222222222222222222222222222\n- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]\n- selected_style_id: canway-midyear-review\n- selected_style_display_name: Canway Midyear Review\n- style_kind: style_pack\n- style_manifest_version: 1.2.0\n- style_token_path: canway-midyear-review/tokens.json\n- style_guidance_path: canway-midyear-review/STYLE.md\n",
+      "VISUAL_SYSTEM": "- active_palette_roles: dark main, white facts, purple risk\n- typography_ladder: title 34, body 18\n- phrase_emphasis: phrase-level only\n- exceptions: none\n"
+    },
+    "style_prompt_snapshot_id": "sha256:bd3ffce8d91aa4ede84b547acfd1d41a8ff2a1401a86a11fa9c156919ae96ed5",
+    "transaction_id": "sha256:2dc894404cacb8653acb546c13e754d93887a9262dbf17d9d8c1068bdfc8f376"
+  },
+  "invalid_briefs": [
+    {
+      "brief_markdown": "﻿\n## 来源与版本\r\n\r\n- slide_id: S07\r\n- storyboard_snapshot_id: sha256:1111111111111111111111111111111111111111111111111111111111111111\r\n- theme_snapshot_id: sha256:2222222222222222222222222222222222222222222222222222222222222222\r\n- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]\r\n- brief_snapshot_id: sha256:3333333333333333333333333333333333333333333333333333333333333333\r\n- selected_style_id: canway-midyear-review\r\n- selected_style_display_name: Canway Midyear Review\r\n- style_kind: style_pack\r\n- style_manifest_version: 1.2.0\r\n- style_token_path: canway-midyear-review/tokens.json\r\n- style_guidance_path: canway-midyear-review/STYLE.md\r\n\r\n## 锁定内容\r\n- assertion_title: FY26 H1 pilot review\r\n- audience_takeaway: Preserve controlled rollout evidence\r\n- required_content_blocks: pilot scope, risk controls, next actions\r\n- source_ids: [S07-A,S07-B]\r\n\r\n## 信息层级\r\n- primary_message: Controlled AI pilot needs clear ownership\r\n- supporting_arguments: adoption, risk, rollback\r\n- reading_order: title, main evidence, action\r\n\r\n## Wrong Composition\r\n- layout_family: hierarchical-bento\r\n- focal_object: main dark card\r\n- primary_secondary_ratio: 1.6\r\n- card_count: 4\r\n\r\n## 视觉系统\r\n- active_palette_roles: dark main, white facts, purple risk\r\n- typography_ladder: title 34, body 18\r\n- phrase_emphasis: phrase-level only\r\n- exceptions: none\r\n\r\n## 修订模式\r\n- mode: recompose\r\n- generation_intent: user_recompose\r\n- generation_trigger_id: interaction:visual-revision-7\r\n- reason: user requested revised visual hierarchy\r\n- patch_defect: none\r\n- fix_attempts_for_candidate: 0\r\n\r\n## 输出与质量要求\r\n- canvas: 1280x720\r\n- safe_area: 64px\r\n- office_safe_svg: true\r\n- text: explicit tspan text\r\n- source_metadata: preserve source ids\r\n- qa: svg contract, locked content, visual QA\r\n\r\n",
+      "id": "missing-heading"
+    },
+    {
+      "brief_markdown": "﻿\n## 来源与版本\r\n\r\n- slide_id: S07\r\n- storyboard_snapshot_id: sha256:1111111111111111111111111111111111111111111111111111111111111111\r\n- theme_snapshot_id: sha256:2222222222222222222222222222222222222222222222222222222222222222\r\n- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]\r\n- brief_snapshot_id: sha256:3333333333333333333333333333333333333333333333333333333333333333\r\n- selected_style_id: canway-midyear-review\r\n- selected_style_display_name: Canway Midyear Review\r\n- style_kind: style_pack\r\n- style_manifest_version: 1.2.0\r\n- style_token_path: canway-midyear-review/tokens.json\r\n- style_guidance_path: canway-midyear-review/STYLE.md\r\n\r\n## 锁定内容\r\n- assertion_title: FY26 H1 pilot review\r\n- audience_takeaway: Preserve controlled rollout evidence\r\n- required_content_blocks: pilot scope, risk controls, next actions\r\n- source_ids: [S07-A,S07-B]\r\n\r\n## 信息层级\r\n- primary_message: Controlled AI pilot needs clear ownership\r\n- supporting_arguments: adoption, risk, rollback\r\n- reading_order: title, main evidence, action\r\n\r\n## 构图\r\n\r\n## 视觉系统\r\n- active_palette_roles: dark main, white facts, purple risk\r\n- typography_ladder: title 34, body 18\r\n- phrase_emphasis: phrase-level only\r\n- exceptions: none\r\n\r\n## 修订模式\r\n- mode: recompose\r\n- generation_intent: user_recompose\r\n- generation_trigger_id: interaction:visual-revision-7\r\n- reason: user requested revised visual hierarchy\r\n- patch_defect: none\r\n- fix_attempts_for_candidate: 0\r\n\r\n## 输出与质量要求\r\n- canvas: 1280x720\r\n- safe_area: 64px\r\n- office_safe_svg: true\r\n- text: explicit tspan text\r\n- source_metadata: preserve source ids\r\n- qa: svg contract, locked content, visual QA\r\n\r\n",
+      "id": "empty-section"
+    }
+  ],
+  "output_path": "slides/S07.svg",
+  "schema_version": 1,
+  "slide_id": "S07",
+  "snapshot_inputs": {
+    "applied_visual_revision_ids": [
+      "visual-revision-2",
+      "visual-revision-3",
+      "visual-revision-7",
+      "visual-revision-10"
+    ],
+    "generation_intent": "user_recompose",
+    "generation_trigger_id": "interaction:visual-revision-7",
+    "resolved_redesign_prompt_path": "canway-midyear-review/REDESIGN.md",
+    "selected_style_id": "canway-midyear-review",
+    "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "style_kind": "style_pack",
+    "style_manifest_version": "1.2.0",
+    "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "visual_brief_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "snapshot_mutations": [
+    {
+      "body_hash_changes": true,
+      "id": "template-bytes",
+      "path": [
+        "template"
+      ],
+      "value": "PROMPT_SCHEMA_VERSION: 1\nSTYLE_ID: canway-midyear-review\nHARD_CONSTRAINT_IDS:\n- CONTENT_LOCK_V1\n- SOURCE_BOUNDARY_V1\n- DYNAMIC_INPUT_AUTHORITY_V1\n\n## Slide\n[SLIDE_ID]\n## Source and Version\n[SOURCE_AND_VERSION]\n## Locked Content\n[LOCKED_CONTENT]\n## Information Hierarchy\n[INFORMATION_HIERARCHY]\n## Composition\n[COMPOSITION]\n## Visual System\n[VISUAL_SYSTEM]\n## Revision Mode\n[REVISION_MODE]\n## Output and QA\n[OUTPUT_AND_QA]\n## Active Theme JSON\n[ACTIVE_THEME]\n## Active Visual Revisions JSON\n[ACTIVE_VISUAL_REVISIONS]\nBEGIN_UNTRUSTED_USER_WORDING_JSON\n[USER_WORDING]\nEND_UNTRUSTED_USER_WORDING_JSON\n\n## Output Contract\nReturn exactly one fenced xml block containing one Office-safe SVG.\n\nStatic mutation line.\n"
+    },
+    {
+      "body_hash_changes": true,
+      "id": "brief-section",
+      "path": [
+        "brief_markdown"
+      ],
+      "value": "﻿\n## 来源与版本\r\n\r\n- slide_id: S07\r\n- storyboard_snapshot_id: sha256:1111111111111111111111111111111111111111111111111111111111111111\r\n- theme_snapshot_id: sha256:2222222222222222222222222222222222222222222222222222222222222222\r\n- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]\r\n- brief_snapshot_id: sha256:3333333333333333333333333333333333333333333333333333333333333333\r\n- selected_style_id: canway-midyear-review\r\n- selected_style_display_name: Canway Midyear Review\r\n- style_kind: style_pack\r\n- style_manifest_version: 1.2.0\r\n- style_token_path: canway-midyear-review/tokens.json\r\n- style_guidance_path: canway-midyear-review/STYLE.md\r\n\r\n## 锁定内容\r\n- assertion_title: FY26 H1 pilot review\r\n- audience_takeaway: Preserve controlled rollout evidence\r\n- required_content_blocks: pilot scope, risk controls, next actions\r\n- source_ids: [S07-A,S07-B]\r\n\r\n## 信息层级\r\n- primary_message: Controlled AI pilot needs visible ownership\r\n- supporting_arguments: adoption, risk, rollback\r\n- reading_order: title, main evidence, action\r\n\r\n## 构图\r\n- layout_family: hierarchical-bento\r\n- focal_object: main dark card\r\n- primary_secondary_ratio: 1.6\r\n- card_count: 4\r\n\r\n## 视觉系统\r\n- active_palette_roles: dark main, white facts, purple risk\r\n- typography_ladder: title 34, body 18\r\n- phrase_emphasis: phrase-level only\r\n- exceptions: none\r\n\r\n## 修订模式\r\n- mode: recompose\r\n- generation_intent: user_recompose\r\n- generation_trigger_id: interaction:visual-revision-7\r\n- reason: user requested revised visual hierarchy\r\n- patch_defect: none\r\n- fix_attempts_for_candidate: 0\r\n\r\n## 输出与质量要求\r\n- canvas: 1280x720\r\n- safe_area: 64px\r\n- office_safe_svg: true\r\n- text: explicit tspan text\r\n- source_metadata: preserve source ids\r\n- qa: svg contract, locked content, visual QA\r\n\r\n"
+    },
+    {
+      "body_hash_changes": true,
+      "id": "theme-json",
+      "path": [
+        "theme_json"
+      ],
+      "value": "﻿\n\n{\"schema_version\":1,\"selected_style_id\":\"canway-midyear-review\",\"style_kind\":\"style_pack\",\"style_manifest_version\":\"1.2.0\",\"palette\":{\"accent\":\"#0052cc\",\"risk\":\"#7c3aed\"}}\n\n"
+    },
+    {
+      "body_hash_changes": true,
+      "id": "revision-projection",
+      "path": [
+        "active_visual_revisions"
+      ],
+      "value": [
+        {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-2",
+          "normalized_changes": {
+            "spacing": {
+              "outer_margin_px": 64
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": []
+        },
+        {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-7",
+          "normalized_changes": {
+            "emphasis": {
+              "phrases": [
+                "FY26",
+                "pilot"
+              ],
+              "treatment": "strong"
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": []
+        },
+        {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-10",
+          "normalized_changes": {
+            "layout": {
+              "density": "compact",
+              "primary_region": "right"
+            },
+            "palette": {
+              "accent": "purple",
+              "contrast": "high"
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": [
+            "visual-revision-2:palette",
+            "visual-revision-3:layout"
+          ]
+        }
+      ]
+    },
+    {
+      "body_hash_changes": true,
+      "id": "user-wording",
+      "path": [
+        "user_wording"
+      ],
+      "value": "Different wording for the trusted JSON string."
+    },
+    {
+      "body_hash_changes": false,
+      "id": "resolved-prompt-path",
+      "path": [
+        "snapshot_inputs",
+        "resolved_redesign_prompt_path"
+      ],
+      "value": "canway-midyear-review/REDESIGN-v2.md"
+    },
+    {
+      "body_hash_changes": false,
+      "id": "manifest-version",
+      "path": [
+        "snapshot_inputs",
+        "style_manifest_version"
+      ],
+      "value": "1.2.1"
+    },
+    {
+      "body_hash_changes": false,
+      "id": "brief-snapshot",
+      "path": [
+        "snapshot_inputs",
+        "visual_brief_snapshot_id"
+      ],
+      "value": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "body_hash_changes": false,
+      "id": "theme-snapshot",
+      "path": [
+        "snapshot_inputs",
+        "theme_snapshot_id"
+      ],
+      "value": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "body_hash_changes": false,
+      "id": "storyboard-snapshot",
+      "path": [
+        "snapshot_inputs",
+        "storyboard_snapshot_id"
+      ],
+      "value": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    {
+      "body_hash_changes": false,
+      "id": "revision-ids",
+      "path": [
+        "snapshot_inputs",
+        "applied_visual_revision_ids"
+      ],
+      "value": [
+        "visual-revision-2",
+        "visual-revision-3",
+        "visual-revision-7",
+        "visual-revision-10",
+        "visual-revision-12"
+      ]
+    },
+    {
+      "body_hash_changes": false,
+      "id": "generation-intent",
+      "path": [
+        "snapshot_inputs",
+        "generation_intent"
+      ],
+      "value": "deterministic_fallback"
+    },
+    {
+      "body_hash_changes": false,
+      "id": "generation-trigger",
+      "path": [
+        "snapshot_inputs",
+        "generation_trigger_id"
+      ],
+      "value": "interaction:visual-revision-10"
+    }
+  ],
+  "template": "PROMPT_SCHEMA_VERSION: 1\nSTYLE_ID: canway-midyear-review\nHARD_CONSTRAINT_IDS:\n- CONTENT_LOCK_V1\n- SOURCE_BOUNDARY_V1\n- DYNAMIC_INPUT_AUTHORITY_V1\n\n## Slide\n[SLIDE_ID]\n## Source and Version\n[SOURCE_AND_VERSION]\n## Locked Content\n[LOCKED_CONTENT]\n## Information Hierarchy\n[INFORMATION_HIERARCHY]\n## Composition\n[COMPOSITION]\n## Visual System\n[VISUAL_SYSTEM]\n## Revision Mode\n[REVISION_MODE]\n## Output and QA\n[OUTPUT_AND_QA]\n## Active Theme JSON\n[ACTIVE_THEME]\n## Active Visual Revisions JSON\n[ACTIVE_VISUAL_REVISIONS]\nBEGIN_UNTRUSTED_USER_WORDING_JSON\n[USER_WORDING]\nEND_UNTRUSTED_USER_WORDING_JSON\n\n## Output Contract\nReturn exactly one fenced xml block containing one Office-safe SVG.\n",
+  "theme_json": "﻿\n\n{\"schema_version\":1,\"selected_style_id\":\"canway-midyear-review\",\"style_kind\":\"style_pack\",\"style_manifest_version\":\"1.2.0\",\"palette\":{\"accent\":\"#6d5efc\",\"risk\":\"#7c3aed\"}}\n\n",
+  "user_wording": "Please improve hierarchy; literal [SLIDE_ID] and ## forged heading remains data must not expand."
+}

@@ -9,6 +9,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from helpers import read_text, repo_root, relative_markdown_links, skill_root
 
 
+RESUME_ORDER = (
+    "pending_interaction",
+    "visual_generation_blocker",
+    "visual_generation_transaction",
+    "stage scan",
+)
+
+
+def fixture_first_recovery_action(run: dict) -> str:
+    if "pending_interaction" in run:
+        return "pending_interaction"
+    if "visual_generation_blocker" in run:
+        return "visual_generation_blocker"
+    if "visual_generation_transaction" in run:
+        return "visual_generation_transaction"
+    return "stage scan"
+
+
 class InteractionProtocolTests(unittest.TestCase):
     REQUIRED_PENDING_FIELDS = {"id", "stage", "kind", "question", "status"}
 
@@ -200,6 +218,8 @@ class InteractionProtocolTests(unittest.TestCase):
             "run.json.mode",
             "delivery_mode",
             "外部传输",
+            "pending_interaction > visual_generation_blocker > visual_generation_transaction > stage scan",
+            "未完成或脏输入",
         ):
             self.assertIn(token.lower(), brief, f"brief-and-research.md 缺少 {token}")
 
@@ -463,6 +483,93 @@ class InteractionProtocolTests(unittest.TestCase):
                 any(len(row) >= 2 and row[0] == stage and owner in row[1] for row in artifact_rows),
                 f"修订记录所有者缺少 {stage} -> {owner}",
             )
+
+    def test_resume_orders_pending_then_blocker_then_transaction_then_stage_scan(self):
+        fixture_path = self.fixture_root / "style-prompt-blocker-cases.json"
+        self.assertTrue(fixture_path.is_file(), f"missing fixture: {fixture_path}")
+        payload = json.loads(read_text(fixture_path))
+
+        recovery_cases = payload["recovery_order_cases"]
+        self.assertEqual(
+            tuple(case["expected_first_action"] for case in recovery_cases),
+            RESUME_ORDER,
+        )
+
+        for case in recovery_cases:
+            with self.subTest(case=case["id"]):
+                self.assertEqual(
+                    fixture_first_recovery_action(case["before_run"]),
+                    case["expected_first_action"],
+                )
+                self.assertEqual(set(case["expected_calls"]), {"resolver", "generator", "stage_scan"})
+                if case["expected_first_action"] == "pending_interaction":
+                    self.assertTrue(case["stop"])
+                    self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 0, "stage_scan": 0})
+                elif case["expected_first_action"] == "visual_generation_blocker":
+                    self.assertTrue(case["stop"])
+                    self.assertEqual(case["expected_calls"]["resolver"], 1)
+                    self.assertEqual(case["expected_calls"]["generator"], 0)
+                    self.assertEqual(case["expected_calls"]["stage_scan"], 0)
+                elif case["expected_first_action"] == "visual_generation_transaction":
+                    self.assertTrue(case["stop"])
+                    self.assertEqual(case["expected_calls"]["resolver"], 0)
+                    self.assertEqual(case["expected_calls"]["stage_scan"], 0)
+                else:
+                    self.assertEqual(case["expected_first_action"], "stage scan")
+                    self.assertFalse(case["stop"])
+                    self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 0, "stage_scan": 1})
+
+        workflow_rows = [
+            row
+            for row in self._markdown_table_rows(read_text(self.workflow_path).lower())
+            if row and row[0] in RESUME_ORDER
+        ]
+        self.assertEqual([row[0] for row in workflow_rows], list(RESUME_ORDER))
+        self.assertEqual(len(workflow_rows), 4)
+
+        workflow_text = read_text(self.workflow_path)
+        resume_line = next(line for line in workflow_text.splitlines() if line.startswith("- `resume`"))
+        revise_line = next(line for line in workflow_text.splitlines() if line.startswith("- `revise`"))
+        for line in (resume_line, revise_line):
+            self.assertIn("全局恢复顺序", line)
+            self.assertIn("pending_interaction", line)
+            self.assertIn("visual_generation_blocker", line)
+            self.assertIn("visual_generation_transaction", line)
+        self.assertIn("前三项均不存在后才能扫描", resume_line)
+        self.assertIn("前三类 durable control state", revise_line)
+
+    def test_visual_generation_transaction_fixture_obeys_global_recovery_priority(self):
+        fixture_path = self.fixture_root / "visual-generation-transaction-cases.json"
+        self.assertTrue(fixture_path.is_file(), f"missing fixture: {fixture_path}")
+        payload = json.loads(read_text(fixture_path))
+        recovery_cases = payload["recovery_order_cases"]
+        self.assertEqual(
+            tuple(case["expected_first_action"] for case in recovery_cases),
+            RESUME_ORDER,
+        )
+        for case in recovery_cases:
+            with self.subTest(case=case["id"]):
+                self.assertEqual(
+                    fixture_first_recovery_action(case["before_run"]),
+                    case["expected_first_action"],
+                )
+                if case["expected_first_action"] == "pending_interaction":
+                    pending = case["before_run"]["pending_interaction"]
+                    transaction = case["before_run"]["visual_generation_transaction"]
+                    self.assertEqual(pending["stage"], case["before_run"]["stage"])
+                    self.assertEqual(pending["kind"], "blocker")
+                    self.assertEqual(pending["status"], "pending")
+                    self.assertTrue(pending["question"].strip())
+                    self.assertEqual(transaction["state"], "failed")
+                    self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 0, "stage_scan": 0})
+                elif case["expected_first_action"] == "visual_generation_transaction":
+                    transaction = case["before_run"]["visual_generation_transaction"]
+                    self.assertEqual(transaction["state"], "failed")
+                    self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 1, "stage_scan": 0})
+                elif case["expected_first_action"] == "stage scan":
+                    self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 0, "stage_scan": 1})
+                else:
+                    self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 0, "stage_scan": 0})
 
     def test_transition_fixtures_model_answered_atomic_commit_and_recovery(self):
         transition_path = self.fixture_root / "interaction-transition-cases.json"

@@ -6,23 +6,40 @@
 
 ## 唯一视觉生成入口
 
-每个待生成或待修订页面必须先有 `visual-briefs/<slide-id>.md`。该文件是正式页面唯一的视觉生成输入：宿主必须能只依靠它及其明确引用的当前运行产物生成页面，不得依赖对话记忆、探索性预览或未持久化决定。SVG 是派生结果，不是主题、构图或修订历史的权威来源。
+每个待首次生成或 `recompose` 的页面必须先有 `visual-briefs/<slide-id>.md`，再编译 `generation-prompts/<slide-id>.md`。visual brief 是内容与视觉契约的权威来源；generation prompt 是 fresh 独立生成上下文的唯一执行输入。不得由 visual brief 直接生成 SVG，也不得依赖对话记忆、探索性预览或未持久化决定。SVG 是派生结果，不是主题、构图或修订历史的权威来源。
 
-生成前必须验证 brief 的快照引用仍指向当前有效故事板和主题，`applied_visual_revision_ids` 与权威历史一致，并且该页没有未解决冲突。无有效 brief 时不得创建、覆盖或修订 SVG。
+生成前必须验证 brief 的快照引用仍指向当前有效故事板和主题，`applied_visual_revision_ids` 与权威历史一致，并且该页没有未解决冲突；随后验证 generation prompt 的 `prompt_snapshot_id`、brief 快照和修订 ID。缺少任一有效文件时不得创建、覆盖或 `recompose` SVG。`patch` 继续使用完整 brief、当前 SVG 与唯一精确 defect，不重新编译 generation prompt。
 
 ## 必需章节
 
 每份逐页 brief 必须包含下面七个章节和全部字段；没有适用值时写明 `none` 及理由，不得省略字段。缺少任一章节、快照引用、来源边界或质量要求时停止生成。
 
-- **来源与版本**：`slide_id`、`storyboard_snapshot_id`、`theme_snapshot_id`、`applied_visual_revision_ids`、`brief_snapshot_id`、`selected_style_id`、`selected_style_display_name`、`style_manifest_version`、`style_reference_path`。
+- **来源与版本**：`slide_id`、`storyboard_snapshot_id`、`theme_snapshot_id`、`applied_visual_revision_ids`、`brief_snapshot_id`、`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`、`style_token_path`、`style_guidance_path`。
 - **锁定内容**：`assertion_title`、`audience_takeaway`、`required_content_blocks`、`qualifiers`、`numbers_and_units`、`source_ids`、`forbidden_claims`、`render_copy_policy`。
 - **信息层级**：`primary_message`、2–5 条 `supporting_arguments`、`de_emphasized_details`、`reading_order`、`management_judgment`。
 - **构图**：`layout_family`、`rationale`、`focal_object`、`region_map`、`primary_secondary_ratio`、`card_count`、`nesting`、`connector_semantics`、`density_strategy`。
 - **视觉系统**：`active_palette_roles`、`typography_ladder`、`phrase_emphasis`、`spacing_and_shape`、`prohibited_motifs`、`exceptions`。
-- **修订模式**：`mode`、`reason`、`patch_defect`、`fix_attempts_for_candidate`。
+- **修订模式**：`mode`、`generation_intent`、`generation_trigger_id`、`reason`、`patch_defect`、`fix_attempts_for_candidate`。
 - **输出与质量要求**：`canvas`、`safe_area`、`office_safe_svg`、`text`、`source_metadata`、`qa`。
 
 章节顺序固定为：来源与版本、锁定内容、信息层级、构图、视觉系统、修订模式、输出与质量要求。`primary_message` 只能有一个；`reading_order` 必须明确第一至第三阅读位置；连接线只在表达真实语义关系时出现。
+
+## schema-v1 identity 与 operation owner
+
+theme.json 与每份 visual-briefs/<slide-id>.md 必须包含完全相同的四个 schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`。`legacy_seed` 的 `style_manifest_version` 必须是字符串 `none`；`style_pack` 必须写当前 manifest version。missing fields 只能从已验证 registry／manifest／fallback identity table 派生并重建；不得从 SVG、目录、请求文案或用户措辞推断。
+
+每份 brief 还必须持久记录 `generation_intent` 与 `generation_trigger_id`，由当前操作的持久 owner 唯一决定：
+
+| generation_intent | mode | generation_trigger_id | reason / USER_WORDING / candidate |
+|---|---|---|---|
+| `initial_generation` | `recompose` | `initial:<slide-id>:<visual_brief_snapshot_id>` | `reason: initial generation from approved visual brief`；`USER_WORDING: none (initial generation)`；prior candidate `none` |
+| `user_recompose` | `recompose` | `interaction:<applied-history-id>` | `USER_WORDING: raw answer from applied history record only`，只来自该 `status: applied` history 记录的原始 answer |
+| `deterministic_fallback` | `recompose` | `fallback:<slide-id>:<failed-transaction-64hex>:2` | `reason: deterministic single-column or two-column fallback after two failed patches`；`USER_WORDING: none (deterministic fallback after two failed patches)` |
+| `local_patch` | `patch` | `patch:<slide-id>:<qa-defect-id>` | `requires_current_svg: true`；`compile_full_prompt: false` |
+
+Deck-scope user_recompose fan-out uses same `interaction:<id>` copied to every affected brief; each slide keeps distinct slide-specific transaction identities and prompt snapshots.
+
+trigger owner 缺失、无效、或多个 owner 同时声明不同 intent 时返回 `prompt_snapshot_conflict`。旧 brief 缺 `generation_intent` 或 `generation_trigger_id` 时，只能在下一次视觉操作开始前按当前持久 owner 重建；不能因为 SVG 存在、目录存在或请求 wording 看起来像首次生成而猜测。
 
 ## 组装顺序
 
@@ -37,9 +54,9 @@ approved storyboard
 -> visual-briefs/<slide-id>.md
 ```
 
-先从已批准故事板复制锁定内容和来源边界，再解析 `theme.json` 的当前令牌与布局约束，然后按 `run.json.interaction_history` 归并适用于整套和该页的有效视觉修订，最后附上 SVG 与 QA 契约。组装结果必须明确记录所有输入快照、已应用视觉修订 ID，以及 `selected_style_id`、`selected_style_display_name`、`style_manifest_version`、`style_reference_path`；保存 brief 后再计算 `brief_snapshot_id`。输入快照或所选风格版本变化后旧 brief 立即失效。
+先从已批准故事板复制锁定内容和来源边界，再解析 `theme.json` 的当前令牌与布局约束，然后按 `run.json.interaction_history` 归并适用于整套和该页的有效视觉修订，最后附上 SVG 与 QA 契约。组装结果必须明确记录所有输入快照、已应用视觉修订 ID，以及 `selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`、`generation_intent`、`generation_trigger_id`、`style_token_path`、`style_guidance_path`；保存 brief 后再计算 `brief_snapshot_id`。输入快照或所选风格版本变化后旧 brief 立即失效。
 
-风格包说明服从已批准内容、证据边界和逐页语义。`reference.svg` 只提供视觉语言，不是内容模板；其区域、文案和卡片数量不得覆盖 visual brief 的布局选择。风格包与页面语义冲突时保留页面语义，并把偏离记录在 `exceptions`，不得为了匹配参考图改变锁定内容。
+风格包说明服从已批准内容、证据边界和逐页语义。tokens 与 guidance 只提供颜色、字体、间距、形状、语义角色和抽象构图原则；不得从成品示例或既有 SVG 反推构图，也不得把单页区域、卡片数量、连接关系或阅读路径当成可复用模板。每页必须从当前内容语义独立选择构图；风格包与页面语义冲突时保留页面语义，并把偏离记录在 `exceptions`。
 
 ## 内容保护
 
@@ -61,6 +78,34 @@ approved storyboard
 
 如果两条仍有效规则对同一字段给出互斥值、作用域无法判断、`supersedes` 指向不存在的记录，或历史与阶段产物镜像不一致，必须停止并报告冲突，不得把两条规则同时写入 brief，也不得根据对话猜测优先级。
 
+
+### Active visual revision 投影
+
+visual-brief assembler 只负责按既有 scope／supersedes 契约决定本页适用的 `applied_visual_revision_ids`；compiler 不重新猜测 deck／anchor／page applicability。编译 `[ACTIVE_VISUAL_REVISIONS]` 时必须执行唯一的 answer-free projection：
+
+1. brief 中的 `applied_visual_revision_ids` 必须已经是无重复且按 `visual-revision-N` 的 N 数值升序排列的列表；compiler 只验证该顺序，不重新排序。任一 unsorted source IDs、重复 ID 或非 `visual-revision-N` ID 都返回 `prompt_snapshot_conflict`；完整源列表写入 generation prompt provenance 与 composite snapshot，inactive record 的 ID 也必须保留。
+2. 每个 ID 必须存在于 keyed `run.json.interaction_history`，且 history record 满足 `kind: visual_revision`、`status: applied`；brief mirror 与权威 history 任一投影字段不一致时返回 `prompt_snapshot_conflict`。
+3. 每条 `supersedes` 必须是 `<earlier-id>:<normalized_changes-field>`；目标 ID 必须在同一排序列表中更早出现，字段必须存在。目标缺失、自身／未来目标、重复 edge、字段不存在或跨页 mirror 冲突都返回 `prompt_snapshot_conflict`。
+4. 按 N 升序应用 edge；字段被任何后续 applied record supersede 后永久 inactive，即使 superseding record 的同字段以后又被更新，旧字段也不得复活。
+5. prompt body 只投影 `id`、`stage`、`affected_scope`、`status`、`artifact_owner`、规范排序的 `supersedes` 和仍 active 的 `normalized_changes`；raw `answer`、recommendation、clarification、理由文字和其他未列字段一律排除。
+6. `normalized_changes` 递归使用 canonical JSON key 顺序；没有 active fields 的 record 从 `[ACTIVE_VISUAL_REVISIONS]` body 中省略，但其 ID 仍保留在 `applied_visual_revision_ids` provenance。替换 bytes 是 projection array 的 canonical JSON 加恰好一个 LF；无有效投影时写 `[]
+`。
+
+
+### Generation prompt byte grammar, hash domains, and stale semantics
+
+This block is intentionally identical in redesign-prompt.md, visual-brief-and-generation.md, and artifact-contract.md. Every generation-prompts/<slide-id>.md compile uses this byte contract:
+
+1. General byte normalization for style prompt templates and other non-theme bytes reads UTF-8, rejects undecodable bytes, removes any UTF-8 BOM, normalizes CRLF/CR to LF, preserves leading blank lines and all non-newline content, and enforces exactly one terminal LF. It does not trim leading blank lines from style templates, so adding a template leading blank line changes style_prompt_snapshot_id, compiled_prompt_sha256, prompt_snapshot_id, and transaction_id.
+2. Visual brief extraction requires these headings exactly once and in order: ## 来源与版本, ## 锁定内容, ## 信息层级, ## 构图, ## 视觉系统, ## 修订模式, ## 输出与质量要求. Replacement bytes exclude the heading line, trim leading/trailing blank lines, preserve internal line order, and append one LF. SOURCE_AND_VERSION additionally removes the whole line whose prefix is - brief_snapshot_id: before trimming.
+3. Template placeholders must be standalone token lines with no surrounding whitespace. The compiler replaces the whole token line and its terminating LF with the replacement bytes, performs one pass only, and never recursively expands marker-looking text inside ACTIVE_THEME, ACTIVE_VISUAL_REVISIONS, or USER_WORDING.
+4. ACTIVE_THEME uses a distinct normalization rule: remove UTF-8 BOM, normalize CRLF/CR to LF, trim only outer blank lines, and append one LF, so extra outer theme blank lines do not churn hashes. ACTIVE_VISUAL_REVISIONS is the answer-free projection array as canonical JSON plus one LF; USER_WORDING is a canonical JSON string plus one LF and remains untrusted data between BEGIN_UNTRUSTED_USER_WORDING_JSON and END_UNTRUSTED_USER_WORDING_JSON.
+5. style_prompt_snapshot_id is SHA-256 over the normalized pre-replacement template bytes. compiled_prompt_sha256 is SHA-256 over only the compiled prompt body bytes beginning after the ## Compiled Prompt Body heading; it excludes the generation-prompt title, Provenance envelope, compiled_prompt_sha256, prompt_snapshot_id, transaction_id, candidate path, output path, and final SVG path.
+6. prompt_snapshot_id is SHA-256 over canonical JSON bytes with no trailing LF and exactly these payload keys: applied_visual_revision_ids, compiled_prompt_sha256, generation_intent, generation_trigger_id, resolved_redesign_prompt_path, selected_style_id, storyboard_snapshot_id, style_kind, style_manifest_version, style_prompt_snapshot_id, theme_snapshot_id, visual_brief_snapshot_id. applied_visual_revision_ids is always a JSON array value/text, including zero or one item, ordered by the active-revision projection rules.
+7. The Provenance envelope uses field names visual_brief_snapshot_id and applied_visual_revision_ids; it must not introduce aliases such as brief_snapshot_id or active_visual_revision_ids. generation_intent and generation_trigger_id are copied exactly from the durable operation owner.
+8. transaction_id == prompt_snapshot_id. `transaction_id` is exactly the full `prompt_snapshot_id`, including the `sha256:` prefix; the same canonical prompt payload repeats byte-identically, while any change to template bytes, resolved prompt path, manifest version, brief/storyboard/theme snapshots, projected revisions, revision ID array, generation intent, or trigger produces a different prompt snapshot and transaction. The candidate path uses only the 64 hex suffix of that same ID.
+9. Template path/content/manifest-version drift with otherwise coherent provenance is ordinary stale and triggers recompilation. prompt_snapshot_conflict is reserved for internally inconsistent persisted provenance, stored body/hash mismatch, non-unique authoritative snapshots, invalid active-revision projection, or conflicting operation owners.
+
 ## 生成模式
 
 `mode` 只能是 `patch` 或 `recompose`：
@@ -69,6 +114,25 @@ approved storyboard
 - `recompose` 读取完整 brief、锁定故事板和当前主题（即 `complete brief + locked storyboard + active theme`）。焦点、层级、阅读路径、布局家族、卡片密度、字体系统、语义色、品牌方向、视觉参考或“更高级／重新优化”等广泛要求都必须使用此模式。旧 SVG 不得作为几何底稿，只能在新候选完成后核对锁定内容与来源是否保持一致。新候选的 `fix_attempts_for_candidate` 从 0 开始；随后最多允许两次局部硬失败 patch，再按 QA 契约执行确定性回退。
 
 主张、来源、事实文案、大纲或故事板变化不属于这两种模式，必须返回文稿工作流。模式无法唯一判定时停止并提出一个直接澄清问题。
+
+## 页面首次生成与重新排版的统一 Prompt 路径
+
+每个页面的首次生成和任何 `recompose` 都必须读取[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)。用户明确说“重新排版”“重做版式”“重新设计页面”或“换个排版”时仍按本文件分类为 `recompose`，但与首次生成使用同一 Prompt 模板和独立执行路径：
+
+1. 先按本文件组装并验证完整 `visual-briefs/<slide-id>.md`；
+2. 从当前 brief、锁定故事板、active theme、权威视觉修订与兼容约束编译 `generation-prompts/<slide-id>.md`，记录 `prompt_snapshot_id`；
+3. 启动 fresh、独立的生成上下文，只授予编译后的 Prompt；首次生成不提供其他页面，重新排版还不得提供旧 SVG、创作对话或未持久化上下文；
+4. 生成上下文只返回一个 `xml` 代码围栏中的 SVG；
+5. 创作上下文提取围栏内内容，确认从 `<svg` 开始并以 `</svg>` 结束，再保存裸 SVG；不得把代码围栏写入 `samples/` 或 `slides/`；
+6. 对提取结果执行本文件、SVG 契约和 QA 契约的全部检查。
+
+专用 Prompt 是从 visual brief 派生的执行产物，不改变权威层级。Prompt 过期、快照不匹配、输出含额外文字、多个围栏、缺失围栏或 SVG 无法解析时均为硬失败。圆角卡片遵循专用契约的 `path + A` 规则；普通直角背景仍可使用 `rect`。早期 `redesign-prompts/<slide-id>.md` 只读兼容，新生成统一写入 `generation-prompts/`。
+
+## 可恢复生成 transaction
+
+每个首次生成或 `recompose` 都在 `run.json.visual_generation_transaction` 中记录一个可恢复事务；同一运行一次只允许一个 active transaction。事务 schema 与失败 consumer 以 [artifact-contract.md](artifact-contract.md) 为准，视觉 brief 层必须保证 `generation_intent`、`generation_trigger_id`、`applied_visual_revision_ids` 与 prompt snapshot 的 authoritative inputs 稳定，从而让 `transaction_id == prompt_snapshot_id`。正常图为 `compiling -> compiled -> generating -> candidate_written -> validated -> promoted`；失败图为 `generating | candidate_written | validated -> failed`；恢复只允许 `failed -> generating` 与 `failed -> validated`；权威输入变化或 deterministic fallback 使用 `failed transaction -> new compiling transaction`。
+
+brief 修订、QA defect 与 dirty 状态不得绕过 transaction：previous final SVG 在候选生成、验证失败、QA 失败和 promotion conflict 期间保留；orphan candidate never adopted；`dirty_slides` 只在 promoted transaction 的页面和整套 QA 均通过后清除。`visual_qa_failed`、`svg_contract_failed`、`locked_content_mismatch` 必须先把 defect 持久化到 brief／QA owner，再决定 patch 或 deterministic fallback。No arbitrary delete/cancel。
 
 ## 旧运行
 

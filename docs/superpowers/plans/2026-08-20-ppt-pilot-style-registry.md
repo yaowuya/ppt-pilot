@@ -1,6 +1,6 @@
 # PPT Pilot Style Registry and Canway Tokens Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **SUPERSEDED:** redesign prompt 所有权、编译、恢复与相关测试步骤已由 [`2026-08-21-ppt-start-style-owned-redesign-prompts-design.md`](../specs/2026-08-21-ppt-start-style-owned-redesign-prompts-design.md) 取代；本文不再作为当前执行说明。
 
 **Goal:** Add fast style-pack tests, an extensible registry, and machine-readable “嘉为年中总结风格” identity/tokens.
 
@@ -26,7 +26,7 @@
 
 **Interfaces:**
 - Consumes: `tests/helpers.py`, existing style seeds, SVG helpers from `tests/test_svg_contract.py`.
-- Produces: the registry/manifest/token/reference contract for all rich style packs.
+- Produces: the registry/manifest/token/guidance contract for all rich style packs.
 
 - [ ] **Step 1: Prevent the legacy seed test from treating the registry as a seed**
 
@@ -56,13 +56,11 @@ Create `tests/test_style_packs.py`:
 import json
 import sys
 import unittest
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from helpers import read_text, skill_root
-from test_svg_contract import ALLOWED, local_name, numeric_font_size
 
 
 class StylePackTests(unittest.TestCase):
@@ -73,7 +71,6 @@ class StylePackTests(unittest.TestCase):
         self.manifest_path = self.pack_root / "manifest.json"
         self.tokens_path = self.pack_root / "tokens.json"
         self.rules_path = self.pack_root / "STYLE.md"
-        self.reference_path = self.pack_root / "reference.svg"
 
     def test_registry_has_unique_ids_names_and_existing_entrypoints(self):
         payload = json.loads(read_text(self.registry_path))
@@ -89,12 +86,13 @@ class StylePackTests(unittest.TestCase):
         self.assertEqual(canway["display_name"], "嘉为年中总结风格")
         self.assertEqual(canway["kind"], "style_pack")
 
-    def test_manifest_references_complete_pack(self):
+    def test_manifest_references_complete_abstract_pack(self):
         manifest = json.loads(read_text(self.manifest_path))
         self.assertEqual(manifest["schema_version"], 1)
         self.assertEqual(manifest["id"], "canway-midyear-review")
         self.assertEqual(manifest["display_name"], "嘉为年中总结风格")
         self.assertIn("嘉为年中总结风格", manifest["selection_aliases"])
+        self.assertEqual(set(manifest["files"]), {"tokens", "guidance"})
         for path in manifest["files"].values():
             self.assertTrue((self.pack_root / path).is_file())
         self.assertTrue(manifest["compatibility"]["office_safe_svg"])
@@ -144,29 +142,14 @@ class StylePackTests(unittest.TestCase):
         ):
             self.assertIn(token, rules)
 
-    def test_reference_is_standalone_office_safe_svg(self):
-        raw = read_text(self.reference_path)
-        lowered = raw.lower()
-        for forbidden in ("<style", "<defs", "<filter", "<lineargradient", "<image", "url(", "javascript:"):
-            self.assertNotIn(forbidden, lowered)
-        root = ET.fromstring(raw)
-        self.assertEqual(root.attrib.get("width"), "1280")
-        self.assertEqual(root.attrib.get("height"), "720")
-        self.assertEqual(root.attrib.get("viewBox"), "0 0 1280 720")
-        ids = set()
-        for element in root.iter():
-            self.assertIn(local_name(element.tag), ALLOWED)
-            element_id = element.attrib.get("id")
-            if element_id:
-                self.assertNotIn(element_id, ids)
-                ids.add(element_id)
-            if local_name(element.tag) == "text":
-                self.assertTrue(any(local_name(child.tag) == "tspan" for child in element))
-                role = element.attrib.get("data-role", "body")
-                size = numeric_font_size(element.attrib["font-size"])
-                minimum = 40 if role == "title" else 14 if role == "footnote" else 20
-                self.assertGreaterEqual(size, minimum)
-        self.assertEqual(root.find("{http://www.w3.org/2000/svg}path").attrib["fill"], "#F5F8FC")
+    def test_style_pack_has_no_rendered_slide_exemplar(self):
+        self.assertEqual(list(self.pack_root.rglob("*.svg")), [])
+        manifest = read_text(self.manifest_path).lower()
+        rules = read_text(self.rules_path)
+        for forbidden in ("reference.svg", "reference_svg", "参考 svg"):
+            self.assertNotIn(forbidden, manifest)
+            self.assertNotIn(forbidden, rules.lower())
+        self.assertIn("不得包含单页成品示例、参考构图或固定区域图", rules)
 
 
 if __name__ == "__main__":
@@ -244,7 +227,7 @@ Write `manifest.json`:
   "schema_version": 1,
   "id": "canway-midyear-review",
   "display_name": "嘉为年中总结风格",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kind": "style_pack",
   "default": false,
   "summary": "面向 SaaS、研发、交付与组织管理层年中或年度汇报的层级 Bento 风格。",
@@ -253,8 +236,7 @@ Write `manifest.json`:
   "selection_aliases": ["canway-midyear-review", "嘉为年中总结风格"],
   "files": {
     "tokens": "tokens.json",
-    "guidance": "STYLE.md",
-    "reference_svg": "reference.svg"
+    "guidance": "STYLE.md"
   },
   "compatibility": {
     "office_safe_svg": true,

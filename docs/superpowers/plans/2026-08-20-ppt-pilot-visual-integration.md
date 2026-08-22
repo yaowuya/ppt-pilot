@@ -1,6 +1,6 @@
 # PPT Pilot Visual Assembly Integration and Fast Regression Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **SUPERSEDED:** redesign prompt 所有权、编译、恢复与相关测试步骤已由 [`2026-08-21-ppt-start-style-owned-redesign-prompts-design.md`](../specs/2026-08-21-ppt-start-style-owned-redesign-prompts-design.md) 取代；本文不再作为当前执行说明。
 
 **Goal:** Integrate the visual-brief and style-pack mechanisms into public documentation and run one short local regression suite proving the Skill package remains coherent.
 
@@ -191,7 +191,7 @@ In `docs/acceptance.md`, update the `revise-single-slide.md` row to describe thr
 Add a “快速视觉机制验证” section:
 
 ```markdown
-本次机制改造只要求本地契约测试与 SVG 静态检查：visual brief 完整性、视觉修订优先级、patch/recompose 分支、风格注册表、嘉为年中总结风格资产引用，以及合成 reference.svg 的 Office-safe 结构。
+本次机制改造只要求本地契约测试与 SVG 静态检查：visual brief 完整性、视觉修订优先级、patch/recompose 分支、风格注册表、嘉为年中总结风格的抽象资产边界，以及生成 SVG 的 Office-safe 结构。
 
 本次不新增 Claude Code/Codex 现场运行、PowerPoint 导入、整套浏览器视觉检查或 FY26 页面重生成证据。历史验收台账保持原状态，不能把本地绿色测试描述为这些人工验收已经通过。
 ```

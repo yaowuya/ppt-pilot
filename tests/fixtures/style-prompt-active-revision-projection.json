@@ -1,0 +1,2404 @@
+{
+  "conflict_cases": [
+    {
+      "id": "unsorted-brief-ids",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "duplicate-brief-id",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3",
+            "visual-revision-7"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "missing-history-record",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3",
+            "visual-revision-99"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "non-visual-kind",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "clarification",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "non-applied-status",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "superseded",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "brief-mirror-mismatch",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "wrong"
+                  ],
+                  "treatment": "weak"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "future-supersede-edge",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-10:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "self-supersede-edge",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "missing-field-supersede-edge",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:missing"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "duplicate-supersede-edge",
+      "payload": {
+        "brief": {
+          "applied_visual_revision_ids": [
+            "visual-revision-10",
+            "visual-revision-2",
+            "visual-revision-7",
+            "visual-revision-3"
+          ],
+          "applied_visual_revision_mirrors": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-3:layout",
+                "visual-revision-2:palette"
+              ]
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          },
+          "slide_id": "S07"
+        },
+        "run": {
+          "interaction_history": {
+            "visual-revision-10": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "clarification": "must be excluded",
+              "id": "visual-revision-10",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "high",
+                  "primary_region": "right"
+                },
+                "palette": {
+                  "accent": "purple",
+                  "contrast": "high"
+                }
+              },
+              "recommendation": "must be excluded",
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:palette",
+                "visual-revision-2:palette"
+              ],
+              "unrelated": {
+                "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+              }
+            },
+            "visual-revision-2": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-2",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "low",
+                  "primary_region": "left"
+                },
+                "palette": {
+                  "accent": "blue",
+                  "contrast": "high"
+                },
+                "spacing": {
+                  "outer_margin_px": 64
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [],
+              "unrelated": "never project this"
+            },
+            "visual-revision-3": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-3",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "layout": {
+                  "density": "medium",
+                  "primary_region": "center"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": [
+                "visual-revision-2:layout"
+              ]
+            },
+            "visual-revision-7": {
+              "affected_scope": {
+                "slide_id": "S07",
+                "type": "slide"
+              },
+              "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+              "artifact_owner": "visual-brief:S07",
+              "id": "visual-revision-7",
+              "kind": "visual_revision",
+              "normalized_changes": {
+                "emphasis": {
+                  "phrases": [
+                    "FY26",
+                    "pilot"
+                  ],
+                  "treatment": "strong"
+                }
+              },
+              "stage": "visual-redesign",
+              "status": "applied",
+              "supersedes": []
+            }
+          }
+        }
+      }
+    }
+  ],
+  "expected_canonical_json": "[{\"affected_scope\":{\"slide_id\":\"S07\",\"type\":\"slide\"},\"artifact_owner\":\"visual-brief:S07\",\"id\":\"visual-revision-2\",\"normalized_changes\":{\"spacing\":{\"outer_margin_px\":64}},\"stage\":\"visual-redesign\",\"status\":\"applied\",\"supersedes\":[]},{\"affected_scope\":{\"slide_id\":\"S07\",\"type\":\"slide\"},\"artifact_owner\":\"visual-brief:S07\",\"id\":\"visual-revision-7\",\"normalized_changes\":{\"emphasis\":{\"phrases\":[\"FY26\",\"pilot\"],\"treatment\":\"strong\"}},\"stage\":\"visual-redesign\",\"status\":\"applied\",\"supersedes\":[]},{\"affected_scope\":{\"slide_id\":\"S07\",\"type\":\"slide\"},\"artifact_owner\":\"visual-brief:S07\",\"id\":\"visual-revision-10\",\"normalized_changes\":{\"layout\":{\"density\":\"high\",\"primary_region\":\"right\"},\"palette\":{\"accent\":\"purple\",\"contrast\":\"high\"}},\"stage\":\"visual-redesign\",\"status\":\"applied\",\"supersedes\":[\"visual-revision-2:palette\",\"visual-revision-3:layout\"]}]\n",
+  "expected_projection": [
+    {
+      "affected_scope": {
+        "slide_id": "S07",
+        "type": "slide"
+      },
+      "artifact_owner": "visual-brief:S07",
+      "id": "visual-revision-2",
+      "normalized_changes": {
+        "spacing": {
+          "outer_margin_px": 64
+        }
+      },
+      "stage": "visual-redesign",
+      "status": "applied",
+      "supersedes": []
+    },
+    {
+      "affected_scope": {
+        "slide_id": "S07",
+        "type": "slide"
+      },
+      "artifact_owner": "visual-brief:S07",
+      "id": "visual-revision-7",
+      "normalized_changes": {
+        "emphasis": {
+          "phrases": [
+            "FY26",
+            "pilot"
+          ],
+          "treatment": "strong"
+        }
+      },
+      "stage": "visual-redesign",
+      "status": "applied",
+      "supersedes": []
+    },
+    {
+      "affected_scope": {
+        "slide_id": "S07",
+        "type": "slide"
+      },
+      "artifact_owner": "visual-brief:S07",
+      "id": "visual-revision-10",
+      "normalized_changes": {
+        "layout": {
+          "density": "high",
+          "primary_region": "right"
+        },
+        "palette": {
+          "accent": "purple",
+          "contrast": "high"
+        }
+      },
+      "stage": "visual-redesign",
+      "status": "applied",
+      "supersedes": [
+        "visual-revision-2:palette",
+        "visual-revision-3:layout"
+      ]
+    }
+  ],
+  "expected_provenance_ids": [
+    "visual-revision-2",
+    "visual-revision-3",
+    "visual-revision-7",
+    "visual-revision-10"
+  ],
+  "raw_answer_sentinel": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+  "schema_version": 1,
+  "valid_projection": {
+    "brief": {
+      "applied_visual_revision_ids": [
+        "visual-revision-2",
+        "visual-revision-3",
+        "visual-revision-7",
+        "visual-revision-10"
+      ],
+      "applied_visual_revision_mirrors": {
+        "visual-revision-10": {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-10",
+          "kind": "visual_revision",
+          "normalized_changes": {
+            "layout": {
+              "density": "high",
+              "primary_region": "right"
+            },
+            "palette": {
+              "accent": "purple",
+              "contrast": "high"
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": [
+            "visual-revision-3:layout",
+            "visual-revision-2:palette"
+          ]
+        },
+        "visual-revision-2": {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-2",
+          "kind": "visual_revision",
+          "normalized_changes": {
+            "layout": {
+              "density": "low",
+              "primary_region": "left"
+            },
+            "palette": {
+              "accent": "blue",
+              "contrast": "high"
+            },
+            "spacing": {
+              "outer_margin_px": 64
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": []
+        },
+        "visual-revision-3": {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-3",
+          "kind": "visual_revision",
+          "normalized_changes": {
+            "layout": {
+              "density": "medium",
+              "primary_region": "center"
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": [
+            "visual-revision-2:layout"
+          ]
+        },
+        "visual-revision-7": {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-7",
+          "kind": "visual_revision",
+          "normalized_changes": {
+            "emphasis": {
+              "phrases": [
+                "FY26",
+                "pilot"
+              ],
+              "treatment": "strong"
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": []
+        }
+      },
+      "slide_id": "S07"
+    },
+    "run": {
+      "interaction_history": {
+        "visual-revision-10": {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "answer": "Use this raw answer instead: DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+          "artifact_owner": "visual-brief:S07",
+          "clarification": "must be excluded",
+          "id": "visual-revision-10",
+          "kind": "visual_revision",
+          "normalized_changes": {
+            "layout": {
+              "density": "high",
+              "primary_region": "right"
+            },
+            "palette": {
+              "accent": "purple",
+              "contrast": "high"
+            }
+          },
+          "recommendation": "must be excluded",
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": [
+            "visual-revision-3:layout",
+            "visual-revision-2:palette"
+          ],
+          "unrelated": {
+            "leak": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR"
+          }
+        },
+        "visual-revision-2": {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "answer": "Legacy answer says DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-2",
+          "kind": "visual_revision",
+          "normalized_changes": {
+            "layout": {
+              "density": "low",
+              "primary_region": "left"
+            },
+            "palette": {
+              "accent": "blue",
+              "contrast": "high"
+            },
+            "spacing": {
+              "outer_margin_px": 64
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": [],
+          "unrelated": "never project this"
+        },
+        "visual-revision-3": {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "answer": "chained raw answer DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-3",
+          "kind": "visual_revision",
+          "normalized_changes": {
+            "layout": {
+              "density": "medium",
+              "primary_region": "center"
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": [
+            "visual-revision-2:layout"
+          ]
+        },
+        "visual-revision-7": {
+          "affected_scope": {
+            "slide_id": "S07",
+            "type": "slide"
+          },
+          "answer": "DEPRECATED_RAW_ANSWER_MUST_NOT_APPEAR",
+          "artifact_owner": "visual-brief:S07",
+          "id": "visual-revision-7",
+          "kind": "visual_revision",
+          "normalized_changes": {
+            "emphasis": {
+              "phrases": [
+                "FY26",
+                "pilot"
+              ],
+              "treatment": "strong"
+            }
+          },
+          "stage": "visual-redesign",
+          "status": "applied",
+          "supersedes": []
+        }
+      }
+    }
+  }
+}

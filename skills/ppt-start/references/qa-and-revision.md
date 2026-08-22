@@ -6,7 +6,7 @@
 
 生成锚点或正式页面前必须读取本参考。每个视觉阶段都要求 `run.json.manuscript_review.state` 精确为 `manuscript_approved`，同时具有有效且已批准的故事板和审查产物。顶层阶段依次经过 `theme`、`anchor` 并进入 `production` 后才能生产，而且必须已有验证通过的 `theme.json`。
 
-正式页面按每批 3–4 页生产，但每次只写入并验证一个 SVG。每页通过硬检查后，记录状态并从 `dirty_slides` 清除其 ID。每完成一个持久阶段和一个批次，都更新 `run.json`，使另一个宿主无需对话历史即可恢复运行。
+正式页面按每批 3–4 页生产，但每次只写入并验证一个 SVG。每页通过硬检查后，只记录该页检查结果；不得立即从 `dirty_slides` 清除其 ID。只有 promoted transaction 的 final SVG、页面 QA 和整套演示 QA 都通过后，才能在移除对应 `visual_generation_transaction` 的同一次原子 `run.json` 替换中清除该页 dirty 状态。每完成一个持久阶段和一个批次，都更新 `run.json`，使另一个宿主无需对话历史即可恢复运行。
 
 某页耗尽修复与回退策略后仍有硬检查失败时，不得继续生成后续页面。
 
@@ -90,6 +90,24 @@ recompose = complete brief + locked storyboard + active theme
 
 `patch` 必须在 brief 中写明唯一 `patch_defect`，并且只把受影响页面 SVG 与 QA 标脏。`recompose` 必须重新组装受影响页面 brief，并从空白构图重建 SVG；旧 SVG 不得作为几何底稿、坐标参考、卡片骨架或复制起点，只能在新候选完成后用于核对锁定内容和来源一致性。模式无法唯一判断时，持久化一个直接澄清问题并停止。
 
+### 页面首次生成与 recompose 的统一 Prompt QA
+
+每个首次生成和任何 `recompose` 都必须使用[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)，不能直接把 visual brief 交给同一创作上下文生成：
+
+- 验证 `generation-prompts/<slide-id>.md` 的 `prompt_snapshot_id`、brief 快照和视觉修订 ID；早期 `redesign-prompts/` 只读兼容；
+- 风格 prompt 解析／编译失败时写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 和 dirty slide，不启动 generator、不写 SVG、不改用其他风格、不降级为 patch；
+- fresh 独立生成上下文只接收该 Prompt；首次生成不接收其他页面，重新排版还不得接收旧 SVG 或创作对话；
+- 生成回复必须恰好一个 `xml` 代码围栏；提取后裸内容从 `<svg` 开始并以 `</svg>` 结束；不得把代码围栏写入工作区 SVG；
+- 圆角卡片拒绝 `rect[rx]`／`rect[ry]`，必须检查 `path` 与 `A` 圆弧；普通直角 `rect` 仍允许；
+- 每个可见行一个独立 `text`，每个 `text` 一个简单 `tspan`；拒绝 nested tspan、混合 run 和自动换行；
+- 除浏览器／宿主渲染外，条件允许时执行实际 PowerPoint 插入、保存、重开与导出；未执行或失败时必须披露，不能声称 PowerPoint 通过。
+
+## 生成 transaction、失败 consumer 与 QA 边界
+
+页面首次生成与 `recompose` 的 QA 只能消费 promoted transaction：`visual_generation_transaction` 的 full schema 和状态图以 [artifact-contract.md](artifact-contract.md) 为准，QA 层不得把 `candidate_written` 或 `validated` 当作交付成功。`candidate_sha256` 在候选写入、关闭、复读后才存在；promotion 前的任何 orphan candidate never adopted，previous final SVG 必须保留。dirty_slides 只在 promoted transaction 的 final、页面 QA 和整套 QA 都通过后清除。
+
+失败 consumer 固定：transport retry reasons `generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch` 只能显式 resume 为同一 transaction 的 `failed -> generating`，`generation_attempt + 1`，每次宿主调用最多 generator 1 次。QA reasons `svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed` 必须先持久化精确 defect，再进入 patch 或 deterministic fallback 的 new compiling transaction。`final_promotion_conflict` 与 `transaction_state_conflict` 是 production `blocker`：final 和 failed transaction 都保持不变；用户解决后 unchanged valid candidate 走 `failed -> validated` 并重试 promotion，authoritative inputs changed 走 `failed transaction -> new compiling transaction`。No arbitrary delete/cancel。
+
 ## 修复与确定性回退
 
 每次全新生成或 `recompose` 都创建新的候选版本，并把该候选的 `fix_attempts_for_candidate` 重置为 `0`。此前探索或旧候选的修复次数和视觉债务记录保留在历史中，但不能让新候选直接进入回退。
@@ -138,9 +156,14 @@ recompose = complete brief + locked storyboard + active theme
 
 ## 恢复（`resume`）
 
-`resume` 入口必须先读取 `run.json` 并保留既有 `run.json.mode`。在验证其他阶段字段或寻找第一个未完成阶段前，先处理 `pending_interaction`：`pending` 原样重发同一个问题和完整选择说明并停止；`status: answered` 使用已保存的 `answer` 与规范化 `decision` 幂等完成产物写入，再以单次原子替换提交阶段更新和交互对象删除／替换，不得再次询问；格式错误则停止并报告冲突。不存在该对象的旧运行按原恢复规则继续。
+`resume` 入口必须先读取 `run.json` 并保留既有 `run.json.mode`。在验证其他阶段字段或寻找第一个未完成阶段前，按全局顺序处理 durable control state：
 
-随后验证 `schema_version`、精确的产物契约字段名、当前阶段、审查状态、批准信息、`dirty_slides` 和引用产物。只有每轮审查都包含非空的宿主返回委派证据，并且子上下文／结果上下文 ID 一致时，声称的批准才有效。证据缺失或格式错误时，使批准失效；能够独立审查时启动新一轮，否则设置 `review_unavailable`。绝不能根据没有证据的批准恢复到视觉阶段。
+1. `pending_interaction`：`pending` 原样重发同一个问题和完整选择说明并停止；`status: answered` 使用已保存的 `answer` 与规范化 `decision` 幂等完成产物写入，再以单次原子替换提交阶段更新和交互对象删除／替换，不得再次询问；格式错误则停止并报告冲突。该对象存在时不得创建或处理 `visual_generation_blocker`，不得解析 style，也不得启动 generator。
+2. `visual_generation_blocker`：只有没有 `pending_interaction` 时处理。重新验证同一 slide 的当前资源和快照；仍失败则幂等刷新同一 active blocker 并停止，generator calls 与 SVG writes 为 0。同一运行内另一页已有 active blocker 时先处理原 blocker，不创建并行 blocker。
+3. `visual_generation_transaction`：只有没有 pending 与 blocker 时处理。若 prompt durable 后 crash 留下 `state: compiling` 与 active blocker，先核对 prompt path／hash；匹配时以一次 `run.json` 原子替换同时提交 `compiled` 并移除匹配 blocker。其他状态按 transaction 契约恢复，不做 stage scan。
+4. stage scan：前三者都不存在时，才验证 `schema_version`、精确的产物契约字段名、当前阶段、审查状态、批准信息、`dirty_slides` 和引用产物，寻找第一个未完成或脏阶段。
+
+只有每轮审查都包含非空的宿主返回委派证据，并且子上下文／结果上下文 ID 一致时，声称的批准才有效。证据缺失或格式错误时，使批准失效；能够独立审查时启动新一轮，否则设置 `review_unavailable`。绝不能根据没有证据的批准恢复到视觉阶段。
 
 先解析该运行实际使用的 Markdown 文件名。新运行使用 `简报.md`、`研究.md`、`来源.md`、`大纲.md`、`故事板.md`、`文稿审查.md` 和 `质量检查报告.md`。旧英文运行可以沿用 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md`、`manuscript-review.md` 和 `qa-report.md`：优先采用 `run.json` 中记录的实际文件名，然后核对目录中是否存在完整对应集合。旧运行必须原位读取并沿用既有名称，不得自动重命名、复制或迁移。中英文集合同时存在且无法唯一判定时，停止并报告冲突。
 
