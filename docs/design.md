@@ -2,7 +2,7 @@
 
 ## 目标
 
-PPT Pilot 是面向 Claude Code 与 OpenAI Codex 的可移植 Agent Skill。它把主题、简报、资料集合或既有运行转换为 6–15 页、16:9 的演示文稿，最终每页交付为独立 SVG 文件。
+PPT Pilot 是面向 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植 Agent Skill。它把主题、简报、资料集合或既有运行转换为 6–15 页、16:9 的演示文稿，最终每页交付为独立 SVG 文件。
 
 MVP 刻意保持纯指令架构。它只使用宿主常规的工作区能力，以及可选研究／视觉能力；不强制依赖 MCP 服务、API SDK、后台服务、Hook、嵌套 Skill、Shell 脚本或软件包运行时。
 

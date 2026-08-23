@@ -1,6 +1,6 @@
 # PPT Pilot
 
-PPT Pilot 是一个可同时用于 Claude Code 与 OpenAI Codex 的可移植、纯指令 Agent Skill。它通过工作区中的持久产物开发有证据支撑的 16:9 演示文稿，并把每页幻灯片交付为独立 SVG 文件。
+PPT Pilot 是一个可同时用于 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植、纯指令 Agent Skill。它通过工作区中的持久产物开发有证据支撑的 16:9 演示文稿，并把每页幻灯片交付为独立 SVG 文件。
 
 MVP 不强制依赖 MCP 服务、SDK、Hook、后台服务、运行时软件包或外部审稿服务。Python 只用于本仓库的一致性测试；安装后的 Skill 直接使用宿主已有的文件、研究、委派与检查能力。仓库另提供可选伴随工具（`tools/`，见[可选伴随工具与交付组装](#可选伴随工具与交付组装)），它们随仓库分发，不属于安装后的 Skill。
 
@@ -73,6 +73,28 @@ ln -s ../../skills/ppt-start .agents/skills/ppt-start
 $ppt-start
 请从 ppt-output/example-deck/ 恢复运行并继续生成 SVG。
 ```
+
+### DeepSeek Harness
+
+安装到 DeepSeek harness 的技能发现目录。优先遵循 agents 标准布局：用户级 `$HOME/.agents/skills/ppt-start/`，项目级 `.agents/skills/ppt-start/`；若所用 harness 版本不扫描该目录，则把 `SKILL.md` 全文粘贴进其 `AGENTS.md`／系统提示层，并把 `references/` 与 `assets/` 复制到同一工作区可访问位置。
+
+用户级复制示例：
+
+```bash
+cp -R skills/ppt-start "$HOME/.agents/skills/ppt-start"
+```
+
+调用示例（DeepSeek harness 无统一斜杠命令约定，使用显式启动词）：
+
+```text
+ppt-start
+请根据 inputs/ 中的资料制作一份 10 页中文策略演示文稿，使用 auto 模式。
+```
+
+说明：
+
+- 若 harness 提供子代理／委派原语，文稿审查按契约优先独立 subagent；未提供时自动走已定义的 `inline_fallback` 正式降级审查，报告会声明“当前上下文降级审查”；
+- 技能发现与启动语法的最终行为以真实宿主验证为准，见[验收文档](docs/acceptance.md)的 DeepSeek Harness 行（当前全部 `PENDING`）。
 
 符号链接是否可用取决于操作系统和宿主沙箱；无法使用时请改为复制，并始终把本仓库的 `skills/ppt-start/` 视为标准源。
 
