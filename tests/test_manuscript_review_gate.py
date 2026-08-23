@@ -581,6 +581,29 @@ class ManuscriptReviewGateTests(unittest.TestCase):
         self.assertIn("pass", self.review_text)
         self.assertIn("没有发现问题", self.review_text)
 
+    def test_designer_perspective_material_gap_protocol(self):
+        for token in (
+            "设计师视角的材料充分性",
+            "汇报场景",
+            "material_gap",
+            "`missing_evidence`",
+            "`proposed_question`",
+            "头脑风暴",
+            "一次只提出一个问题",
+            "pending_interaction",
+            "回答本身不是事实来源，落盘产物才是",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.review_text)
+        for token in (
+            "material_gap",
+            "missing_evidence",
+            "proposed_question",
+            "设计师视角的材料充分性",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.skill_text)
+
     def test_review_gate_has_strict_terminal_states(self):
         combined = "\n".join((self.skill_text, self.workflow_text, self.review_text))
         self.assertIn("review_unavailable", combined)
