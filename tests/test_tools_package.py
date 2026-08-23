@@ -19,6 +19,7 @@ from helpers import read_text, repo_root, skill_root
 
 
 GOLDEN_ITEM_11_PREFIX = "11. Hash-capability fallback:"
+GOLDEN_AUTHORITY = "generation-prompt-byte-grammar.md"
 GOLDEN_FILES = (
     "redesign-prompt.md",
     "visual-brief-and-generation.md",
@@ -79,26 +80,43 @@ class DeckDeliverToolTest(unittest.TestCase):
 
 
 class GoldenHashFallbackContractTest(unittest.TestCase):
-    """Item 11 of the golden byte-grammar block must stay identical in all three
-    files that carry the block."""
+    """The golden byte-grammar block lives once in the authority file; the three
+    stage contracts reference it by link and must not inline it anymore."""
 
     def setUp(self) -> None:
-        self.lines: dict[str, str] = {}
-        for name in GOLDEN_FILES:
-            matches = [
-                line
-                for line in read_text(skill_root() / "references" / name).splitlines()
-                if line.startswith(GOLDEN_ITEM_11_PREFIX)
-            ]
-            self.assertEqual(len(matches), 1, f"{name} must contain item 11 exactly once")
-            self.lines[name] = matches[0]
+        self.authority_path = skill_root() / "references" / GOLDEN_AUTHORITY
+        self.authority = read_text(self.authority_path)
 
-    def test_item_11_is_byte_identical_across_files(self) -> None:
-        unique = set(self.lines.values())
-        self.assertEqual(len(unique), 1, "item 11 must be identical in all golden files")
+    def test_authority_holds_item_11_exactly_once(self) -> None:
+        matches = [
+            line
+            for line in self.authority.splitlines()
+            if line.startswith(GOLDEN_ITEM_11_PREFIX)
+        ]
+        self.assertEqual(
+            len(matches), 1, f"{GOLDEN_AUTHORITY} must contain item 11 exactly once"
+        )
+
+    def test_stage_contracts_reference_the_authority_without_inlining(self) -> None:
+        for name in GOLDEN_FILES:
+            text = read_text(skill_root() / "references" / name)
+            self.assertIn(
+                "generation-prompt-byte-grammar.md",
+                text,
+                f"{name} must link the byte-grammar authority",
+            )
+            self.assertNotIn(
+                GOLDEN_ITEM_11_PREFIX,
+                text,
+                f"{name} must not inline item 11 anymore",
+            )
 
     def test_item_11_defines_unhashed_fallback_rules(self) -> None:
-        item = next(iter(self.lines.values()))
+        item = next(
+            line
+            for line in self.authority.splitlines()
+            if line.startswith(GOLDEN_ITEM_11_PREFIX)
+        )
         for token in (
             "`unhashed`",
             "`unhashed:<token>`",
@@ -108,6 +126,18 @@ class GoldenHashFallbackContractTest(unittest.TestCase):
         ):
             self.assertIn(token, item, f"item 11 missing {token}")
 
+    def test_transaction_contract_references_unhashed_candidate_path(self) -> None:
+        artifact = read_text(skill_root() / "references" / "artifact-contract.md")
+        self.assertIn(
+            "unhashed 回退时为 `slides/.candidates/<slide-id>-<token>.svg`",
+            artifact,
+            "candidate_path semantics must define the unhashed variant",
+        )
+        self.assertIn(
+            "重新推导并比对九个元数据字段与 payload keys",
+            artifact,
+            "resume verification must define the unhashed degradation",
+        )
     def test_transaction_contract_references_unhashed_candidate_path(self) -> None:
         artifact = read_text(skill_root() / "references" / "artifact-contract.md")
         self.assertIn(

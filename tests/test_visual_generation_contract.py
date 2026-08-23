@@ -836,7 +836,7 @@ class VisualGenerationContractTests(unittest.TestCase):
     def test_contract_names_patch_recompose_and_legacy_synthesis(self):
         combined = "\n".join(
             read_text(path).lower()
-            for path in (self.reference, self.workflow, self.artifact, self.qa)
+            for path in (self.reference, self.workflow, self.artifact, self.qa, skill_root() / 'references' / 'generation-prompt-byte-grammar.md')
             if path.exists()
         )
         for token in (

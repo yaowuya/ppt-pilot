@@ -11,7 +11,7 @@
 - **topic-only（仅主题）**：根据主题拟定简报。`guided` 模式按决策依赖顺序询问实质性缺失项，并在研究或编写大纲前请求明确的简报批准；`auto` 模式明确记录安全假设后继续。
 - **complete brief（完整简报）**：在不改变原意的前提下规范化用户简报。只有缺失决策会实质改变演示文稿时才需要补充；否则记录保守假设。
 - **source-driven（资料驱动）**：先盘点用户提供的资料，再根据覆盖情况和缺口生成简报与研究问题。
-- **resume（恢复）**：先读取 `run.json`，严格按全局恢复链 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan` 处理；只有前四类 durable control state 均不存在或已完成后，才进入 `stage scan`，再从第一个未完成或脏输入继续。
+- **resume（恢复）**：先读取 `run.json`，严格按全局恢复链 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan` 处理；只有前四类 durable control state 均不存在或已完成后，才进入 stage scan，再从第一个未完成或脏输入继续。
 
 ## 决策依赖顺序与简报批准
 
