@@ -309,23 +309,16 @@ def sha256_id(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
-PROVENANCE_FIELD_ORDER = (
-    "artifact_schema_version",
-    "transaction_id",
-    "selected_style_id",
-    "style_kind",
-    "style_manifest_version",
-    "resolved_redesign_prompt_path",
-    "style_prompt_snapshot_id",
+METADATA_FIELD_ORDER = (
+    "slide_id",
     "visual_brief_snapshot_id",
     "storyboard_snapshot_id",
     "theme_snapshot_id",
     "applied_visual_revision_ids",
-    "generation_intent",
-    "generation_trigger_id",
-    "compiled_prompt_sha256",
     "prompt_snapshot_id",
-    "status",
+    "user_page_request",
+    "expected_output",
+    "workspace_output_path",
 )
 
 
@@ -335,16 +328,16 @@ def _provenance_value_text(value):
     return str(value)
 
 
-def render_generation_prompt(provenance: dict, body: bytes, slide_id=None) -> bytes:
+def render_generation_prompt(metadata: dict, body: bytes, slide_id=None) -> bytes:
     if not isinstance(slide_id, str) or not slide_id:
         raise ValueError("prompt_snapshot_conflict")
-    missing = [field for field in PROVENANCE_FIELD_ORDER if field not in provenance]
+    missing = [field for field in METADATA_FIELD_ORDER if field not in metadata]
     if missing:
         raise ValueError("prompt_snapshot_conflict")
     body_bytes = body if body.endswith(b"\n") else body + b"\n"
-    lines = ["# Generation Prompt " + slide_id, "", "## Provenance"]
-    lines.extend(f"- {field}: {_provenance_value_text(provenance[field])}" for field in PROVENANCE_FIELD_ORDER)
-    lines.extend(["", "## Compiled Prompt Body", ""])
+    lines = ["# " + slide_id + " 页面生成 Prompt", "", "## Snapshot metadata"]
+    lines.extend(f"- **{field}**：{_provenance_value_text(metadata[field])}" for field in METADATA_FIELD_ORDER)
+    lines.extend(["", "## Compiled Prompt", ""])
     return ("\n".join(lines).encode("utf-8") + body_bytes)
 
 def _revision_edge_sort_key(edge: str) -> tuple[int, str]:
@@ -861,6 +854,17 @@ class RedesignPromptContractTests(unittest.TestCase):
             "prompt_snapshot_id": prompt_snapshot_id,
             "status": "compiled",
         }
+        metadata = {
+            "slide_id": payload["slide_id"],
+            "visual_brief_snapshot_id": canonical_payload["visual_brief_snapshot_id"],
+            "storyboard_snapshot_id": canonical_payload["storyboard_snapshot_id"],
+            "theme_snapshot_id": canonical_payload["theme_snapshot_id"],
+            "applied_visual_revision_ids": canonical_payload["applied_visual_revision_ids"],
+            "prompt_snapshot_id": prompt_snapshot_id,
+            "user_page_request": payload["user_page_request"],
+            "expected_output": "恰好一个 xml 代码围栏中的完整 SVG",
+            "workspace_output_path": f"slides/{payload['slide_id']}.svg",
+        }
         return {
             "sections": section_bytes,
             "template_bytes": template_bytes,
@@ -871,7 +875,8 @@ class RedesignPromptContractTests(unittest.TestCase):
             "canonical_payload_bytes": canonical_json_bytes(canonical_payload),
             "prompt_snapshot_id": prompt_snapshot_id,
             "transaction_id": transaction_id,
-            "envelope": render_generation_prompt(provenance, body, payload["slide_id"]),
+            "metadata": metadata,
+            "envelope": render_generation_prompt(metadata, body, payload["slide_id"]),
         }
 
     def test_brief_sections_follow_exact_byte_grammar(self):
@@ -919,10 +924,10 @@ class RedesignPromptContractTests(unittest.TestCase):
         self.assertEqual(rendered["transaction_id"], rendered["prompt_snapshot_id"])
         self.assertEqual(rendered["transaction_id"], expected["transaction_id"])
         self.assertEqual(rendered["envelope"].decode("utf-8"), expected["envelope"])
-        provenance_section = expected["envelope"].split("## Provenance\n", 1)[1].split("\n## Compiled Prompt Body", 1)[0]
-        provenance_lines = [line for line in provenance_section.splitlines() if line.startswith("- ")]
+        provenance_section = expected["envelope"].split("## Snapshot metadata\n", 1)[1].split("\n## Compiled Prompt", 1)[0]
+        provenance_lines = [line for line in provenance_section.splitlines() if line.startswith("- **")]
         self.assertEqual(provenance_lines, expected["provenance_lines"])
-        self.assertIn("- applied_visual_revision_ids: [\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]", provenance_lines)
+        self.assertIn("- **applied_visual_revision_ids**：[\"visual-revision-2\",\"visual-revision-3\",\"visual-revision-7\",\"visual-revision-10\"]", provenance_lines)
         self.assertNotIn("- brief_snapshot_id:", expected["envelope"])
         self.assertNotIn("candidate_path", expected["canonical_payload_json"])
         self.assertNotIn("output_path", expected["canonical_payload_json"])
@@ -989,22 +994,16 @@ class RedesignPromptContractTests(unittest.TestCase):
     def test_render_generation_prompt_requires_explicit_slide_id(self):
         payload = self._load_generation_prompt_snapshot_payload()
         rendered = self._render_generation_prompt_fixture(payload)
-        provenance = copy.deepcopy(rendered["canonical_payload"])
-        provenance.update({
-            "artifact_schema_version": 1,
-            "transaction_id": rendered["transaction_id"],
-            "prompt_snapshot_id": rendered["prompt_snapshot_id"],
-            "status": "compiled",
-        })
+        metadata = copy.deepcopy(rendered["metadata"])
         with self.assertRaisesRegex(ValueError, "^prompt_snapshot_conflict$"):
-            render_generation_prompt(provenance, rendered["body"])
+            render_generation_prompt(metadata, rendered["body"])
 
     def test_provenance_assertion_slices_only_provenance_section(self):
         payload = self._load_generation_prompt_snapshot_payload()
         rendered = self._render_generation_prompt_fixture(payload)
         envelope = rendered["envelope"].decode("utf-8")
-        provenance_text = envelope.split("## Provenance\n", 1)[1].split("\n## Compiled Prompt Body", 1)[0]
-        provenance_lines = [line for line in provenance_text.splitlines() if line.startswith("- ")]
+        provenance_text = envelope.split("## Snapshot metadata\n", 1)[1].split("\n## Compiled Prompt", 1)[0]
+        provenance_lines = [line for line in provenance_text.splitlines() if line.startswith("- **")]
         self.assertEqual(provenance_lines, payload["expected"]["provenance_lines"])
         self.assertNotIn("- source_ids:", provenance_text)
 
