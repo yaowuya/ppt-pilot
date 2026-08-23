@@ -143,7 +143,7 @@ class SkillPackageTests(unittest.TestCase):
                 "tech-dark.redesign.md",
                 "bold-editorial.redesign.md",
                 "canway-midyear-review/REDESIGN.md",
-                "1.2.0",
+                "1.3.0",
                 "generation_trigger_id",
                 "visual_generation_blocker",
                 "visual_generation_transaction",

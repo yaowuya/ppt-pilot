@@ -2,7 +2,7 @@
 
 本文档给出同一标准 `skills/ppt-start/` 包在 Claude Code 与 OpenAI Codex 中的可重复人工验收矩阵。自动一致性测试验证书面契约，但不能证明宿主委派、跨宿主续作、fresh generator 隔离、浏览器渲染或 PowerPoint 导入。
 
-未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前四个 style-owned full prompts、Canway `1.2.0`、blocker 和 transaction 变更只新增静态与诊断边界；真实 Claude Code、Codex、fresh、浏览器和 PowerPoint 行为在重新执行前仍保持原台账状态。
+未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前四个 style-owned full prompts、Canway `1.3.0`（纯白画布、`#156BFF` 唯一强调蓝）、blocker 和 transaction 变更只新增静态与诊断边界；真实 Claude Code、Codex、fresh、浏览器和 PowerPoint 行为在重新执行前仍保持原台账状态。
 
 ## 前置条件
 

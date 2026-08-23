@@ -256,7 +256,7 @@ class VisualGenerationContractTests(unittest.TestCase):
             "selected_style_id": "canway-midyear-review",
             "selected_style_display_name": "嘉为年中总结风格",
             "style_kind": "style_pack",
-            "style_manifest_version": "1.2.0",
+            "style_manifest_version": "1.3.0",
         }
         expected_owner = {
             "generation_intent": "user_recompose",

@@ -132,7 +132,7 @@ Skill 先检查请求和工作区，已有答案不得重复询问。剩余重�
 
 ### 可选风格
 
-新安装从 `assets/styles/registry.json` 发现可选风格。三个既有扁平种子继续兼容；内置 rich style pack `canway-midyear-review` 的中文显示名为“嘉为年中总结风格”，当前内容版本为 `1.2.0`。只有用户明确选择或主题阶段按既有 guided／auto 规则安全选中时使用，不是新的默认主题。
+新安装从 `assets/styles/registry.json` 发现可选风格。三个既有扁平种子继续兼容；内置 rich style pack `canway-midyear-review` 的中文显示名为“嘉为年中总结风格”，当前内容版本为 `1.3.0`（纯白画布，品牌主蓝 `#156BFF` 为唯一强调蓝）。只有用户明确选择或主题阶段按既有 guided／auto 规则安全选中时使用，不是新的默认主题。
 
 四个内置风格各自拥有一份独立可编译的完整模板，即完整、可独立编译的 redesign prompt 模板：`assets/styles/minimal-business.redesign.md`、`assets/styles/tech-dark.redesign.md`、`assets/styles/bold-editorial.redesign.md` 与 `assets/styles/canway-midyear-review/REDESIGN.md`。共享 `references/redesign-prompt.md` 只是 resolver-only 共享契约：解析 selected style、验证 registry／manifest／路径、编译 `generation-prompts/<slide-id>.md`、记录 provenance 和恢复失败；它不再包含跨风格通用的完整视觉 prompt、固定 Bento、固定卡片数量或某个风格的专属构图。只有替换完当前 brief／theme／revision 输入并持久化后的 generation prompt 才能交给 fresh generator，不能直接传递这些原始模板。
 
