@@ -106,7 +106,7 @@ recompose = complete brief + locked storyboard + active theme
 
 页面首次生成与 `recompose` 的 QA 只能消费 promoted transaction：`visual_generation_transaction` 的 full schema 和状态图以 [artifact-contract.md](artifact-contract.md) 为准，QA 层不得把 `candidate_written` 或 `validated` 当作交付成功。`candidate_sha256` 在候选写入、关闭、复读后才存在；promotion 前的任何 orphan candidate never adopted，previous final SVG 必须保留。dirty_slides 只在 promoted transaction 的 final、页面 QA 和整套 QA 都通过后清除。
 
-失败 consumer 固定：transport retry reasons `generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch` 只能显式 resume 为同一 transaction 的 `failed -> generating`，`generation_attempt + 1`，每次宿主调用最多 generator 1 次。QA reasons `svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed` 必须先持久化精确 defect，再进入 patch 或 deterministic fallback 的 new compiling transaction。`final_promotion_conflict` 与 `transaction_state_conflict` 是 production `blocker`：final 和 failed transaction 都保持不变；用户解决后 unchanged valid candidate 走 `failed -> validated` 并重试 promotion，authoritative inputs changed 走 `failed transaction -> new compiling transaction`。No arbitrary delete/cancel。
+失败 consumer 固定：transport retry reasons `generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch` 只能显式 resume 为同一 transaction 的 `failed -> generating`，`generation_attempt + 1`，每次宿主调用最多 generator 1 次；同一 transaction 的 `generation_attempt` 达到 `3` 后不得再次 resume 为 `generating`，改为持久化 production blocker 并停止，等待用户决定。QA reasons `svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed` 必须先持久化精确 defect，再进入 patch 或 deterministic fallback 的 new compiling transaction。`final_promotion_conflict` 与 `transaction_state_conflict` 是 production `blocker`：final 和 failed transaction 都保持不变；用户解决后 unchanged valid candidate 走 `failed -> validated` 并重试 promotion，authoritative inputs changed 走 `failed transaction -> new compiling transaction`。No arbitrary delete/cancel。
 
 ## 修复与确定性回退
 
@@ -118,6 +118,20 @@ recompose = complete brief + locked storyboard + active theme
 2. 如仍有另一个局部硬失败，修复该唯一 defect，同时保留内容、布局家族、层级和最低字号。
 
 每次 patch 后重新执行所有受影响硬检查和适用的渲染检查。修复请求一旦需要改变构图层级，停止累计 patch，改为 `recompose` 并重置新候选次数。候选的两次 patch 仍未通过时，确定性降级为简单单栏（single-column）或双栏（two-column）布局，并保留相同结论、证据、来源 ID 与主题令牌；把回退结果作为新 SVG 验证。回退仍有硬检查失败时，停止生产并把该页记录为阻断；不得作为完整产物交付。
+
+## 请求预算与派发可观测
+
+generator 交互是严格单轮的：一次请求提交完整输入，一次响应返回恰好一个围栏；禁止与生成上下文多轮往返（追问、确认、迭代修改）。"反复优化"只允许通过上面的离散阶梯表达，每个阶梯都是一次全新的单轮调用。
+
+每个候选的宿主请求上限固定为 **4 次**：首次生成／`recompose` 1 次 + `patch` ≤2 次 + 确定性回退 1 次（transport retry 计入同一 transaction 的 `generation_attempt`，不额外占用该预算）。用尽即停：写 blocker 或按阻断记录，不得静默开启第 5 次请求，也不得通过"新周期""换个说法重试"绕过计数。
+
+每次调用 generator 前必须向用户输出一行派发说明，使请求消耗全程可见：
+
+```text
+[<deck-id>] 第 N 次请求 slide=S03 mode=patch attempt=2/2 transaction=e4282f23… 原因=微事实字号低于下限
+```
+
+其中 N 是本页累计请求序号，mode 取 `initial`／`patch`／`recompose`／`fallback`，attempt 显示当前候选内 patch 或 transport 重试进度，原因引用已持久化的 defect／reason。缺少这行说明的调用属于违规；用户随时可以依据它判断"在干什么、还剩几次"。上游修订（故事板／大纲失效重审）导致的重新生成按新候选重新计数，但派发说明必须注明触发它的修订来源。
 
 ## 整套演示 QA
 

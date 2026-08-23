@@ -22,7 +22,7 @@
 - **修订模式**：`mode`、`generation_intent`、`generation_trigger_id`、`reason`、`patch_defect`、`fix_attempts_for_candidate`。
 - **输出与质量要求**：`canvas`、`safe_area`、`office_safe_svg`、`text`、`source_metadata`、`qa`。
 
-章节顺序固定为：来源与版本、锁定内容、信息层级、构图、视觉系统、修订模式、输出与质量要求。`primary_message` 只能有一个；`reading_order` 必须明确第一至第三阅读位置；连接线只在表达真实语义关系时出现。
+章节顺序固定为：来源与版本、锁定内容、信息层级、构图、视觉系统、修订模式、输出与质量要求。`primary_message` 只能有一个；`reading_order` 必须明确第一至第三阅读位置；连接线只在表达真实语义关系时出现。brief 的 `layout_family` 必须原样进入对应 generation prompt 的 `建议语义:` 槽位，按[语义布局目录](layout-catalog.md)的编译层映射规则表达为固定网格；映射偏离记录在 `exceptions`。
 
 ## schema-v1 identity 与 operation owner
 
@@ -106,7 +106,7 @@ This block is intentionally identical in redesign-prompt.md, visual-brief-and-ge
 8. user_page_request mirrors the durable operation owner: initial_generation writes `首次生成 <slide-id>`; deterministic_fallback writes `确定性回退（两次 patch 失败后）`; user_recompose summarizes the applied raw answer without adding facts; expected_output is always exactly `恰好一个 xml 代码围栏中的完整 SVG`.
 9. transaction_id == prompt_snapshot_id. `transaction_id` is exactly the full `prompt_snapshot_id`, including the `sha256:` prefix; the same canonical prompt payload repeats byte-identically, while any change to template bytes, resolved prompt path, manifest version, brief/storyboard/theme snapshots, projected revisions, revision ID array, generation intent, or trigger produces a different prompt snapshot and transaction. The candidate path uses only the 64 hex suffix of that same ID.
 10. Template path/content/manifest-version drift with otherwise coherent provenance is ordinary stale and triggers recompilation. prompt_snapshot_conflict is reserved for internally inconsistent persisted provenance, stored body/hash mismatch, non-unique authoritative snapshots, invalid active-revision projection, or conflicting operation owners.
-11. Hash-capability fallback: when the host provides no deterministic SHA-256 capability, the orchestrator must not fabricate digests. Persist `style_prompt_snapshot_id` and `compiled_prompt_sha256` as the literal `unhashed`, and persist `prompt_snapshot_id` / `transaction_id` as `unhashed:<token>`, where `<token>` is a run-scoped monotonic identifier (previous run token maximum plus one, for example `gp-s03-3`) matching `[0-9a-z][0-9a-z-]*`; the candidate path then uses `slides/.candidates/<slide-id>-<token>.svg`. Resume verification degrades from digest comparison to re-deriving and comparing the nine metadata fields and payload keys; every other rule above, including byte normalization and stale semantics, is unchanged. Inventing a 64 hex digest without computing it is always a hard integrity violation.
+11. Hash-capability fallback: when the host provides no deterministic SHA-256 capability, the orchestrator must not fabricate digests. Persist `style_prompt_snapshot_id` and `compiled_prompt_sha256` as the literal `unhashed`, and persist `prompt_snapshot_id` / `transaction_id` as `unhashed:<token>`, where `<token>` is a run-scoped monotonic identifier (one plus the largest numeric suffix among existing `unhashed:` tokens recorded in this run's `run.json.interaction_history`, for example `gp-s03-3`) matching `[0-9a-z][0-9a-z-]*`; the candidate path then uses `slides/.candidates/<slide-id>-<token>.svg`. Resume verification degrades from digest comparison to re-deriving and comparing the nine metadata fields and payload keys; every other rule above, including byte normalization and stale semantics, is unchanged. Inventing a 64 hex digest without computing it is always a hard integrity violation.
 
 ## 生成模式
 
@@ -122,9 +122,9 @@ This block is intentionally identical in redesign-prompt.md, visual-brief-and-ge
 每个页面的首次生成和任何 `recompose` 都必须读取[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)。用户明确说“重新排版”“重做版式”“重新设计页面”或“换个排版”时仍按本文件分类为 `recompose`，但与首次生成使用同一 Prompt 模板和独立执行路径：
 
 1. 先按本文件组装并验证完整 `visual-briefs/<slide-id>.md`；
-2. 从当前 brief、锁定故事板、active theme、权威视觉修订与兼容约束编译 `generation-prompts/<slide-id>.md`，记录 `prompt_snapshot_id`；
+2. 从当前 brief、锁定故事板、active theme、权威视觉修订与兼容约束编译 `generation-prompts/<slide-id>.md`；编译必须先通过[专用 Prompt 契约](redesign-prompt.md)的编译门禁（自包含性、布局语义一致、枚举顺序一致、字号下限与容纳预算），门禁失败回上游修 brief／故事板，零请求消耗，通过后记录 `prompt_snapshot_id`；
 3. 启动 fresh、独立的生成上下文，只授予编译后的 Prompt；首次生成不提供其他页面，重新排版还不得提供旧 SVG、创作对话或未持久化上下文；
-4. 生成上下文只返回一个 `xml` 代码围栏中的 SVG；
+4. 生成上下文只返回一个 `xml` 代码围栏中的 SVG；调用是严格单轮的——一次请求、一次响应，请求预算与派发播报规则见 [QA、恢复与修订](qa-and-revision.md)；
 5. 创作上下文提取围栏内内容，确认从 `<svg` 开始并以 `</svg>` 结束，再保存裸 SVG；不得把代码围栏写入 `samples/` 或 `slides/`；
 6. 对提取结果执行本文件、SVG 契约和 QA 契约的全部检查。
 

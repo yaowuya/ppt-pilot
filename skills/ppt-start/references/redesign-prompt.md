@@ -141,6 +141,17 @@ visual-brief assembler 只负责按既有 scope／supersedes 契约决定本页�
 - 写入 `generation-prompts/<slide-id>.md` 并持久化 `prompt_snapshot_id`。
 - `visual_generation_blocker.resource` 只保存规范化 Skill 相对路径；路径安全前失败写 `none`，不得持久化未验证绝对路径、URL 或机密内容。
 
+### 编译门禁（pre-dispatch gate）
+
+generation prompt 是一次性执行契约：fresh generator 只做一次请求、一次响应。因此所有能确定性检查的缺陷必须在**派发前**拦截，不得留给生成后的 SVG QA 去失败——每次 QA 失败都会消耗一次 generator 请求并触发修复阶梯。编译器在写入 prompt 文件之前必须通过以下四项检查；任一失败都不得创建 transaction、不得派发请求，而应把缺陷分类为 brief／storyboard defect 走既有失效规则回上游解决（零 generator 请求消耗）：
+
+1. **自包含性**：隔离句声称"你已获得全部输入"，文件必须兑现这句话。禁止出现未解析的模板占位符或未定义的全大写标识符（如 `INFORMATION_HIERARCHY`）；禁止"见 XX 文档／章节／字段"式外部引用。brief 的信息层级（primary_message、reading_order、management_judgment）必须实际投影进 `建议语义`／`限定条件` 行，不得只写名称。
+2. **布局语义一致性**：固定骨架中的"Bento Grid"措辞是通用骨架；当 brief 的 `layout_family` 不是 Bento 类布局（如状态泳道、时间线）时，`建议语义` 必须显式写出 layout_family 全称和结构描述，并声明其优先于 Bento 措辞，使生成器不会按卡片墙理解泳道页。
+3. **枚举与顺序一致**：`核心结论` 中的计数、分组与顺序必须与 `锁定内容` 的结构和 `建议语义` 的排布一致；照抄 assertion_title 导致两者矛盾（如结论顺序与泳道顺序不同）属于编译失败。
+4. **字号下限与容纳预算**：brief 排版阶梯中每个字号必须不低于设计系统对应角色的下限（标题 40px；正文与次级信息文本按角色判定，正文类 ≥20px 或有明确语义理由的标签字号，脚注／来源 ≥14px）；同时按 `构图.density_strategy` 与安全区面积估算锁定内容的行数与字符量，超出容纳预算即注定溢出。两类失败都在上游解决：改 brief 字号令牌，或拆页／瘦身故事板。
+
+门禁通过后才进入 transaction 创建与派发。门禁本身不改变黄金格式的字节语法与哈希域；它只是派发前的确定性验收。
+
 ### `visual_generation_blocker` 生命周期
 
 风格 prompt 解析／编译失败时，必须以单次原子 `run.json` 替换写入 `visual_generation_blocker`，字段和 reason 集合遵循 [artifact-contract.md](artifact-contract.md)。写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，受影响 `slide_id` 必须继续留在 `dirty_slides`。阻断期间不得启动 fresh generator、不得创建／覆盖 SVG、不得降级为 patch、不得改用其他风格或 stale cached prompt。
@@ -172,7 +183,7 @@ This block is intentionally identical in redesign-prompt.md, visual-brief-and-ge
 8. user_page_request mirrors the durable operation owner: initial_generation writes `首次生成 <slide-id>`; deterministic_fallback writes `确定性回退（两次 patch 失败后）`; user_recompose summarizes the applied raw answer without adding facts; expected_output is always exactly `恰好一个 xml 代码围栏中的完整 SVG`.
 9. transaction_id == prompt_snapshot_id. `transaction_id` is exactly the full `prompt_snapshot_id`, including the `sha256:` prefix; the same canonical prompt payload repeats byte-identically, while any change to template bytes, resolved prompt path, manifest version, brief/storyboard/theme snapshots, projected revisions, revision ID array, generation intent, or trigger produces a different prompt snapshot and transaction. The candidate path uses only the 64 hex suffix of that same ID.
 10. Template path/content/manifest-version drift with otherwise coherent provenance is ordinary stale and triggers recompilation. prompt_snapshot_conflict is reserved for internally inconsistent persisted provenance, stored body/hash mismatch, non-unique authoritative snapshots, invalid active-revision projection, or conflicting operation owners.
-11. Hash-capability fallback: when the host provides no deterministic SHA-256 capability, the orchestrator must not fabricate digests. Persist `style_prompt_snapshot_id` and `compiled_prompt_sha256` as the literal `unhashed`, and persist `prompt_snapshot_id` / `transaction_id` as `unhashed:<token>`, where `<token>` is a run-scoped monotonic identifier (previous run token maximum plus one, for example `gp-s03-3`) matching `[0-9a-z][0-9a-z-]*`; the candidate path then uses `slides/.candidates/<slide-id>-<token>.svg`. Resume verification degrades from digest comparison to re-deriving and comparing the nine metadata fields and payload keys; every other rule above, including byte normalization and stale semantics, is unchanged. Inventing a 64 hex digest without computing it is always a hard integrity violation.
+11. Hash-capability fallback: when the host provides no deterministic SHA-256 capability, the orchestrator must not fabricate digests. Persist `style_prompt_snapshot_id` and `compiled_prompt_sha256` as the literal `unhashed`, and persist `prompt_snapshot_id` / `transaction_id` as `unhashed:<token>`, where `<token>` is a run-scoped monotonic identifier (one plus the largest numeric suffix among existing `unhashed:` tokens recorded in this run's `run.json.interaction_history`, for example `gp-s03-3`) matching `[0-9a-z][0-9a-z-]*`; the candidate path then uses `slides/.candidates/<slide-id>-<token>.svg`. Resume verification degrades from digest comparison to re-deriving and comparing the nine metadata fields and payload keys; every other rule above, including byte normalization and stale semantics, is unchanged. Inventing a 64 hex digest without computing it is always a hard integrity violation.
 
 ## 独立执行
 
