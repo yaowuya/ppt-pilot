@@ -6,7 +6,7 @@
 
 生成锚点或正式页面前必须读取本参考。每个视觉阶段都要求 `run.json.manuscript_review.state` 精确为 `manuscript_approved`，同时具有有效且已批准的故事板和审查产物。顶层阶段依次经过 `theme`、`anchor` 并进入 `production` 后才能生产，而且必须已有验证通过的 `theme.json`。
 
-正式页面按每批 3–4 页生产，但每次只写入并验证一个 SVG。每页通过硬检查后，只记录该页检查结果；不得立即从 `dirty_slides` 清除其 ID。只有 promoted transaction 的 final SVG、页面 QA 和整套演示 QA 都通过后，才能在移除对应 `visual_generation_transaction` 的同一次原子 `run.json` 替换中清除该页 dirty 状态。每完成一个持久阶段和一个批次，都更新 `run.json`，使另一个宿主无需对话历史即可恢复运行。
+正式页面按每批 3–4 页生产，但每次只写入并验证一个 SVG。同一批次内，允许把已编译完成的多个 generation prompt 并发派发给多个 fresh generator；每个 SVG 的提取、硬检查与 promotion 仍然逐页串行提交，页与页之间不共享候选状态。每页通过硬检查后，只记录该页检查结果；不得立即从 `dirty_slides` 清除其 ID。只有 promoted transaction 的 final SVG、页面 QA 和整套演示 QA 都通过后，才能在移除对应 `visual_generation_transaction` 的同一次原子 `run.json` 替换中清除该页 dirty 状态。每完成一个持久阶段和一个批次，都更新 `run.json`，使另一个宿主无需对话历史即可恢复运行。
 
 某页耗尽修复与回退策略后仍有硬检查失败时，不得继续生成后续页面。
 
@@ -45,7 +45,7 @@
 检查源文件几何：
 
 - 每个非背景元素都在 64 px 安全区域 `x=64..1216`、`y=64..656` 内，包括页脚／来源文字和页码；放置文字时预留下降部，不把下边界直接当作基线；
-- 不存在潜在文字溢出或裁切；
+- 不存在潜在文字溢出或裁切；无法实际渲染时，必须按 [SVG 契约](svg-contract.md) 的行宽估算公式对每个可见行复核；
 - 文字、标签、形状、连接线和来源之间没有非预期重叠；
 - 与最终主题相比具有足够对比度；
 - 对齐、间距、卡片尺寸和令牌使用一致；

@@ -47,6 +47,7 @@ This block is intentionally identical in redesign-prompt.md, visual-brief-and-ge
 8. user_page_request mirrors the durable operation owner: initial_generation writes `首次生成 <slide-id>`; deterministic_fallback writes `确定性回退（两次 patch 失败后）`; user_recompose summarizes the applied raw answer without adding facts; expected_output is always exactly `恰好一个 xml 代码围栏中的完整 SVG`.
 9. transaction_id == prompt_snapshot_id. `transaction_id` is exactly the full `prompt_snapshot_id`, including the `sha256:` prefix; the same canonical prompt payload repeats byte-identically, while any change to template bytes, resolved prompt path, manifest version, brief/storyboard/theme snapshots, projected revisions, revision ID array, generation intent, or trigger produces a different prompt snapshot and transaction. The candidate path uses only the 64 hex suffix of that same ID.
 10. Template path/content/manifest-version drift with otherwise coherent provenance is ordinary stale and triggers recompilation. prompt_snapshot_conflict is reserved for internally inconsistent persisted provenance, stored body/hash mismatch, non-unique authoritative snapshots, invalid active-revision projection, or conflicting operation owners.
+11. Hash-capability fallback: when the host provides no deterministic SHA-256 capability, the orchestrator must not fabricate digests. Persist `style_prompt_snapshot_id` and `compiled_prompt_sha256` as the literal `unhashed`, and persist `prompt_snapshot_id` / `transaction_id` as `unhashed:<token>`, where `<token>` is a run-scoped monotonic identifier (previous run token maximum plus one, for example `gp-s03-3`) matching `[0-9a-z][0-9a-z-]*`; the candidate path then uses `slides/.candidates/<slide-id>-<token>.svg`. Resume verification degrades from digest comparison to re-deriving and comparing the nine metadata fields and payload keys; every other rule above, including byte normalization and stale semantics, is unchanged. Inventing a 64 hex digest without computing it is always a hard integrity violation.
 
 ## 运行目录规则
 
@@ -72,6 +73,16 @@ This block is intentionally identical in redesign-prompt.md, visual-brief-and-ge
 候选数为 2–4 时还必须包含与候选值完全相同的 `options`、完整 `option_effects`、属于候选的 `recommendation` 和非空 `recommendation_reason`。候选更多时可以提出一个开放选择问题，要求回复精确 `deck_id`，但必须把完整候选列表持久化且不得编造推荐。
 
 处理顺序：原子创建该文件后才提问；等待时不得写入任何候选运行。`entry_action` 与 `operation_payload` 在整个路由生命周期保持不变。明确回答先写为 `answered`，保存原始 `answer`，并在有限选择时保存属于 `candidates` 的规范化 `decision`。随后验证所选目录与 `run.json`，读取并保留既有 `run.json.mode`，再按已保存入口动作执行完整原始操作载荷。只有所选运行到达下一个持久状态后才删除 `run-selection.json`；崩溃留下 answered 文件时继续消费而不重复提问。已有路由文件格式错误、候选已消失、操作载荷缺失或与新请求冲突时停止，不创建第二份也不猜测目标或操作。
+
+## 可选工作区偏好档案
+
+`ppt-output/pilot-preferences.json` 是 schema-version 1 的可选工作区级咨询性输入，用于跨运行复用品牌方向与交付偏好；交互语义见[用户交互与确认协议](interaction-protocol.md)。
+
+- 顶层固定为 `schema_version: 1` 与可选的 `brand`、`style`、`audience`、`language`、`confidentiality_restriction`、`evidence_policy`、`standing_authorizations[]`、`notes`；字段全部可选，未使用时写 `none` 或省略；
+- `brand` 记录颜色值、系统字体栈和品牌规则文本；`style` 记录 preferred style ID 或唯一显示名；两者都只是主题阶段的候选输入，视觉令牌仍只能在文稿批准后确定；
+- 跨运行有效的网络或披露授权必须以 `standing_authorizations[]` 对象显式保存（含授权范围、用户原话与记录时间），且只能由用户明确给出；没有该对象时每次运行仍按权限问题询问；
+- 偏好档案不进入任何 `run.json` 恢复链、不算 durable control state、不替代 guided 批准点或硬质量门；任何运行都不得因为读取偏好而修改或删除该文件之外的工作区状态；
+- 文件格式错误、不可解码或 `schema_version` 非 1 时披露原因并整体忽略，继续当前运行；不得部分采用也无法唯一解释的内容。
 
 ## `run.json` 架构
 
@@ -227,9 +238,9 @@ Markdown 记录使用与 JSON 相同的字段名。阶段产物镜像可以随�
 
 ## 可选 `visual_generation_transaction`
 
-`visual_generation_transaction` 是 schema-version 1 的可选顶层对象，用于恢复页面首次生成和 `recompose` 的跨文件生产步骤；同一运行一次只允许一个 active transaction。完整 transaction schema 固定为：`transaction_id`、`slide_id`、`generation_intent`、`generation_trigger_id`、`prompt_path`、`prompt_snapshot_id`、`compiled_prompt_sha256`、`candidate_path`、`final_path`、`state`、`generation_attempt`、`candidate_sha256`、`failure_reason`。
+`visual_generation_transaction` 是 schema-version 1 的可选顶层对象，用于恢复页面首次生成和 `recompose` 的跨文件生产步骤；默认同一运行一次只允许一个 active transaction，仅当多个事务同属当前生产批次、目标 slide 互不相同且都处于 `compiling`／`compiled` 段时，才允许最多一个批次页数（3–4）个并发 active transaction，而候选写入、验证与 promotion 仍按 slide_id 升序逐页串行提交。完整 transaction schema 固定为：`transaction_id`、`slide_id`、`generation_intent`、`generation_trigger_id`、`prompt_path`、`prompt_snapshot_id`、`compiled_prompt_sha256`、`candidate_path`、`final_path`、`state`、`generation_attempt`、`candidate_sha256`、`failure_reason`。
 
-字段语义固定如下：`transaction_id == prompt_snapshot_id`，值是完整 `sha256:<64hex>`；`prompt_path` 必须是 `generation-prompts/<slide-id>.md`；`candidate_path` 必须是 `slides/.candidates/<slide-id>-<64hex>.svg`，其中 `<64hex>` 来自 transaction ID 去掉 `sha256:` 后的后缀；`final_path` 必须是 `slides/<slide-id>.svg`。`compiled_prompt_sha256` 只覆盖 compiled prompt body bytes；`candidate_sha256` 只能在候选 SVG 写入、关闭并复读后计算并提交，`compiling`、`compiled` 与 `generating` 状态不得预填 candidate hash。
+字段语义固定如下：`transaction_id == prompt_snapshot_id`，值是完整 `sha256:<64hex>`（启用 golden block 第 11 条 unhashed 回退时为完整 `unhashed:<token>`）；`prompt_path` 必须是 `generation-prompts/<slide-id>.md`；`candidate_path` 必须是 `slides/.candidates/<slide-id>-<64hex>.svg`，其中 `<64hex>` 来自 transaction ID 去掉 `sha256:` 后的后缀（unhashed 回退时为 `slides/.candidates/<slide-id>-<token>.svg`）；`final_path` 必须是 `slides/<slide-id>.svg`。`compiled_prompt_sha256` 只覆盖 compiled prompt body bytes；`candidate_sha256` 只能在候选 SVG 写入、关闭并复读后计算并提交，`compiling`、`compiled` 与 `generating` 状态不得预填 candidate hash。
 
 允许状态图精确为：
 
@@ -245,7 +256,7 @@ replacement: failed transaction -> new compiling transaction
 
 `failure_reason` 只能为 null 或以下 11 个稳定 reason：`generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch`、`svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed`、`final_promotion_conflict`、`transaction_state_conflict`。
 
-固定跨文件顺序和 crash 恢复如下：先原子写入 `state: compiling` 并保留 previous final SVG；再持久化 `generation-prompts/<slide-id>.md`；prompt durable 后可以暂时保留 active `visual_generation_blocker`。只有复核 durable prompt 的 `prompt_snapshot_id` 与 `compiled_prompt_sha256` 匹配后，才能用一次 `run.json` 原子替换同时把 transaction 改为 `compiled` 并移除匹配 blocker。随后先原子改为 `generating`，再调用 fresh generator。若 crash 留在 `generating`，此时没有 committed expected candidate hash；deterministic path 上的任何 orphan candidate 都必须 delete/isolate，never adopted，然后重新调用 generator。只有 transaction durable 为 `candidate_written` 且记录非空 `candidate_sha256` 时，resume 才可复读候选并比较 hash；不匹配转 `failed: candidate_hash_mismatch`，匹配才继续验证。
+固定跨文件顺序和 crash 恢复如下：先原子写入 `state: compiling` 并保留 previous final SVG；再持久化 `generation-prompts/<slide-id>.md`；prompt durable 后可以暂时保留 active `visual_generation_blocker`。只有复核 durable prompt 的 `prompt_snapshot_id` 与 `compiled_prompt_sha256` 匹配后，才能用一次 `run.json` 原子替换同时把 transaction 改为 `compiled` 并移除匹配 blocker；golden block 第 11 条 unhashed 回退生效时，该复核改为重新推导并比对九个元数据字段与 payload keys，不做摘要比较。随后先原子改为 `generating`，再调用 fresh generator。若 crash 留在 `generating`，此时没有 committed expected candidate hash；deterministic path 上的任何 orphan candidate 都必须 delete/isolate，never adopted，然后重新调用 generator。只有 transaction durable 为 `candidate_written` 且记录非空 `candidate_sha256` 时，resume 才可复读候选并比较 hash；不匹配转 `failed: candidate_hash_mismatch`，匹配才继续验证。
 
 候选验证通过后原子改为 `validated`。只有 `validated` 能提升候选到 final：先把候选原子替换为 final path，再原子把 transaction 改为 `promoted`。如果 final 替换后、状态提交前 crash，resume 比较 final bytes 与记录的 `candidate_sha256`；相同补写 `promoted`，不同转 `failed: final_promotion_conflict`。dirty_slides 只在 promoted transaction 的页面和整套 QA 均通过后，随移除 transaction 的同一 `run.json` 原子替换清除；previous final SVG 在失败、验证和冲突期间始终保留。
 

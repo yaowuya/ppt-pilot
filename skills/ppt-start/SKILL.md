@@ -36,7 +36,7 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 5. 在生成任何视觉页面前，先按[逐页视觉 brief 与生成](references/visual-brief-and-generation.md)组装并验证对应 `visual-briefs/<slide-id>.md`；没有有效 brief 不得生成 SVG。
 6. 每个页面的首次生成和任何 `recompose` 都必须按[页面生成与重新排版专用 Prompt](references/redesign-prompt.md)写入 `generation-prompts/<slide-id>.md`，格式以黄金范本为准：`# <slide-id> 页面生成 Prompt` 标题、九字段 `## Snapshot metadata`、`## Compiled Prompt` 精简编译体，全文件只用工作区相对路径；并在 fresh 独立上下文中只用该 Prompt 生成候选；不得由 visual brief 直接生成 SVG。旧 `redesign-prompts/` 只读兼容。
 7. 两页锚点 SVG——[SVG 契约](references/svg-contract.md)
-8. 生成任何正式页面前，先读取 [QA、恢复与修订](references/qa-and-revision.md)；按每批 3–4 页生产，但每次只写入并验证一个 SVG，通过后才能继续。
+8. 生成任何正式页面前，先读取 [QA、恢复与修订](references/qa-and-revision.md)；按每批 3–4 页生产；批内允许把多个已编译 Prompt 并发派发给多个 fresh generator，但每次只写入并验证一个 SVG，通过后才能继续。
 
 阶段转换遵循[工作流](references/workflow.md)，文件和状态字段遵循[产物契约](references/artifact-contract.md)。
 
