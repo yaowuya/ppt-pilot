@@ -26,7 +26,7 @@
 
 ## schema-v1 identity 与 operation owner
 
-theme.json 与每份 visual-briefs/<slide-id>.md 必须包含完全相同的四个 schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`。`legacy_seed` 的 `style_manifest_version` 必须是字符串 `none`；`style_pack` 必须写当前 manifest version。missing fields 只能从已验证 registry／manifest／fallback identity table 派生并重建；不得从 SVG、目录、请求文案或用户措辞推断。
+四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）必须在 `theme.json` 与每份 brief 完全一致；权威定义见[产物契约 Task 6](artifact-contract.md)。`legacy_seed` 的 `style_manifest_version` 必须是字符串 `none`；`style_pack` 必须写当前 manifest version。missing fields 只能从已验证 registry／manifest／fallback identity table 派生并重建；不得从 SVG、目录、请求文案或用户措辞推断。
 
 每份 brief 还必须持久记录 `generation_intent` 与 `generation_trigger_id`，由当前操作的持久 owner 唯一决定：
 
