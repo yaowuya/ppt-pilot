@@ -59,7 +59,10 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 - 逻辑与叙事流；
 - 重复与矛盾；
 - 遗漏与证据薄弱的主张；
-- 风险与重大决策影响。
+- 风险与重大决策影响；
+- 设计师视角的材料充分性：站在 PPT 设计师立场、以汇报场景（受众与决策点、时长与场合、期望受众行动）为基准发现材料缺口。
+
+材料缺口以 `category: material_gap` 记录，必须携带 `missing_evidence` 与 `proposed_question`。创作上下文把所有 `OPEN` 的 material_gap 汇总成缺口清单，并按[用户交互与确认协议](references/interaction-protocol.md)一次一个地向用户头脑风暴提问；用户补充先落盘到对应上游文稿，再进入下一轮正式审查。作者不得用对话记忆或源外推测填补缺口。
 
 每条问题必须包含：`id`、`severity`、`category`、`slide_ids`、`claim`、`evidence`、`recommendation` 和 `status`。
 
