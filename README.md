@@ -76,7 +76,15 @@ $ppt-start
 
 ### DeepSeek Harness
 
-安装到 DeepSeek harness 的技能发现目录。优先遵循 agents 标准布局：用户级 `$HOME/.agents/skills/ppt-start/`，项目级 `.agents/skills/ppt-start/`；若所用 harness 版本不扫描该目录，则把 `SKILL.md` 全文粘贴进其 `AGENTS.md`／系统提示层，并把 `references/` 与 `assets/` 复制到同一工作区可访问位置。
+一键安装（推荐，在仓库根目录的本机终端运行）：
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/install-deepseek-plugin.ps1
+```
+
+脚本按 harness 插件约定安装到 `$HOME/.agents/plugins/plugins/ppt-pilot/`（含 `.codex-plugin/plugin.json` 与完整 `skills/ppt-start/`），自动校正 `marketplace.json` 条目并备份旧版；可重复运行升级。
+
+手动安装则遵循 agents 标准布局：用户级 `$HOME/.agents/skills/ppt-start/`，项目级 `.agents/skills/ppt-start/`；若所用 harness 版本不扫描这些目录，则把 `SKILL.md` 全文粘贴进其 `AGENTS.md`／系统提示层，并把 `references/` 与 `assets/` 复制到同一工作区可访问位置。
 
 用户级复制示例：
 

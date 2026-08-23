@@ -49,6 +49,22 @@ class DeckDeliverToolTest(unittest.TestCase):
         ):
             self.assertIn(token, tool, f"deck-deliver.ps1 missing {token}")
 
+    def test_deepseek_installer_exists_and_matches_marketplace_convention(self) -> None:
+        installer_path = repo_root() / "tools" / "install-deepseek-plugin.ps1"
+        self.assertTrue(installer_path.exists(), "tools/install-deepseek-plugin.ps1 must exist")
+        installer = read_text(installer_path)
+        for token in (
+            "$MarketplaceRoot",
+            "plugins\\ppt-pilot",
+            ".codex-plugin\\plugin.json",
+            "marketplace.json",
+            "skills\\ppt-start",
+            "ppt-start.bak-*",
+        ):
+            self.assertIn(token, installer, f"installer missing {token}")
+        readme = read_text(repo_root() / "README.md")
+        self.assertIn("install-deepseek-plugin.ps1", readme, "README must document the installer")
+
     def test_tool_never_writes_into_skill_or_slides(self) -> None:
         tool = read_text(self.tool_path)
         # The tool's only persistent writes are preview.html and the delivery
