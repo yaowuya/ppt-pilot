@@ -141,3 +141,4 @@ Write-Host ''
 Write-Host "安装完成：$pluginDir"
 Write-Host "版本：$Version"
 Write-Host '在 DeepSeek harness 中使用启动词 ppt-start 发起请求即可。'
+exit 0
