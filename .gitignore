@@ -6,6 +6,7 @@ ppt-output/
 .claude/
 .agents/
 .codex/
+.omo
 
 # Acceptance definitions and Markdown evaluations may be versioned; generated
 # host workspaces, transcripts, screenshots, presentations, and diagnostics stay local.
