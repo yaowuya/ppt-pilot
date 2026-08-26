@@ -210,7 +210,7 @@ powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1 -RunDir ppt-outp
 ```
 
 - 始终生成 `<run>/preview.html` 联系表：缩略图网格 + 单页查看器（方向键翻页、Esc 关闭），纯静态、无外部资源；
-- 从 `故事板.md`（旧运行 `storyboard.md`）解析每页 `assertion_title`／`audience_takeaway`／`next_link`，自动写入 PPTX 演讲者备注；
+- 从 `.ppt-pilot/故事板.md` 解析每页 `assertion_title`／`audience_takeaway`／`next_link`，自动写入 PPTX 演讲者备注；
 - 调用本机 PowerPoint（COM 自动化，与验收脚本同一模式）把每页 SVG 插入 16:9 PPTX 并复开校验；本机没有 PowerPoint 或指定 `-SkipPptx` 时跳过该步，preview.html 仍可用；
 - `-ExportPng` 额外导出每页 1280×720 PNG 作为渲染证据；结果清单写入 `<run>/delivery/delivery-result.json`；
 - 工具只新增 preview.html 与 `delivery/`，不修改任何 Skill 运行产物。

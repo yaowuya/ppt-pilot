@@ -127,8 +127,6 @@ visual-brief assembler 只负责按既有 scope／supersedes 契约决定本页�
 
 brief 修订、QA defect 与 dirty 状态不得绕过 transaction：previous final SVG 在候选生成、验证失败、QA 失败和 promotion conflict 期间保留；orphan candidate never adopted；`dirty_slides` 只在 promoted transaction 的页面和整套 QA 均通过后清除。`visual_qa_failed`、`svg_contract_failed`、`locked_content_mismatch` 必须先把 defect 持久化到 brief／QA owner，再决定 patch 或 deterministic fallback。No arbitrary delete/cancel。
 
-## 旧运行
+## 旧项目兼容
 
-缺少 `visual-briefs/` 的 `schema-v1` 运行仍可读取，不得仅因此迁移或重写已批准上游产物。下一次锚点、正式页面生成或视觉修订前，必须从批准故事板、当前主题和权威 `interaction_history` 补建对应 brief，再继续视觉工作。
-
-补建时沿用该运行实际使用的中英文文件名和已有快照证据。信息不足、批准证据无效、主题互相冲突或无法判断哪些视觉修订仍有效时停止；不得从旧对话、探索性 HTML、现存 SVG 几何或记忆中猜测缺失规则。
+不兼容缺 `visual-briefs/` 的旧运行；所有新运行必须按本契约在 `.ppt-pilot/visual-briefs/` 下持久化完整 brief 后才可继续视觉工作。

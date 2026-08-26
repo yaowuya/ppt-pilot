@@ -42,16 +42,6 @@ class WorkflowContractTests(unittest.TestCase):
         ".ppt-pilot/",
     ]
 
-    LEGACY_MARKDOWN_ARTIFACTS = {
-        "brief.md": "简报.md",
-        "research.md": "研究.md",
-        "sources.md": "来源.md",
-        "outline.md": "大纲.md",
-        "storyboard.md": "故事板.md",
-        "manuscript-review.md": "文稿审查.md",
-        "qa-report.md": "质量检查报告.md",
-    }
-
     REQUIRED_RUN_FIELDS = {
         "schema_version",
         "deck_id",
@@ -142,20 +132,6 @@ class WorkflowContractTests(unittest.TestCase):
         items = self._extract_section_list(text, "必需产物")
         for artifact in self.REQUIRED_ARTIFACTS:
             self.assertIn(artifact, items, f"artifact-contract.md missing required artifact {artifact}")
-
-    def test_legacy_english_markdown_names_are_read_only_compatible(self):
-        artifact = read_text(self.contract_path)
-        workflow = read_text(self.workflow_path)
-        qa = read_text(self.qa_path)
-        combined = "\n".join((artifact, workflow, qa))
-        for legacy, canonical in self.LEGACY_MARKDOWN_ARTIFACTS.items():
-            with self.subTest(legacy=legacy):
-                self.assertIn(legacy, combined)
-                self.assertIn(canonical, combined)
-        self.assertIn("旧运行", combined)
-        self.assertIn("原位读取", combined)
-        self.assertIn("不得自动重命名", combined)
-        self.assertIn("`run.json` 中记录的实际文件名", combined)
 
     def test_artifact_contract_run_json_fields(self):
         text = read_text(self.contract_path).lower()

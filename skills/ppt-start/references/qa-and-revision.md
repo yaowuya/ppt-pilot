@@ -94,7 +94,7 @@ recompose = complete brief + locked storyboard + active theme
 
 每个首次生成和任何 `recompose` 都必须使用[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)，不能直接把 visual brief 交给同一创作上下文生成：
 
-- 验证 `generation-prompts/<slide-id>.md` 的 `prompt_snapshot_id`、brief 快照和视觉修订 ID；早期 `redesign-prompts/` 只读兼容；
+- 验证 `.ppt-pilot/generation-prompts/<slide-id>.md` 的 `prompt_snapshot_id`、brief 快照和视觉修订 ID；
 - 风格 prompt 解析／编译失败时写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 和 dirty slide，不启动 generator、不写 SVG、不改用其他风格、不降级为 patch；
 - fresh 独立生成上下文只接收该 Prompt；首次生成不接收其他页面，重新排版还不得接收旧 SVG 或创作对话；
 - 生成回复必须恰好一个 `xml` 代码围栏；提取后裸内容从 `<svg` 开始并以 `</svg>` 结束；不得把代码围栏写入工作区 SVG；
@@ -135,7 +135,7 @@ generator 交互是严格单轮的：一次请求提交完整输入，一次响�
 
 ## 整套演示 QA
 
-每页单独通过后，执行整套演示 QA，并写入当前运行实际使用的 QA 报告：新运行写入 `质量检查报告.md`，旧英文运行沿用 `qa-report.md`：
+每页单独通过后，执行整套演示 QA，并写入 `.ppt-pilot/质量检查报告.md`：
 
 - 叙事：核心论点、证明顺序、反方观点、影响与收束保持连贯；
 - 结论／证据映射：每个重要结论有支持，限定条件没有丢失；
@@ -150,7 +150,7 @@ generator 交互是严格单轮的：一次请求提交完整输入，一次响�
 
 ## QA 报告记录内容
 
-无论报告文件实际名为新标准 `质量检查报告.md`，还是旧英文运行沿用的 `qa-report.md`，都要记录：
+QA 报告统一写入 `.ppt-pilot/质量检查报告.md`，记录：
 
 - 运行 ID 与演示文稿 ID；
 - 验证时间和能力限制；
@@ -180,7 +180,7 @@ generator 交互是严格单轮的：一次请求提交完整输入，一次响�
 
 恢复时按每轮 `review_mode` 验证互斥 execution evidence：subagent round 必须有非空且 child/result 一致的宿主 delegation evidence；inline fallback round 必须有合法 fallback evidence、冻结快照和隔离限制，且不能含 delegation evidence。任一模式证据缺失或格式错误时使批准失效；下一轮仍先尝试独立审查，失败则在当前步骤 inline 审查。只有两种方式都不能执行时才设置 `review_unavailable`。绝不能根据无效 evidence 的批准恢复视觉阶段。
 
-先解析该运行实际使用的 Markdown 文件名。新运行使用 `简报.md`、`研究.md`、`来源.md`、`大纲.md`、`故事板.md`、`文稿审查.md` 和 `质量检查报告.md`。旧英文运行可以沿用 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md`、`manuscript-review.md` 和 `qa-report.md`：优先采用 `run.json` 中记录的实际文件名，然后核对目录中是否存在完整对应集合。旧运行必须原位读取并沿用既有名称，不得自动重命名、复制或迁移。中英文集合同时存在且无法唯一判定时，停止并报告冲突。
+运行目录使用固定中文文件名，存放于 `.ppt-pilot/`：`简报.md`、`研究.md`、`来源.md`、`大纲.md`、`故事板.md`、`文稿审查.md` 和 `质量检查报告.md`。
 
 找到第一个未完成或脏阶段。复用有效且已批准的上游产物；不能仅仅因为更换宿主或对话就重新计算已批准的上游工作。状态声称某产物已完成但文件缺失或格式错误时，把该阶段标脏，并且只使其依赖项失效。
 

@@ -65,4 +65,4 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 
 ## 完成条件
 
-只有文稿质量门通过、全部 SVG 硬检查通过、整套 QA 已写入当前运行实际使用的 QA 报告（新运行为 `质量检查报告.md`，旧英文运行为 `qa-report.md`），并且 `run.json` 的阶段为 `complete`，本次运行才算完成。
+只有文稿质量门通过、全部 SVG 硬检查通过、整套 QA 已写入 `.ppt-pilot/质量检查报告.md`，并且 `run.json` 的阶段为 `complete`，本次运行才算完成。

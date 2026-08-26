@@ -36,7 +36,7 @@ generation-prompts/<slide-id>.md
 
 输入快照、主题或有效视觉修订变化后，旧 Prompt 立即失效。`generation-prompts/` 是派生产物，不能覆盖 visual brief 或权威修订历史。
 
-早期版本产生的 `redesign-prompts/<slide-id>.md` 只作只读兼容；新运行统一写入 `generation-prompts/`，不得同时激活两种路径。
+生成统一写入 `.ppt-pilot/generation-prompts/<slide-id>.md`；不存在根目录 `redesign-prompts/` 兼容路径。
 
 ### schema-v1 identity、operation owner 与旧目录迁移
 
@@ -55,7 +55,7 @@ brief 与 theme 的四字段彼此冲突、legacy version 不是 `none`、trigge
 
 same `interaction:<id>` copied to every affected brief; each slide keeps distinct slide-specific transaction identities and prompt snapshots。Deck-scope user_recompose fan-out copies the same `interaction:<id>` to every affected brief; each slide keeps distinct slide-specific transaction identities and prompt snapshots.
 
-`redesign-prompts/` 始终 inert：旧目录只读保留为历史，不参与 prompt 选择，不写、不移动、不删除。只有旧目录时，下一次首次生成或 recompose 按当前 brief/style 编译 `generation-prompts/<slide-id>.md`；新目录 stale 时只替换新目录文件；双目录同页时以新目录 provenance 为准；不同 slide 独立处理；旧目录存在与否从不构成 style identity 或 operation owner 证据。
+不再支持旧 `redesign-prompts/` 目录；若发现该目录，下次首次生成或 recompose 按当前 brief/style 编译 `generation-prompts/<slide-id>.md`；新目录 stale 时只替换新目录文件；双目录同页时以新目录 provenance 为准；不同 slide 独立处理；旧目录存在与否从不构成 style identity 或 operation owner 证据。
 
 ## Style Prompt 解析与编译
 

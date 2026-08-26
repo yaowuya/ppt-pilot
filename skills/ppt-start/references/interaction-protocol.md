@@ -93,8 +93,8 @@
 
 | interaction id | answered stage | normalized decision | committed stage | 同一原子提交的效果 |
 |---|---|---|---|---|
-| `brief-approval` | `brief` | `approve` | `research` | 冻结 `简报.md` 或旧运行对应文件，删除原交互；若存在 `approved`，同步 `approved.brief: true`。 |
-| `outline-approval` | `outline` | `approve` | `storyboard` | 冻结 `大纲.md` 或旧运行对应文件，删除原交互；若存在 `approved`，同步 `approved.outline: true`。 |
+| `brief-approval` | `brief` | `approve` | `research` | 冻结 `简报.md`，删除原交互；若存在 `approved`，同步 `approved.brief: true`。 |
+| `outline-approval` | `outline` | `approve` | `storyboard` | 冻结 `大纲.md`，删除原交互；若存在 `approved`，同步 `approved.outline: true`。 |
 | `anchor-approval` | `anchor` | `approve` | `production` | 确认两页锚点的当前已验证版本，删除原交互；若存在 `approved`，同步 `approved.style: true`。 |
 
 表中 ID 展示第 1 次兼容形式。`checkpoint`、answered stage 和 decision 相同的 `<checkpoint>-approval-<N>` 沿用同一规范性转移；后缀只区分事件，不改变目标阶段。

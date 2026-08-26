@@ -1099,8 +1099,8 @@ class RedesignPromptContractTests(unittest.TestCase):
             "fallback identity table",
             "legacy_seed",
             "missing fields",
-            "`redesign-prompts/` 始终 inert",
-            "不写、不移动、不删除",
+            "不存在 `redesign-prompts/` 兼容目录",
+            "统一写入 `generation-prompts/`",
             "不得从 SVG、目录、请求文案或用户措辞推断",
         ):
             with self.subTest(token=token):
@@ -1213,8 +1213,8 @@ class RedesignPromptContractTests(unittest.TestCase):
             "patch:<slide-id>:<qa-defect-id>",
             "ordinary stale",
             "prompt_snapshot_conflict",
-            "`redesign-prompts/` 始终 inert",
-            "不写、不移动、不删除",
+            "不存在根目录 `redesign-prompts/` 兼容路径",
+            "生成统一写入 `.ppt-pilot/generation-prompts/<slide-id>.md`",
             "不得从 SVG、目录、请求文案或用户措辞推断",
             "same `interaction:<id>` copied to every affected brief",
             "distinct slide-specific transaction identities and prompt snapshots",
@@ -1250,10 +1250,10 @@ class RedesignPromptContractTests(unittest.TestCase):
                 self.assertIn(token, design)
 
         for token in (
-            "history/read-only only",
-            "never active prompt source",
-            "`redesign-prompts/` 始终 inert",
-            "不写、不移动、不删除",
+            "不存在 `redesign-prompts/` 兼容目录",
+            "所有生成统一写入 `generation-prompts/`",
+            "`.ppt-pilot/generation-prompts/<slide-id>.md`",
+            "编译正文必须全文来自",
             "prompt_snapshot_conflict",
             "same `interaction:<id>` copied to every affected brief",
             "distinct slide-specific transaction identities and prompt snapshots",
@@ -1436,8 +1436,6 @@ class RedesignPromptContractTests(unittest.TestCase):
         text = read_text(self.artifact)
         self.assertIn("- `generation-prompts/`", text)
         self.assertIn("每个首次生成", text)
-        self.assertIn("redesign-prompts/", text)
-        self.assertIn("只读兼容", text)
 
     def test_synthetic_prompt_fixture_declares_expected_artifacts(self):
         self.assertTrue(self.prompt_fixture.exists())
