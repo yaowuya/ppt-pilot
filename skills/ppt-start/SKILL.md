@@ -51,7 +51,7 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 - 每页最多修复两次，之后使用简单布局回退；回退后仍有硬检查失败时必须停止。
 - `resume` 入口必须先读取 `run.json` 并保留既有 `run.json.mode`；除非产物缺失、格式错误或被标记为脏，否则不得重新计算已批准的上游工作。
 - 纯视觉修改或可证明不改变事实的文字修正，只把受影响页面和 QA 标记为脏，不重新进行文稿审查。
-- 所有首次页面生成和 `recompose` 必须持久化 `generation-prompts/<slide-id>.md`（黄金格式：九字段 `## Snapshot metadata` + `## Compiled Prompt` 精简编译体，只用工作区相对路径），由 fresh 独立生成上下文只返回 fenced SVG；创作上下文提取裸 SVG 后再执行正式 QA。旧 `redesign-prompts/` 仅作只读兼容。
+- 所有首次页面生成和 `recompose` 必须持久化 `.ppt-pilot/generation-prompts/<slide-id>.md`（黄金格式：九字段 `## Snapshot metadata` + `## Compiled Prompt` 正文，正文必须逐字来自 [generation-prompt-template.md](references/generation-prompt-template.md)，仅允许内容占位符与步骤 1 演示逻辑替换；全文件只用工作区相对路径），由 fresh 独立生成上下文只返回 fenced SVG；创作上下文提取裸 SVG 后再执行正式 QA。
 - 风格 prompt 解析或编译失败时写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 与 dirty slide，不启动 generator、不写 SVG、不改用其他风格、不降级为 patch。prompt durable 但 `run.json` 尚未提交时，`compiling` transaction 与 active blocker 可同时存在；恢复时只能用一次 `run.json` 替换同时提交 `compiled` 并移除匹配 blocker。
 - 主张、来源、事实性文案、大纲或故事板变化会使批准失效；重新生成视觉页面前必须进行新的文稿审查。
 
