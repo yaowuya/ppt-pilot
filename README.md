@@ -76,13 +76,13 @@ $ppt-start
 
 ### DeepSeek Harness
 
-一键安装（推荐，在仓库根目录的本机终端运行）：
+三宿主一键更新（推荐，在仓库根目录的本机终端运行）：
 
 ```bash
-powershell -ExecutionPolicy Bypass -File tools/install-deepseek-plugin.ps1
+powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1 -ProjectClaude -ProjectCodex
 ```
 
-脚本按 harness 插件约定安装到 `$HOME/.agents/plugins/plugins/ppt-pilot/`（含 `.codex-plugin/plugin.json` 与完整 `skills/ppt-start/`），自动校正 `marketplace.json` 条目并备份旧版；可重复运行升级。
+脚本按 harness 插件约定安装到 `$HOME/.agents/plugins/plugins/ppt-pilot/`（含 `.codex-plugin/plugin.json` 与完整 `skills/ppt-start/`），并同步更新 Claude Code（`$HOME/.claude/skills/ppt-start/`）与 Codex（`$HOME/.agents/skills/ppt-start/`）；旧版自动备份，可重复运行升级。仅需单独更新 DeepSeek 时可用 `tools/install-deepseek-plugin.ps1`。
 
 手动安装则遵循 agents 标准布局：用户级 `$HOME/.agents/skills/ppt-start/`，项目级 `.agents/skills/ppt-start/`；若所用 harness 版本不扫描这些目录，则把 `SKILL.md` 全文粘贴进其 `AGENTS.md`／系统提示层，并把 `references/` 与 `assets/` 复制到同一工作区可访问位置。
 
@@ -144,7 +144,7 @@ Skill 可接收主题、完整简报、资料集合、既有运行目录或定�
 
 Skill 先检查请求和工作区，已有答案不得重复询问。剩余重要决策按依赖顺序处理，一次只提出一个实质性问题；有限选择给出 2–4 个互斥选项并把推荐项放在第一位。推荐不是确认，收到明确回答前不会推进被该问题阻塞的下游阶段。
 
-运行目录已经建立时，当前问题保存在 `run.json.pending_interaction`。有限选择还保存逐项效果、推荐理由以及回答后的规范化决定，使另一个宿主能够原样重放并无需重新解释自然语言。恢复运行会先重发同一个 `pending` 问题，或幂等处理已经保存为 `answered` 的答案，再以原子状态提交避免阶段与问题错位；它不会重新计算有效上游工作。完成的答案保存在可选 `run.json.interaction_history`，阶段产物中的记录只是可重建镜像，因此主题或页面失效不会抹掉批准／修订轨迹。这些字段是 `schema_version: 1` 的可选扩展；没有这些字段的旧运行仍然有效。
+运行目录已经建立时，当前问题保存在 `run.json.pending_interaction`。有限选择还保存逐项效果、推荐理由以及回答后的规范化决定，使另一个宿主能够原样重放并无需重新解释自然语言。恢复运行会先重发同一个 `pending` 问题，或幂等处理已经保存为 `answered` 的答案，再以原子状态提交避免阶段与问题错位；它不会重新计算有效上游工作。完成的答案保存在可选 `run.json.interaction_history`，阶段产物中的记录只是可重建镜像，因此主题或页面失效不会抹掉批准／修订轨迹。这些字段是 `schema_version: 1` 的可选扩展。
 
 当 `resume`／`revise` 有多个候选运行且目标无法唯一确定时，选择问题先保存在工作区级 `ppt-output/run-selection.json`；该文件同时保存入口动作和原始操作载荷，不会写入任何候选运行。选定目标并让该运行到达下一个持久状态后才删除该路由文件，崩溃恢复不会重复询问或丢失修订请求。
 
@@ -191,10 +191,6 @@ ppt-output/<deck-id>/
 ```
 
 这些文件构成跨宿主交接接口：另一个受支持宿主无需原始对话即可恢复运行。
-
-### 旧英文运行兼容
-
-中文文件名只作为**新运行**的标准。`resume`／`revise` 遇到使用 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md`、`manuscript-review.md`、`qa-report.md` 的旧英文运行时，必须原位读取并继续使用该运行已有的名称，不自动重命名、复制或迁移文件。`run.json.manuscript_review.latest_report` 与 `reviewed_file_snapshot.files` 中记录的实际文件名优先；如果同一语义的中英文文件同时存在且状态无法判定，必须停止并报告冲突，不能猜测或覆盖。
 
 ## 可选伴随工具与交付组装
 
