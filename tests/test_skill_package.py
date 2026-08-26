@@ -98,9 +98,9 @@ class SkillPackageTests(unittest.TestCase):
             "质量检查报告.md",
         ):
             self.assertIn(artifact, text)
-        self.assertIn("旧英文运行", text)
-        self.assertIn("原位读取", text)
-        self.assertIn("不自动重命名", text)
+        self.assertIn(".ppt-pilot/", text)
+        self.assertIn("slides/", text)
+        self.assertIn(".ppt-pilot/run.json", text)
         self.assertIn("不保证", text)
         self.assertIn("完全可编辑", text)
         self.assertIn("powerpoint", lower)

@@ -190,7 +190,7 @@ ppt-output/<deck-id>/
     └── samples/
 ```
 
-这些文件构成跨宿主交接接口：另一个受支持宿主无需原始对话即可恢复运行。
+这些文件构成跨宿主交接接口：另一个受支持宿主无需原始对话即可恢复运行。内部状态以 `.ppt-pilot/run.json` 为准，其中记录 `run.json.manuscript_review.latest_report` 等字段。
 
 ## 可选伴随工具与交付组装
 
