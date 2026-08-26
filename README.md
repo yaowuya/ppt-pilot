@@ -1,8 +1,8 @@
 # PPT Pilot
 
-PPT Pilot 是一个可同时用于 Claude Code 与 OpenAI Codex 的可移植、纯指令 Agent Skill。它通过工作区中的持久产物开发有证据支撑的 16:9 演示文稿，并把每页幻灯片交付为独立 SVG 文件。
+PPT Pilot 是一个可同时用于 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植、纯指令 Agent Skill。它通过工作区中的持久产物开发有证据支撑的 16:9 演示文稿，并把每页幻灯片交付为独立 SVG 文件。
 
-MVP 不强制依赖 MCP 服务、SDK、Hook、后台服务、运行时软件包或外部审稿服务。Python 只用于本仓库的一致性测试；安装后的 Skill 直接使用宿主已有的文件、研究、委派与检查能力。
+MVP 不强制依赖 MCP 服务、SDK、Hook、后台服务、运行时软件包或外部审稿服务。Python 只用于本仓库的一致性测试；安装后的 Skill 直接使用宿主已有的文件、研究、委派与检查能力。仓库另提供可选伴随工具（`tools/`，见[可选伴随工具与交付组装](#可选伴随工具与交付组装)），它们随仓库分发，不属于安装后的 Skill。
 
 ## 能做什么
 
@@ -74,6 +74,36 @@ $ppt-start
 请从 ppt-output/example-deck/ 恢复运行并继续生成 SVG。
 ```
 
+### DeepSeek Harness
+
+一键安装（推荐，在仓库根目录的本机终端运行）：
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/install-deepseek-plugin.ps1
+```
+
+脚本按 harness 插件约定安装到 `$HOME/.agents/plugins/plugins/ppt-pilot/`（含 `.codex-plugin/plugin.json` 与完整 `skills/ppt-start/`），自动校正 `marketplace.json` 条目并备份旧版；可重复运行升级。
+
+手动安装则遵循 agents 标准布局：用户级 `$HOME/.agents/skills/ppt-start/`，项目级 `.agents/skills/ppt-start/`；若所用 harness 版本不扫描这些目录，则把 `SKILL.md` 全文粘贴进其 `AGENTS.md`／系统提示层，并把 `references/` 与 `assets/` 复制到同一工作区可访问位置。
+
+用户级复制示例：
+
+```bash
+cp -R skills/ppt-start "$HOME/.agents/skills/ppt-start"
+```
+
+调用示例（DeepSeek harness 无统一斜杠命令约定，使用显式启动词）：
+
+```text
+ppt-start
+请根据 inputs/ 中的资料制作一份 10 页中文策略演示文稿，使用 auto 模式。
+```
+
+说明：
+
+- 若 harness 提供子代理／委派原语，文稿审查按契约优先独立 subagent；未提供时自动走已定义的 `inline_fallback` 正式降级审查，报告会声明“当前上下文降级审查”；
+- 技能发现与启动语法的最终行为以真实宿主验证为准，见[验收文档](docs/acceptance.md)的 DeepSeek Harness 行（当前全部 `PENDING`）。
+
 符号链接是否可用取决于操作系统和宿主沙箱；无法使用时请改为复制，并始终把本仓库的 `skills/ppt-start/` 视为标准源。
 
 ## 使用方式
@@ -92,6 +122,23 @@ Skill 可接收主题、完整简报、资料集合、既有运行目录或定�
 - **revise**：保留既有 `run.json.mode`，先完成同一 durable control chain，再使受影响产物失效；事实、来源、主张、大纲或故事板变化必须重新进行正式文稿审查。
 
 `run.json.mode` 只保存 `guided` 或 `auto`，不保存 `new`、`resume` 或 `revise`。
+
+### 工作区偏好档案（可选）
+
+`ppt-output/pilot-preferences.json` 可跨运行复用品牌方向与交付偏好，减少重复提问：
+
+```json
+{
+  "schema_version": 1,
+  "brand": { "colors": ["#156BFF"], "font_stack": "Microsoft YaHei, Arial, sans-serif", "notes": "强调色只用于关键比较" },
+  "style": { "preferred_style_id": "canway-midyear-review" },
+  "audience": { "name": "运营管理层", "desired_action": "确认 H2 资源取舍" },
+  "language": "zh-CN",
+  "confidentiality_restriction": "内部资料不得外发到网络"
+}
+```
+
+优先级固定为：当前请求明确答案 > 本运行已批准产物 > 偏好档案 > 安全默认值。档案只能记录限制型保密策略；跨运行有效的网络或披露授权必须由用户显式给出并记录为 standing 授权。格式错误时披露原因并整体忽略，不影响运行。完整规则见[用户交互与确认协议](skills/ppt-start/references/interaction-protocol.md)与[产物契约](skills/ppt-start/references/artifact-contract.md)。
 
 ### 问答与可恢复等待
 
@@ -115,7 +162,7 @@ Skill 先检查请求和工作区，已有答案不得重复询问。剩余重�
 
 ### 可选风格
 
-新安装从 `assets/styles/registry.json` 发现可选风格。三个既有扁平种子继续兼容；内置 rich style pack `canway-midyear-review` 的中文显示名为“嘉为年中总结风格”，当前内容版本为 `1.2.0`。只有用户明确选择或主题阶段按既有 guided／auto 规则安全选中时使用，不是新的默认主题。
+新安装从 `assets/styles/registry.json` 发现可选风格。三个既有扁平种子继续兼容；内置 rich style pack `canway-midyear-review` 的中文显示名为“嘉为年中总结风格”，当前内容版本为 `1.3.0`（纯白画布，品牌主蓝 `#156BFF` 为唯一强调蓝）。只有用户明确选择或主题阶段按既有 guided／auto 规则安全选中时使用，不是新的默认主题。
 
 四个内置风格各自拥有一份独立可编译的完整模板，即完整、可独立编译的 redesign prompt 模板：`assets/styles/minimal-business.redesign.md`、`assets/styles/tech-dark.redesign.md`、`assets/styles/bold-editorial.redesign.md` 与 `assets/styles/canway-midyear-review/REDESIGN.md`。共享 `references/redesign-prompt.md` 只是 resolver-only 共享契约：解析 selected style、验证 registry／manifest／路径、编译 `generation-prompts/<slide-id>.md`、记录 provenance 和恢复失败；它不再包含跨风格通用的完整视觉 prompt、固定 Bento、固定卡片数量或某个风格的专属构图。只有替换完当前 brief／theme／revision 输入并持久化后的 generation prompt 才能交给 fresh generator，不能直接传递这些原始模板。
 
@@ -154,6 +201,27 @@ ppt-output/<deck-id>/
 
 中文文件名只作为**新运行**的标准。`resume`／`revise` 遇到使用 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md`、`manuscript-review.md`、`qa-report.md` 的旧英文运行时，必须原位读取并继续使用该运行已有的名称，不自动重命名、复制或迁移文件。`run.json.manuscript_review.latest_report` 与 `reviewed_file_snapshot.files` 中记录的实际文件名优先；如果同一语义的中英文文件同时存在且状态无法判定，必须停止并报告冲突，不能猜测或覆盖。
 
+## 可选伴随工具与交付组装
+
+Skill 本体保持纯指令；以下工具位于仓库 `tools/`，不进入 `skills/ppt-start/`，也不参与宿主 Skill 发现。
+
+### `deck-deliver.ps1`——预览、PPTX 与演讲者备注
+
+把一次运行的 `slides/*.svg` 组装为可交付成果：
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1                # 自动探测唯一运行
+powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1 -RunDir ppt-output/fy26-h1-midyear-review -ExportPng
+```
+
+- 始终生成 `<run>/preview.html` 联系表：缩略图网格 + 单页查看器（方向键翻页、Esc 关闭），纯静态、无外部资源；
+- 从 `故事板.md`（旧运行 `storyboard.md`）解析每页 `assertion_title`／`audience_takeaway`／`next_link`，自动写入 PPTX 演讲者备注；
+- 调用本机 PowerPoint（COM 自动化，与验收脚本同一模式）把每页 SVG 插入 16:9 PPTX 并复开校验；本机没有 PowerPoint 或指定 `-SkipPptx` 时跳过该步，preview.html 仍可用；
+- `-ExportPng` 额外导出每页 1280×720 PNG 作为渲染证据；结果清单写入 `<run>/delivery/delivery-result.json`；
+- 工具只新增 preview.html 与 `delivery/`，不修改任何 Skill 运行产物。
+
+PPTX 组装需要交互式桌面会话中的真实 PowerPoint（与[验收文档](docs/acceptance.md)的 real host 要求一致）；无头环境中 preview.html 始终可用。退出码：`0`=PPTX+preview 成功；`3`=仅 preview 成功；致命失败以异常终止。
+
 ## 研究、隐私与能力降级
 
 可选网络研究不是运行时依赖。用户提供的资料和本地资料优先；默认不得把机密内容发送到网络。当实时研究或渲染不可用时，Skill 必须记录限制、限定未验证主张，并使用 `visual_qa: not_rendered`，不得虚构验证结果。
@@ -166,7 +234,7 @@ ppt-output/<deck-id>/
 
 受支持的 PowerPoint 版本可以插入静态 SVG，但 PPT Pilot 不保证所有 Office 版本与平台都能一致导入，也不保证转换后每个元素都完全可编辑。浏览器渲染和代表性 PowerPoint 导入仍属于人工验收项。
 
-MVP 不生成 PPTX、不导入既有 PowerPoint 模板、不搜索图库图片、不生成位图、不制作动画，也不创建演讲者备注。
+Skill 本体不生成 PPTX、不导入既有 PowerPoint 模板、不搜索图库图片、不生成位图、不制作动画，也不创建演讲者备注。最后一公里交付由可选伴随工具 `tools/deck-deliver.ps1` 以本机 PowerPoint COM 自动化补齐（含从故事板自动生成的演讲者备注与 preview.html 联系表），不改变 Skill 的纯指令边界。
 
 ## 开发验证
 

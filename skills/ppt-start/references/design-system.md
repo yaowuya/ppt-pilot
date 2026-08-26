@@ -26,7 +26,7 @@
 
 ### 身份握手、ordinary stale 与 blocker
 
-`theme.json` 与 visual brief 必须记录并核对 selected style ID、display name、kind、manifest version。theme.json 与每份 visual-briefs/<slide-id>.md 必须包含完全相同的四个 schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`。style-pack 的持久值还必须与当前 registry／manifest 精确一致；registry-backed legacy 的 version 必须是字符串 `none`；fallback 使用下方 fallback identity table 并同时匹配 seed `name`。missing fields 只能从 registry／manifest／fallback identity table 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。brief 与 theme 彼此冲突、legacy version 非 `none`、或多个 owner 声明不同 style 时，返回 `prompt_snapshot_conflict` 并写 `style_prompt_unavailable` blocker。brief 与 theme 一致但安装升级导致当前 registry display name 或 manifest version 改变时，属于 ordinary stale：按现有 theme 失效规则返回 `theme`，重建 theme 和受影响 visual briefs，不写 blocker。
+`theme.json` 与 visual brief 必须记录并核对 selected style ID、display name、kind、manifest version。四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）必须在 `theme.json` 与每份 brief 完全一致；权威定义见[产物契约 Task 6](artifact-contract.md)。style-pack 的持久值还必须与当前 registry／manifest 精确一致；registry-backed legacy 的 version 必须是字符串 `none`；fallback 使用下方 fallback identity table 并同时匹配 seed `name`。missing fields 只能从 registry／manifest／fallback identity table 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。brief 与 theme 彼此冲突、legacy version 非 `none`、或多个 owner 声明不同 style 时，返回 `prompt_snapshot_conflict` 并写 `style_prompt_unavailable` blocker。brief 与 theme 一致但安装升级导致当前 registry display name 或 manifest version 改变时，属于 ordinary stale：按现有 theme 失效规则返回 `theme`，重建 theme 和受影响 visual briefs，不写 blocker。
 
 ### 缺 registry fallback identity table
 
@@ -48,7 +48,7 @@ Traversal 顺序固定为：registry target 状态；registry duplicate；regist
 
 ### 条件式主题问题
 
-已有明确品牌规范或已确认风格时直接复用，不重复询问。`guided` 只有在缺少品牌／风格信息且多个视觉方向会实质改变使用场景、语气或可读性时，才提出一个条件式主题问题，并推荐最适合内容密度与受众的种子。`auto` 使用安全的内置种子并记录选择理由；品牌权限不清或没有安全默认值时仍须询问。
+已有明确品牌规范、已确认风格或工作区偏好档案已记录品牌方向时直接复用，不重复询问。`guided` 只有在缺少品牌／风格信息且多个视觉方向会实质改变使用场景、语气或可读性时，才提出一个条件式主题问题，并推荐最适合内容密度与受众的种子。`auto` 使用安全的内置种子并记录选择理由；品牌权限不清或没有安全默认值时仍须询问。
 
 `theme.json` 记录所选种子、最终颜色、字体、间距、形状令牌、语言和已批准覆盖项。不得包含远程 URL 或机器绝对路径。生成或重建该文件时，必须从 `run.json.interaction_history` 恢复 `artifact_owner: theme.json` 的阶段产物镜像到 `user_revision_notes`；不得把 `theme.json` 当作锚点修订记录的唯一权威，也不得因主题失效覆盖或丢失权威交互历史。
 
@@ -66,6 +66,8 @@ Traversal 顺序固定为：registry target 状态；registry duplicate；regist
 
 主导色约占 60%–70% 的视觉权重，另配一到两个辅助色和一个鲜明强调色。背景与表面色承担功能；强调色只用于最高价值的比较、行动或例外，不用于一般装饰。
 
+关键数字与关键比较必须用强调色或明确标注（对比色、圈注、箭头差值）突出，且每页只保留一个主强调焦点——这是故事板"每页黄金规则"在视觉层的执行细则。强调服务于该页 `visual_intent`，优先把关键比较绘制为带指标、期间、单位和来源 ID 的图表，而不是文字罗列；同一页出现多个并列强调时按重要性只保留一个，其余降级为辅助色或普通标注。
+
 正文／脚注文本的对比度至少为 4.5:1；大号文本和关键图形边界至少为 3:1。用户覆盖色与种子冲突时，应修改令牌，而不是给文字添加描边或阴影。
 
 禁止把通用强调色条、装饰边条、标题下划线或渐变作为视觉母题。禁止远程字体及字体下载依赖。优先使用留白、层级、分组、图标和数据关系。
@@ -80,7 +82,7 @@ Traversal 顺序固定为：registry target 状态；registry duplicate；regist
 
 密度允许时使用更大字号。标题必须是结论，可有意换成两行。正文默认左对齐；只有短标签具有明确语义理由时才居中。
 
-SVG 没有可靠且 Office-safe 的自动段落换行。每行必须使用 `<tspan>` 显式拆分，并为各行设置 `x` 与 `dy`。文字保持为文字，不转换为轮廓路径。内容过多时应拆页，不能把字号降到下限以下。
+SVG 没有可靠且 Office-safe 的自动段落换行。每行必须使用 `<tspan>` 显式拆分，并统一使用绝对 `x`／`y` 定位；禁止 `dy` 相对位移。文字保持为文字，不转换为轮廓路径。内容过多时应拆页，不能把字号降到下限以下。
 
 ## 网格与间距
 
@@ -96,7 +98,7 @@ SVG 没有可靠且 Office-safe 的自动段落换行。每行必须使用 `<tsp
 
 ## 锚点批准
 
-写完 `theme.json` 后，根据已批准文稿生成两页锚点：
+写完 `theme.json` 后，根据已批准文稿生成两页锚点并写入运行目录 `samples/`：
 
 1. 封面，用于确立语气和字体；
 2. 密度最高或技术上最困难的内容页，用于证明设计系统能处理真实约束。

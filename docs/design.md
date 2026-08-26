@@ -2,7 +2,7 @@
 
 ## 目标
 
-PPT Pilot 是面向 Claude Code 与 OpenAI Codex 的可移植 Agent Skill。它把主题、简报、资料集合或既有运行转换为 6–15 页、16:9 的演示文稿，最终每页交付为独立 SVG 文件。
+PPT Pilot 是面向 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植 Agent Skill。它把主题、简报、资料集合或既有运行转换为 6–15 页、16:9 的演示文稿，最终每页交付为独立 SVG 文件。
 
 MVP 刻意保持纯指令架构。它只使用宿主常规的工作区能力，以及可选研究／视觉能力；不强制依赖 MCP 服务、API SDK、后台服务、Hook、嵌套 Skill、Shell 脚本或软件包运行时。
 
@@ -146,7 +146,7 @@ subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创�
 - `tech-dark`
 - `bold-editorial`
 
-并提供非默认 rich style pack `canway-midyear-review`，中文显示名为“嘉为年中总结风格”，manifest 内容版本必须精确为 `1.2.0`，并在 `files.redesign_prompt` 中声明 `canway-midyear-review/REDESIGN.md`。它的 manifest 引用机器可读 tokens、中文 `STYLE.md` 抽象规则和风格自有完整 prompt；这些都不是单页成品 SVG 或固定构图参考。颜色、字体、间距、形状和语义角色可以复用；每页区域、卡片数量、连接关系和阅读路径必须由当前 visual brief 重新推导，避免把风格身份固化为同一张版式。
+并提供非默认 rich style pack `canway-midyear-review`，中文显示名为“嘉为年中总结风格”，manifest 内容版本必须精确为 `1.3.0`，并在 `files.redesign_prompt` 中声明 `canway-midyear-review/REDESIGN.md`。它的 manifest 引用机器可读 tokens、中文 `STYLE.md` 抽象规则和风格自有完整 prompt；这些都不是单页成品 SVG 或固定构图参考。颜色、字体、间距、形状和语义角色可以复用；每页区域、卡片数量、连接关系和阅读路径必须由当前 visual brief 重新推导，避免把风格身份固化为同一张版式。
 
 布局根据内容语义选择，不机械轮换。支持封面／章节、单一结论、比较、时间线／流程、层级／架构、数据／图表、Bento 汇总和收束／行动。除非内容要求，相邻页面不得重复同一家族。
 

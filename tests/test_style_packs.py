@@ -54,7 +54,7 @@ class StylePackTests(unittest.TestCase):
 
     def test_canway_manifest_owns_redesign_prompt(self):
         manifest = json.loads(read_text(self.manifest_path))
-        self.assertEqual(manifest["version"], "1.2.0")
+        self.assertEqual(manifest["version"], "1.3.0")
         self.assertEqual(
             manifest["files"],
             {
@@ -70,7 +70,7 @@ class StylePackTests(unittest.TestCase):
         self.assertEqual(manifest["id"], "canway-midyear-review")
         self.assertEqual(manifest["display_name"], "嘉为年中总结风格")
         self.assertEqual(manifest["kind"], "style_pack")
-        self.assertEqual(manifest["version"], "1.2.0")
+        self.assertEqual(manifest["version"], "1.3.0")
         self.assertIn("嘉为年中总结风格", manifest["selection_aliases"])
         self.assertEqual(
             manifest["files"],
@@ -104,10 +104,10 @@ class StylePackTests(unittest.TestCase):
         self.assertEqual(tokens["schema_version"], 1)
         self.assertEqual(tokens["id"], "canway-midyear-review")
         expected_colors = {
-            "canvas": "#F5F8FC",
+            "canvas": "#FFFFFF",
             "hero_dark": "#10233F",
             "brand_primary": "#156BFF",
-            "title_accent": "#1E63FF",
+            "title_accent": "#156BFF",
             "sky": "#65B7F9",
             "ai_pilot": "#8866FD",
             "ink": "#0B1930",

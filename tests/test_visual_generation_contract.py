@@ -256,7 +256,7 @@ class VisualGenerationContractTests(unittest.TestCase):
             "selected_style_id": "canway-midyear-review",
             "selected_style_display_name": "嘉为年中总结风格",
             "style_kind": "style_pack",
-            "style_manifest_version": "1.2.0",
+            "style_manifest_version": "1.3.0",
         }
         expected_owner = {
             "generation_intent": "user_recompose",
@@ -836,7 +836,7 @@ class VisualGenerationContractTests(unittest.TestCase):
     def test_contract_names_patch_recompose_and_legacy_synthesis(self):
         combined = "\n".join(
             read_text(path).lower()
-            for path in (self.reference, self.workflow, self.artifact, self.qa)
+            for path in (self.reference, self.workflow, self.artifact, self.qa, skill_root() / 'references' / 'generation-prompt-byte-grammar.md')
             if path.exists()
         )
         for token in (

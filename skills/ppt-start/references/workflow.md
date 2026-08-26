@@ -32,7 +32,7 @@
 
 `visual_generation_blocker` 不是用户问题，不写入 `pending_interaction`。它只能记录安全 Skill 相对 `resource` 或 `none`，不能持久化未验证绝对路径、URL、工作区路径或机密内容；写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，并保持受影响 slide dirty。prompt 已 durable 后允许恢复者看到 `visual_generation_transaction.state: compiling` 与 active blocker 同时存在；随后只能通过一次 `run.json` 原子替换同时把 transaction 改为 `compiled` 并移除匹配 blocker。阻断期间不得启动 generator、不得写 SVG、不得降级为 patch 或改用其他风格。
 
-`visual_generation_transaction` 恢复保持同一全局 order：只有无 pending、无 blocker 时处理，且同一运行一次只允许一个 active transaction。它的 schema、状态图、failure reason consumer 和 No arbitrary delete/cancel 规则以 [artifact-contract.md](artifact-contract.md) 为准；工作流层必须保持 `compiling -> compiled -> generating -> candidate_written -> validated -> promoted`、`generating | candidate_written | validated -> failed`、`failed -> generating`、`failed -> validated` 与 `failed transaction -> new compiling transaction` 的精确语义。transport retry 使用 `generation_attempt + 1` 且每次宿主调用最多 generator 1 次；production `blocker` 冲突解决只能走 unchanged valid candidate 的 promotion retry，或 authoritative inputs changed 的新 compiling replacement。
+`visual_generation_transaction` 恢复保持同一全局 order：只有无 pending、无 blocker 时处理；默认同一运行一次只允许一个 active transaction，仅当多个事务同属当前生产批次且目标 slide 互不相同时，才允许最多一个批次页数（3–4）个并发 active transaction，恢复时按 slide_id 升序逐个处理。它的 schema、状态图、failure reason consumer 和 No arbitrary delete/cancel 规则以 [artifact-contract.md](artifact-contract.md) 为准；工作流层必须保持 `compiling -> compiled -> generating -> candidate_written -> validated -> promoted`、`generating | candidate_written | validated -> failed`、`failed -> generating`、`failed -> validated` 与 `failed transaction -> new compiling transaction` 的精确语义。transport retry 使用 `generation_attempt + 1` 且每次宿主调用最多 generator 1 次；production `blocker` 冲突解决只能走 unchanged valid candidate 的 promotion retry，或 authoritative inputs changed 的新 compiling replacement。
 
 ## guided 检查点
 
@@ -44,61 +44,15 @@
 
 ## 文稿审查硬质量门
 
-完成并冻结 `简报.md`、`研究.md`、`来源.md`、`大纲.md` 和 `故事板.md` 后，必须立即进入文稿审查硬质量门。
+五文件冻结后立即进入审查：每轮优先委派全新独立子 Agent；启动或结果归因失败时按契约执行 `inline_fallback`（当前上下文降级，报告必须声明隔离限制）；只有两种方式都不可用时才使用 `review_unavailable`。任何 `BLOCKER`／`HIGH` 问题不是 `RESOLVED` 就阻断——`OPEN` 与 `ACCEPTED_RISK` 仍然阻断；零问题也必须保存显式 `PASS` 报告。subagent 与 inline 共同计入每 cycle 最多三轮；三轮仍有阻断问题时进入 `manuscript_blocked`。
 
-- 每轮先尝试全新独立子 Agent；成功时只接收五个冻结文稿和规范，并要求真实 delegation evidence。
-- 启动失败、接收者为空、完成事件缺失或结果上下文不匹配时，不空等、不询问用户，持久化 `inline_fallback` 的 `pending_round`，由当前上下文在当前步骤中直接执行同一审查规范。
-- inline round 使用互斥 `fallback_evidence`，报告必须声明“当前上下文降级审查，不具备独立上下文隔离”；不得伪造 delegation IDs 或称为独立审查。
-- subagent 与 inline 使用相同五文件快照、七维审查、findings schema 和阻断规则；inline PASS 可以正式提交 `manuscript_approved`。
-- 当前上下文也无法读取／审查冻结输入或 pending 状态冲突时才使用 `review_unavailable`；既有 unavailable 历史保持可读。
-- 两种模式共同计入每 cycle 最多三轮；后续轮次仍先尝试子 Agent，失败再 inline。三轮仍有阻断问题时进入 `manuscript_blocked`。
-- 审查未完成、pending、unavailable 或 blocked 时，任何生产阶段都不得运行。
+findings 字段 schema、七维检查、设计师视角材料缺口协议、用户业务决策与多轮解决要求，以 [文稿审查](manuscript-review.md) 为单一权威。
 
 ### 批准检查点与视觉阶段转换
 
-审查通过时，把 `run.json.manuscript_review.state` 设置为 `manuscript_approved`，并记录顶层 `manuscript_approved` 检查点。解析主题令牌前设置 `stage: theme`，制作锚点前设置 `stage: anchor`，生成正式页面前设置 `stage: production`。因此，顶层阶段始终表示当前工作流位置，而嵌套审查状态持续授权所有视觉阶段。
-
-视觉 brief 不是新的顶层阶段。`theme` 阶段解析当前有效主题后组装锚点页面 brief；锚点批准或 `auto` 内部验证完成后，在 `production` 中按页组装其余 brief。任何页面在对应 `visual-briefs/<slide-id>.md` 有效前都不能生成；brief 的组装、内容保护和旧运行补建规则遵循[逐页视觉 brief 与生成契约](visual-brief-and-generation.md)。
-
-页面生成专用 Prompt 也不是新的顶层阶段。首次生成或 `recompose` 时，保持当前 `anchor` 或 `production` 阶段，先组装 visual brief，再按[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)写入 `generation-prompts/<slide-id>.md`，由 fresh 独立上下文只接收该 Prompt。首次生成不提供其他页面；重新排版还不得提供旧 SVG 或创作对话。提取并验证 SVG 前不得把候选标记为有效；通过后再按脏标记与 QA 规则提交。早期 `redesign-prompts/` 只读兼容。
-
-来源、主张、大纲或故事板发生变化时，继续任何视觉工作前必须使嵌套批准失效。即使顶层阶段被错误记录为视觉阶段，只要审查状态为 `manuscript_blocked` 或 `review_unavailable`，该视觉阶段仍然无效。
-
-### 问题质量契约
-
-每轮审查都把问题写入当前运行的审查报告（新运行为 `文稿审查.md`，旧英文运行为 `manuscript-review.md`），每条问题包含：
-
-- `id`
-- `severity`（`BLOCKER`、`HIGH`、`MEDIUM`、`LOW`）
-- `category`
-- `slide_ids`
-- `claim`
-- `evidence`
-- `recommendation`
-- `status`（`OPEN`、`RESOLVED`、`ACCEPTED_RISK`）
-
-要求：
-
-- 每份报告内的问题 ID 必须唯一；
-- 每条问题必须包含全部必填字段；
-- 只有所有 `BLOCKER` 或 `HIGH` 问题都为 `RESOLVED` 时质量门才通过；任何阻断级问题不是 `RESOLVED` 都会继续阻断；
-- `ACCEPTED_RISK` 对 `BLOCKER` 与 `HIGH` 仍然阻断；修正或限定文稿后，必须再次进行正式 subagent／inline 审查。
-
-### 审查维度
-
-审稿人至少检查：
-
-1. 来源覆盖；
-2. 事实准确性；
-3. 时效性；
-4. 逻辑；
-5. 重复；
-6. 遗漏；
-7. 风险。
-
-无法实时核验时，缺少支持且影响重大或具有时效性的主张必须标为 `HIGH`。
+审查通过时记录顶层 `manuscript_approved` 检查点，并把 `run.json.manuscript_review.state` 保持为 `manuscript_approved`：解析主题令牌前设置 `stage: theme`，制作锚点前设置 `stage: anchor`，生成正式页面前设置 `stage: production`。视觉 brief 与页面生成 Prompt 不是新的顶层阶段；其组装、编译与 fresh generator 输入隔离分别遵循 [逐页视觉 brief 与生成](visual-brief-and-generation.md) 与 [redesign-prompt](redesign-prompt.md)。
 
 ### 生产护栏
 
-- `manuscript_review` 获批前，不得创建主题产物 `theme.json`、样例或正式页面；
-- 即使没有发现问题，也必须写入并保存零问题的 `PASS` 报告。
+- `manuscript_review.state = manuscript_approved` 持续有效前，不得创建 `theme.json`、样例或正式页面；
+- 即使零问题，也必须写入并保存 `PASS` 报告。

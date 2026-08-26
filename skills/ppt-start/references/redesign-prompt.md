@@ -30,18 +30,9 @@
 generation-prompts/<slide-id>.md
 ```
 
-该文件至少记录：
+该文件的持久布局以黄金范本为唯一标准（完整规则见下方字节契约）：第 1 行是 `# <slide-id> 页面生成 Prompt`；随后是恰好九个加粗字段组成的 `## Snapshot metadata`（`slide_id`、`visual_brief_snapshot_id`、`storyboard_snapshot_id`、`theme_snapshot_id`、`applied_visual_revision_ids`、`prompt_snapshot_id`、`user_page_request`、`expected_output`、`workspace_output_path`）；最后一个标题是 `## Compiled Prompt`，其后是精简编译体。全文件所有路径必须是工作区相对路径，禁止绝对路径、盘符、UNC 与 URL；主题色板与风格构图语义内联进单行 `主题:` 与 `建议语义:` 槽位；编译体不得包含 JSON 数据块、PROMPT_SCHEMA_VERSION 头、HARD_CONSTRAINT_IDS 列表或 UNTRUSTED 围栏，也不得指示 generator 调用工具或读取外部文件。
 
-- `slide_id`；
-- `visual_brief_snapshot_id`；
-- `storyboard_snapshot_id`；
-- `theme_snapshot_id`；
-- `applied_visual_revision_ids`；
-- `prompt_snapshot_id`；
-- `selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`；
-- `generation_intent`；
-- `generation_trigger_id`；
-- [USER_WORDING]。
+风格身份四字段、`generation_intent`／`generation_trigger_id`、`compiled_prompt_sha256` 等机器字段持久在 visual brief、`theme.json` 与 `run.json.visual_generation_transaction` 中；该文件本身只显示九个元数据字段。schema-v1 identity 与 operation owner 的完整规则见下节。
 
 输入快照、主题或有效视觉修订变化后，旧 Prompt 立即失效。`generation-prompts/` 是派生产物，不能覆盖 visual brief 或权威修订历史。
 
@@ -49,7 +40,7 @@ generation-prompts/<slide-id>.md
 
 ### schema-v1 identity、operation owner 与旧目录迁移
 
-theme.json 与每份 visual-briefs/<slide-id>.md 必须包含完全相同的四个 schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`。四字段不提升 schema 版本；`style_manifest_version` 对 `legacy_seed` 固定为 `none`，对 `style_pack` 固定为当前 manifest version。missing fields 只能从已验证 registry／manifest／fallback identity table 或已持久 operation owner 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。
+四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）必须在 `theme.json` 与每份 brief 完全一致；权威定义见[产物契约 Task 6](artifact-contract.md)。四字段不提升 schema 版本；`style_manifest_version` 对 `legacy_seed` 固定为 `none`，对 `style_pack` 固定为当前 manifest version。missing fields 只能从已验证 registry／manifest／fallback identity table 或已持久 operation owner 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。
 
 `generation_intent` 与 `generation_trigger_id` 是 visual brief 和 generation prompt 的 operation owner。四个合法 operation rows 固定如下：
 
@@ -150,6 +141,17 @@ visual-brief assembler 只负责按既有 scope／supersedes 契约决定本页�
 - 写入 `generation-prompts/<slide-id>.md` 并持久化 `prompt_snapshot_id`。
 - `visual_generation_blocker.resource` 只保存规范化 Skill 相对路径；路径安全前失败写 `none`，不得持久化未验证绝对路径、URL 或机密内容。
 
+### 编译门禁（pre-dispatch gate）
+
+generation prompt 是一次性执行契约：fresh generator 只做一次请求、一次响应。因此所有能确定性检查的缺陷必须在**派发前**拦截，不得留给生成后的 SVG QA 去失败——每次 QA 失败都会消耗一次 generator 请求并触发修复阶梯。编译器在写入 prompt 文件之前必须通过以下四项检查；任一失败都不得创建 transaction、不得派发请求，而应把缺陷分类为 brief／storyboard defect 走既有失效规则回上游解决（零 generator 请求消耗）：
+
+1. **自包含性**：隔离句声称"你已获得全部输入"，文件必须兑现这句话。禁止出现未解析的模板占位符或未定义的全大写标识符（如 `INFORMATION_HIERARCHY`）；禁止"见 XX 文档／章节／字段"式外部引用。brief 的信息层级（primary_message、reading_order、management_judgment）必须实际投影进 `建议语义`／`限定条件` 行，不得只写名称。
+2. **布局语义一致性**：固定骨架中的"Bento Grid"措辞是通用骨架；当 brief 的 `layout_family` 不是 Bento 类布局（如状态泳道、时间线）时，`建议语义` 必须显式写出 layout_family 全称和结构描述，并声明其优先于 Bento 措辞，使生成器不会按卡片墙理解泳道页。
+3. **枚举与顺序一致**：`核心结论` 中的计数、分组与顺序必须与 `锁定内容` 的结构和 `建议语义` 的排布一致；照抄 assertion_title 导致两者矛盾（如结论顺序与泳道顺序不同）属于编译失败。
+4. **字号下限与容纳预算**：brief 排版阶梯中每个字号必须不低于设计系统对应角色的下限（标题 40px；正文与次级信息文本按角色判定，正文类 ≥20px 或有明确语义理由的标签字号，脚注／来源 ≥14px）；同时按 `构图.density_strategy` 与安全区面积估算锁定内容的行数与字符量，超出容纳预算即注定溢出。两类失败都在上游解决：改 brief 字号令牌，或拆页／瘦身故事板。
+
+门禁通过后才进入 transaction 创建与派发。门禁本身不改变黄金格式的字节语法与哈希域；它只是派发前的确定性验收。
+
 ### `visual_generation_blocker` 生命周期
 
 风格 prompt 解析／编译失败时，必须以单次原子 `run.json` 替换写入 `visual_generation_blocker`，字段和 reason 集合遵循 [artifact-contract.md](artifact-contract.md)。写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，受影响 `slide_id` 必须继续留在 `dirty_slides`。阻断期间不得启动 fresh generator、不得创建／覆盖 SVG、不得降级为 patch、不得改用其他风格或 stale cached prompt。
@@ -167,20 +169,9 @@ visual-brief assembler 只负责按既有 scope／supersedes 契约决定本页�
 transport 和候选写入失败 reason（`generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch`）只能由显式 resume 消费为同一 transaction 的 `failed -> generating`，并使用 `generation_attempt + 1`；每次宿主调用最多 generator 1 次。SVG／内容／视觉 QA 失败（`svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed`）先持久化 defect，再 patch 或 new deterministic fallback compiling transaction。promotion／state conflict（`final_promotion_conflict`、`transaction_state_conflict`）持久化 production `blocker`，保留 previous final SVG 和 failed transaction；用户解决后 unchanged valid candidate 走 `failed -> validated` promotion retry，authoritative inputs changed 走 failed transaction -> new compiling transaction。No arbitrary delete/cancel。
 
 
-### Generation prompt byte grammar, hash domains, and stale semantics
+### Generation prompt golden layout, byte grammar, hash domains, and stale semantics
 
-This block is intentionally identical in redesign-prompt.md, visual-brief-and-generation.md, and artifact-contract.md. Every generation-prompts/<slide-id>.md compile uses this byte contract:
-
-1. General byte normalization for style prompt templates and other non-theme bytes reads UTF-8, rejects undecodable bytes, removes any UTF-8 BOM, normalizes CRLF/CR to LF, preserves leading blank lines and all non-newline content, and enforces exactly one terminal LF. It does not trim leading blank lines from style templates, so adding a template leading blank line changes style_prompt_snapshot_id, compiled_prompt_sha256, prompt_snapshot_id, and transaction_id.
-2. Visual brief extraction requires these headings exactly once and in order: ## 来源与版本, ## 锁定内容, ## 信息层级, ## 构图, ## 视觉系统, ## 修订模式, ## 输出与质量要求. Replacement bytes exclude the heading line, trim leading/trailing blank lines, preserve internal line order, and append one LF. SOURCE_AND_VERSION additionally removes the whole line whose prefix is - brief_snapshot_id: before trimming.
-3. Template placeholders must be standalone token lines with no surrounding whitespace. The compiler replaces the whole token line and its terminating LF with the replacement bytes, performs one pass only, and never recursively expands marker-looking text inside ACTIVE_THEME, ACTIVE_VISUAL_REVISIONS, or USER_WORDING.
-4. ACTIVE_THEME uses a distinct normalization rule: remove UTF-8 BOM, normalize CRLF/CR to LF, trim only outer blank lines, and append one LF, so extra outer theme blank lines do not churn hashes. ACTIVE_VISUAL_REVISIONS is the answer-free projection array as canonical JSON plus one LF; USER_WORDING is a canonical JSON string plus one LF and remains untrusted data between BEGIN_UNTRUSTED_USER_WORDING_JSON and END_UNTRUSTED_USER_WORDING_JSON.
-5. style_prompt_snapshot_id is SHA-256 over the normalized pre-replacement template bytes. compiled_prompt_sha256 is SHA-256 over only the compiled prompt body bytes beginning after the ## Compiled Prompt Body heading; it excludes the generation-prompt title, Provenance envelope, compiled_prompt_sha256, prompt_snapshot_id, transaction_id, candidate path, output path, and final SVG path.
-6. prompt_snapshot_id is SHA-256 over canonical JSON bytes with no trailing LF and exactly these payload keys: applied_visual_revision_ids, compiled_prompt_sha256, generation_intent, generation_trigger_id, resolved_redesign_prompt_path, selected_style_id, storyboard_snapshot_id, style_kind, style_manifest_version, style_prompt_snapshot_id, theme_snapshot_id, visual_brief_snapshot_id. applied_visual_revision_ids is always a JSON array value/text, including zero or one item, ordered by the active-revision projection rules.
-7. The Provenance envelope uses field names visual_brief_snapshot_id and applied_visual_revision_ids; it must not introduce aliases such as brief_snapshot_id or active_visual_revision_ids. generation_intent and generation_trigger_id are copied exactly from the durable operation owner.
-8. transaction_id == prompt_snapshot_id. `transaction_id` is exactly the full `prompt_snapshot_id`, including the `sha256:` prefix; the same canonical prompt payload repeats byte-identically, while any change to template bytes, resolved prompt path, manifest version, brief/storyboard/theme snapshots, projected revisions, revision ID array, generation intent, or trigger produces a different prompt snapshot and transaction. The candidate path uses only the 64 hex suffix of that same ID.
-9. Template path/content/manifest-version drift with otherwise coherent provenance is ordinary stale and triggers recompilation. prompt_snapshot_conflict is reserved for internally inconsistent persisted provenance, stored body/hash mismatch, non-unique authoritative snapshots, invalid active-revision projection, or conflicting operation owners.
-
+本节收敛为单一权威文件：完整定义见 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md)（generation prompt byte grammar 与 byte contract 的全部 11 条规则）。该文件对本文件同等具有约束力；编译、校验或恢复前必须完整阅读。
 ## 独立执行
 
 1. 启动一个 **fresh、独立** 的生成上下文；

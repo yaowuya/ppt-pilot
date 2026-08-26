@@ -11,11 +11,11 @@
 - **topic-only（仅主题）**：根据主题拟定简报。`guided` 模式按决策依赖顺序询问实质性缺失项，并在研究或编写大纲前请求明确的简报批准；`auto` 模式明确记录安全假设后继续。
 - **complete brief（完整简报）**：在不改变原意的前提下规范化用户简报。只有缺失决策会实质改变演示文稿时才需要补充；否则记录保守假设。
 - **source-driven（资料驱动）**：先盘点用户提供的资料，再根据覆盖情况和缺口生成简报与研究问题。
-- **resume（恢复）**：先读取 `run.json`，严格按全局恢复链 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan` 处理；只有前四类 durable control state 均不存在或已完成后，才进入 `stage scan`，再从第一个未完成或脏输入继续。
+- **resume（恢复）**：先读取 `run.json`，严格按全局恢复链 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan` 处理；只有前四类 durable control state 均不存在或已完成后，才进入 stage scan，再从第一个未完成或脏输入继续。
 
 ## 决策依赖顺序与简报批准
 
-先检查请求、用户资料和既有运行，删除已经回答的事项。只有缺失答案会实质改变演示文稿时才询问；低影响且可逆的未知项使用保守默认值并写入 `assumptions`。
+先检查请求、用户资料、既有运行和工作区偏好档案（`ppt-output/pilot-preferences.json`，规则见[用户交互与确认协议](interaction-protocol.md)），删除已经回答的事项。只有缺失答案会实质改变演示文稿时才询问；低影响且可逆的未知项使用保守默认值并写入 `assumptions`。
 
 按以下依赖顺序选择最早的一个未决事项，而不是一次展示完整问卷：
 
@@ -52,7 +52,7 @@
 - `evidence policy`：资料质量、引用密度及对未核验主张的容忍度；
 - `confidentiality`：公开、内部、机密或用户指定的处理规则；
 - `language`：中文、英文或指定的双语方式；
-- `brand/style`：已有品牌规范或简短风格要求；视觉令牌只能在文稿批准后确定；
+- `brand/style`：已有品牌规范、简短风格要求或工作区偏好档案中预置的品牌方向；视觉令牌只能在文稿批准后确定；
 - `delivery_mode`：`guided` 或 `auto`；
 - `success_criteria`：内容与交付的可观察成功条件；
 - `assumptions`：所有未经用户直接确认而采用的默认值。
