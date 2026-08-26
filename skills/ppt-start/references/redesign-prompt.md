@@ -172,6 +172,10 @@ transport 和候选写入失败 reason（`generator_unavailable`、`generator_re
 ### Generation prompt golden layout, byte grammar, hash domains, and stale semantics
 
 本节收敛为单一权威文件：完整定义见 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md)（generation prompt byte grammar 与 byte contract 的全部 11 条规则）。该文件对本文件同等具有约束力；编译、校验或恢复前必须完整阅读。
+## 最终 Prompt 正文模板
+
+新运行的 `generation-prompts/<slide-id>.md` 中 `## Compiled Prompt` 必须逐字使用 [generation-prompt-template.md](generation-prompt-template.md) 的唯一模板，仅允许把 `[在此处粘贴你的内容]` 替换为预提纯内容块；其余正文不得改动。grammar 章节保留给旧运行与历史 fixture 的字节兼容。
+
 ## 独立执行
 
 1. 启动一个 **fresh、独立** 的生成上下文；

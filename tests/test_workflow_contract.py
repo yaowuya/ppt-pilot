@@ -37,18 +37,9 @@ class WorkflowContractTests(unittest.TestCase):
     REVIEW_STATES = {"review_unavailable", "manuscript_blocked"}
 
     REQUIRED_ARTIFACTS = [
-        "run.json",
-        "简报.md",
-        "研究.md",
-        "来源.md",
         "大纲.md",
-        "故事板.md",
-        "文稿审查.md",
-        "theme.json",
-        "visual-briefs/",
-        "samples/",
         "slides/",
-        "质量检查报告.md",
+        ".ppt-pilot/",
     ]
 
     LEGACY_MARKDOWN_ARTIFACTS = {

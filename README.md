@@ -178,21 +178,16 @@ Skill 先检查请求和工作区，已有答案不得重复询问。剩余重�
 
 ```text
 ppt-output/<deck-id>/
-├── run.json
-├── 简报.md
-├── 研究.md
-├── 来源.md
-├── 大纲.md
-├── 故事板.md
-├── 文稿审查.md
-├── theme.json
-├── visual-briefs/
-│   └── <slide-id>.md
-├── generation-prompts/
-│   └── <slide-id>.md
-├── samples/
-├── slides/
-└── 质量检查报告.md
+├── 大纲.md          # 用户唯一需要看的内容，含每页排版逻辑
+├── slides/          # 最终 SVG
+└── .ppt-pilot/      # 所有内部过程产物（用户无需查看）
+    ├── run.json
+    ├── 简报.md / 研究.md / 来源.md
+    ├── 故事板.md / 文稿审查.md
+    ├── theme.json / 质量检查报告.md
+    ├── visual-briefs/<slide-id>.md
+    ├── generation-prompts/<slide-id>.md
+    └── samples/
 ```
 
 这些文件构成跨宿主交接接口：另一个受支持宿主无需原始对话即可恢复运行。

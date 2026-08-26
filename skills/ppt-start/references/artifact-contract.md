@@ -2,21 +2,23 @@
 
 ## 必需产物
 
-- `run.json`
-- `简报.md`
-- `研究.md`
-- `来源.md`
 - `大纲.md`
-- `故事板.md`
-- `文稿审查.md`
-- `theme.json`
+- `slides/`
+- `.ppt-pilot/`
+
+`.ppt-pilot/` 是用户不需要看到的内部状态目录，存放其余全部过程产物：
+
+- `run.json`
+- `简报.md`、`研究.md`、`来源.md`
+- `故事板.md`、`文稿审查.md`
+- `theme.json`、`质量检查报告.md`
 - `visual-briefs/`
 - `generation-prompts/`
-- `samples/`
-- `slides/`
-- `质量检查报告.md`
+- `samples/`（锚点页 SVG：封面与密度最高内容页）
 
-`generation-prompts/` 是新运行的必需视觉执行产物目录。每个首次生成或 `recompose` 的页面都必须创建 `generation-prompts/<slide-id>.md`；`patch` 不重新生成。每份文件严格遵循黄金格式：`# <slide-id> 页面生成 Prompt` 标题、恰好九个加粗字段的 `## Snapshot metadata`（slide_id、visual_brief_snapshot_id、storyboard_snapshot_id、theme_snapshot_id、applied_visual_revision_ids、prompt_snapshot_id、user_page_request、expected_output、workspace_output_path）、以及 `## Compiled Prompt` 后的精简编译体；期望输出是一个 fenced `xml` 中的完整 SVG。全文件只允许工作区相对路径，禁止绝对路径、盘符、UNC、URL、JSON 数据块与 UNTRUSTED 围栏。
+新运行根目录只保留用户可读的 `大纲.md`、最终页面 `slides/` 与内部目录 `.ppt-pilot/`。`resume`／`revise` 对旧英文运行或旧布局运行原位读取并存续既有路径。
+
+`generation-prompts/` 位于 `.ppt-pilot/` 内部，是新运行的必需视觉执行产物目录。每个首次生成或 `recompose` 的页面都必须创建 `.ppt-pilot/generation-prompts/<slide-id>.md`；`patch` 不重新生成。每份文件严格遵循黄金格式：`# <slide-id> 页面生成 Prompt` 标题、恰好九个加粗字段的 `## Snapshot metadata`（slide_id、visual_brief_snapshot_id、storyboard_snapshot_id、theme_snapshot_id、applied_visual_revision_ids、prompt_snapshot_id、user_page_request、expected_output、workspace_output_path）、以及 `## Compiled Prompt` 后的精简编译体；期望输出是一个 fenced `xml` 中的完整 SVG。全文件只允许工作区相对路径，禁止绝对路径、盘符、UNC、URL、JSON 数据块与 UNTRUSTED 围栏。新运行编译正文必须全文来自 [generation-prompt-template.md](generation-prompt-template.md)，仅允许内容占位符注入。
 
 `generation-prompts/<slide-id>.md` 是从 visual brief 派生的可恢复执行产物，不得成为主张、来源、主题或修订历史的唯一副本。输入快照变化后旧 Prompt 失效；恢复时必须重新编译，不能依赖旧对话。早期 `redesign-prompts/` 是 history/read-only only，never active prompt source：只可作为历史证据只读保留，新运行和恢复都不得写入该别名，也不得从该目录选择、激活或迁移 Prompt。
 

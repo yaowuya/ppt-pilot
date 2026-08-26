@@ -55,7 +55,7 @@ function ConvertTo-HtmlText {
 
 function Get-StoryboardNotes {
     param([string]$RunPath, [string]$SlideId)
-    foreach ($name in @('故事板.md', 'storyboard.md')) {
+    foreach ($name in @('.ppt-pilot\故事板.md', '.ppt-pilot\storyboard.md', '故事板.md', 'storyboard.md')) {
         $path = Join-Path $RunPath $name
         if (Test-Path $path) { return @{ raw = (Get-Content -LiteralPath $path -Raw -Encoding UTF8); file = $name } }
     }
