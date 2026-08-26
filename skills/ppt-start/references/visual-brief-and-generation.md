@@ -113,7 +113,7 @@ visual-brief assembler 只负责按既有 scope／supersedes 契约决定本页�
 每个页面的首次生成和任何 `recompose` 都必须读取[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)。用户明确说“重新排版”“重做版式”“重新设计页面”或“换个排版”时仍按本文件分类为 `recompose`，但与首次生成使用同一 Prompt 模板和独立执行路径：
 
 1. 先按本文件组装并验证完整 `visual-briefs/<slide-id>.md`；
-2. 从当前 brief、锁定故事板、active theme、权威视觉修订与兼容约束编译 `.ppt-pilot/generation-prompts/<slide-id>.md`（编译正文使用 [generation-prompt-template.md](generation-prompt-template.md) 唯一模板，仅替换内容占位符）；编译必须先通过[专用 Prompt 契约](redesign-prompt.md)的编译门禁（自包含性、布局语义一致、枚举顺序一致、字号下限与容纳预算），门禁失败回上游修 brief／故事板，零请求消耗，通过后记录 `prompt_snapshot_id`；
+2. 从当前 brief、锁定故事板、active theme、权威视觉修订与兼容约束编译 `.ppt-pilot/generation-prompts/<slide-id>.md`（编译正文使用 [generation-prompt-template.md](generation-prompt-template.md) 唯一模板，仅替换内容占位符与按大纲演示逻辑调整步骤 1）；编译必须先通过[专用 Prompt 契约](redesign-prompt.md)的编译门禁（自包含性、布局语义一致、枚举顺序一致、字号下限与容纳预算），门禁失败回上游修 brief／故事板，零请求消耗，通过后记录 `prompt_snapshot_id`；
 3. 启动 fresh、独立的生成上下文，只授予编译后的 Prompt；首次生成不提供其他页面，重新排版还不得提供旧 SVG、创作对话或未持久化上下文；
 4. 生成上下文只返回一个 `xml` 代码围栏中的 SVG；调用是严格单轮的——一次请求、一次响应，请求预算与派发播报规则见 [QA、恢复与修订](qa-and-revision.md)；
 5. 创作上下文提取围栏内内容，确认从 `<svg` 开始并以 `</svg>` 结束，再保存裸 SVG；不得把代码围栏写入 `samples/` 或 `slides/`；
