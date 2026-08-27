@@ -101,6 +101,17 @@ class TemplateCreativeReformTest(unittest.TestCase):
         self.assertIn("惰性", contract)
         self.assertIn("只读", contract)
 
+    def test_qa_uses_fact_source_consistency(self):
+        qa = read_text(skill_root() / "references" / "qa-and-revision.md")
+        self.assertIn("fact_source_consistency", qa)
+        self.assertIn("narrative_integrity", qa)
+        self.assertNotIn("locked_content_fidelity", qa)
+
+    def test_qa_reading_order_replaced_by_hierarchy(self):
+        qa = read_text(skill_root() / "references" / "qa-and-revision.md")
+        self.assertNotIn("reading_order", qa)
+        self.assertIn("视觉层级", qa)
+
 
 CANONICAL_REPLACEMENT_MARKER_RE = re.compile(rb"\[\[[^\[\]\r\n]+\]\]")
 
