@@ -37,13 +37,13 @@ A write error records `prompt_write_failed` through `compiling -> failed: prompt
 
 ### Task 6 identity 与旧 prompt 目录产物规则
 
-`theme.json` 与每份 `.ppt-pilot/visual-briefs/<slide-id>.md` 必须包含完全相同的四个 deck-level schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`。`theme.json` 还拥有整套 palette、typography、spacing 与品牌方向，但不拥有任何 per-slide operation。逐页 `generation_intent`、`generation_trigger_id`、`effective_revision_projection_sha256`、`prompt_snapshot_id` 和 `visual_generation_transaction` 只持久在 visual brief／generation prompt provenance／`run.json` 对应 owner 中；不得写入 `theme.json`。missing identity 只能由已验证 registry／manifest／fallback identity table 重建；不得从 SVG、目录、请求文案或用户措辞推断。
+`theme.json` 拥有四个 deck-level schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`，以及整套 palette、typography、spacing 与品牌方向；它不拥有任何 per-slide operation。逐页 `generation_intent`、`generation_trigger_id`、`prompt_snapshot_id` 和 `visual_generation_transaction` 只持久在 generation prompt provenance／`run.json` 对应 owner 中；不得写入 `theme.json`。missing identity 只能由已验证 registry／manifest／fallback identity table 重建；不得从 SVG、目录、请求文案或用户措辞推断。
 
-`generation_intent`／`generation_trigger_id` 的产物矩阵固定为：`initial_generation` + `initial:<slide-id>:<visual_brief_snapshot_id>` + `initial generation from approved visual brief`；`user_recompose` + `interaction:<applied-history-id>` + assembler 已规范化并物化后的 intent 摘要，raw answer/history JSON 不进入 generation prompt；`deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` + `deterministic single-column or two-column fallback after two failed patches`；尾缀 `:2` 为常量标识，不随后续重试递增。`local_patch` + `patch:<slide-id>:<qa-defect-id>` + `requires_current_svg` + `compile_full_prompt: false`。
+`generation_intent`／`generation_trigger_id` 的产物矩阵固定为：`initial_generation` + `initial:<slide-id>:<storyboard_snapshot_id>` + `initial generation from approved storyboard and theme`；`user_recompose` + `interaction:<applied-history-id>` + 已规范化并物化后的 intent 摘要，raw answer/history JSON 不进入 generation prompt；`deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` + `deterministic single-column or two-column fallback after two failed patches`；尾缀 `:2` 为常量标识，不随后续重试递增。`local_patch` + `patch:<slide-id>:<qa-defect-id>` + `requires_current_svg` + `compile_full_prompt: false`。
 
-Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受影响 brief；每页仍保有不同的 visual brief snapshot、prompt snapshot 和 transaction identity。
+Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受影响页的编译输入；每页仍保有不同的 storyboard snapshot、prompt snapshot 和 transaction identity。
 
-旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert；所有新生成统一写入 `.ppt-pilot/generation-prompts/`。只有持久 provenance 内部不一致、stored body/hash 不一致、outline/brief/theme/storyboard snapshot 无法唯一解释、revision projection/hash/effective fields 不一致或多个 operation owner 冲突时才是 `prompt_snapshot_conflict`。
+旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert；所有新生成统一写入 `.ppt-pilot/generation-prompts/`。只有持久 provenance 内部不一致、stored body/hash 不一致、outline/storyboard/theme snapshot 无法唯一解释、active revision projection 不一致或多个 operation owner 冲突时才是 `prompt_snapshot_conflict`。
 
 
 ### Generation prompt golden layout, byte grammar, hash domains, and stale semantics
@@ -122,7 +122,7 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 - `status: applied`；
 - `artifact_owner`：权威记录所镜像到的当前阶段产物。
 
-`affected_scope: deck` 或整套主题／品牌决定镜像到 `theme.json.user_revision_notes`；`affected_scope: anchor` 镜像到 `theme.json.user_revision_notes` 和受影响锚点的 visual brief；具体页面决定镜像到对应 `.ppt-pilot/visual-briefs/<slide-id>.md`。镜像使用同一 `visual-revision-<N>` ID 并可以从历史重建；`run.json.interaction_history` 是权威记录并且必须跨失效保留。直接视觉修订与 guided 锚点修订采用同一记录、归并和冲突规则，不得把探索性预览、对话摘要或 SVG 本身作为唯一副本。
+`affected_scope: deck` 或整套主题／品牌决定镜像到 `theme.json.user_revision_notes`；`affected_scope: anchor` 镜像到 `theme.json.user_revision_notes` 和受影响锚点页的编译输入；具体页面决定镜像到对应页编译输入（叙事/素材/风格基线表述）。镜像使用同一 `visual-revision-<N>` ID 并可以从历史重建；`run.json.interaction_history` 是权威记录并且必须跨失效保留。直接视觉修订与 guided 锚点修订采用同一记录、归并和冲突规则，不得把探索性预览、对话摘要或 SVG 本身作为唯一副本。
 
 明确替换同一字段的后续记录必须在 `supersedes` 中列出旧记录及字段。被替换记录保留在历史中，但其废弃规则不得进入当前有效契约。若无法确定新规则是共存还是替换、作用域不明确、目标字段不存在，或镜像与权威记录冲突，停止应用并持久化一个澄清问题；不得同时激活互斥规则。
 
@@ -314,10 +314,10 @@ No arbitrary delete/cancel：除上述 failed consumer 与 promoted 后最终 QA
 | `claim_or_source` | `research` | `pending` | 受影响研究／来源、大纲或故事板、审查和全部视觉／QA 产物。 |
 | `outline` | `outline` | `pending` | 故事板、审查和全部视觉／QA 产物。 |
 | `storyboard` | `storyboard` | `pending` | 审查和全部视觉／QA 产物。 |
-| `theme` | `theme` | `preserve` | 全部 `visual-briefs/`、`generation-prompts/`、`samples/`、`slides/` 和 QA 产物。 |
-| `anchor_only` | `anchor` | `preserve` | 受影响锚点 brief、对应 generation prompt、锚点、依赖正式页面 brief／SVG 和 QA。 |
-| `slide_recompose` | `production` | `preserve` | 受影响页面 brief、对应 generation prompt、SVG 和 QA。 |
-| `slide_patch` | `production` | `preserve` | 受影响页面 SVG 和 QA；brief 只更新 defect 与候选版本。 |
+| `theme` | `theme` | `preserve` | 全部 `generation-prompts/`、`samples/`、`slides/` 和 QA 产物。 |
+| `anchor_only` | `anchor` | `preserve` | 受影响锚点页编译输入、对应 generation prompt、锚点、依赖正式页面 SVG 和 QA。 |
+| `slide_recompose` | `production` | `preserve` | 受影响页面编译输入、对应 generation prompt、SVG 和 QA。 |
+| `slide_patch` | `production` | `preserve` | 受影响页面 SVG 和 QA；编译输入只更新 defect 与候选版本。 |
 
 上表保留以下依赖不变量：`brief` 变化会使全部下游产物失效；`outline` 变化会使 `storyboard` 及全部下游产物失效；`source` 或 `storyboard` 变化会使文稿审查及全部视觉产物失效；`theme` 变化会使全部 visual brief、generation prompt、`samples`、`slides` 和 QA 产物失效。
 
