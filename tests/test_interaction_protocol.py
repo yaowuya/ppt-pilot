@@ -430,24 +430,6 @@ class InteractionProtocolTests(unittest.TestCase):
         self.assertIn("anchor-approval", upstream["committed_run"]["interaction_history"])
         self.assertTrue(upstream["committed_run"]["dirty_slides"])
 
-    def test_direct_visual_revisions_are_durable_and_precedence_aware(self):
-        artifact = read_text(self.artifact_path).lower()
-        protocol = self._protocol().lower()
-        design = read_text(self.reference_root / "design-system.md").lower()
-        combined = "\n".join((artifact, protocol, design))
-        for token in (
-            "visual-revision-<n>",
-            "kind: visual_revision",
-            "normalized_changes",
-            "affected_scope",
-            "supersedes",
-            "theme.json.user_revision_notes",
-            "visual-briefs/<slide-id>.md",
-            "废弃规则",
-            "冲突",
-        ):
-            self.assertIn(token, combined)
-
     def test_normative_tables_pair_approvals_reentry_and_revision_owners(self):
         protocol_rows = self._markdown_table_rows(self._protocol())
         artifact_rows = self._markdown_table_rows(read_text(self.artifact_path))

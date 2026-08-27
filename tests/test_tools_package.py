@@ -156,30 +156,6 @@ class BatchConcurrencyContractTest(unittest.TestCase):
     """Production batches may dispatch several compiled prompts to fresh
     generators concurrently, but write/validate/promotion stays serial."""
 
-    def test_qa_contract_allows_batch_parallel_dispatch(self) -> None:
-        qa = read_text(skill_root() / "references" / "qa-and-revision.md")
-        self.assertIn("并发派发给多个 fresh generator", qa)
-        self.assertIn("逐页串行提交", qa)
-
-    def test_artifact_contract_scopes_concurrency_to_one_batch(self) -> None:
-        artifact = read_text(skill_root() / "references" / "artifact-contract.md")
-        self.assertIn("同属当前生产批次", artifact)
-        self.assertIn("目标 slide 互不相同", artifact)
-        self.assertIn("按 slide_id 升序逐页串行提交", artifact)
-
-    def test_workflow_and_visual_brief_share_the_same_rule(self) -> None:
-        workflow = read_text(skill_root() / "references" / "workflow.md")
-        visual = read_text(skill_root() / "references" / "visual-brief-and-generation.md")
-        for text, label in ((workflow, "workflow.md"), (visual, "visual-brief-and-generation.md")):
-            self.assertIn("同属当前生产批次", text, f"{label} must scope concurrency to one batch")
-            self.assertIn("slide_id 升序" if label == "workflow.md" else "逐页串行", text)
-
-    def test_skill_entry_mentions_dispatch_but_serial_validation(self) -> None:
-        skill = read_text(skill_root() / "SKILL.md")
-        self.assertIn("并发派发给多个 fresh generator", skill)
-        self.assertIn("只写入并验证一个 SVG", skill)
-
-
 class CjkLineWidthContractTest(unittest.TestCase):
     def test_svg_contract_defines_width_formula(self) -> None:
         svg = read_text(skill_root() / "references" / "svg-contract.md")

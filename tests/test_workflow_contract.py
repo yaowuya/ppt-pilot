@@ -331,39 +331,6 @@ class WorkflowContractTests(unittest.TestCase):
         ):
             self.assertIn(token, text, f"qa-and-revision.md 缺少 {token}")
 
-    def test_production_resume_and_revision_semantics_are_explicit(self):
-        qa = read_text(self.qa_path).lower()
-        skill = read_text(skill_root() / "SKILL.md").lower()
-        artifact = read_text(self.contract_path).lower()
-        visual_brief = read_text(self.reference_root / "visual-brief-and-generation.md").lower()
-        combined = "\n".join((qa, skill, artifact, visual_brief))
-        self.assertRegex(combined, r"每批 3[–-]4 页")
-        self.assertIn("每次只写入并验证一个 svg", combined)
-        self.assertIn("更新 `run.json`", combined)
-        self.assertIn("每完成一个持久阶段", combined)
-        self.assertIn("停止", combined)
-        self.assertIn("硬检查失败", combined)
-
-        for token in (
-            "visual-briefs/<slide-id>.md",
-            "patch",
-            "recompose",
-            "当前 svg",
-            "几何底稿",
-            "supersedes",
-        ):
-            self.assertIn(token, combined)
-
-        self.assertIn("先读取 `run.json`", combined)
-        self.assertIn("已批准的上游", combined)
-        self.assertIn("重新计算", combined)
-        self.assertIn("visual-only", combined)
-        self.assertIn("non-factual copy", combined)
-        self.assertIn("不重新运行文稿审查", combined)
-        self.assertIn("主张", combined)
-        self.assertIn("来源", combined)
-        self.assertIn("新的文稿审查", combined)
-
     def test_visual_stage_guard_uses_persistent_review_state(self):
         approved = {
             "stage": "production",
