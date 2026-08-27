@@ -1,5 +1,11 @@
 # PPT Pilot 产物契约
 
+## Prompt persistence and compiling recovery
+
+The internal transaction `prompt_path` stores `generation-prompts/<slide-id>.md`; `prompt_path is relative to `.ppt-pilot/``. The resulting owned file is `.ppt-pilot/generation-prompts/<slide-id>.md`. Prompt persistence is an atomic temp + rename operation followed by reread and hash verification before `compiled`.
+
+A write error records `prompt_write_failed` through `compiling -> failed: prompt_write_failed`. With unchanged authoritative inputs, explicit recovery uses `failed -> compiling`, isolates or deletes any orphan temp, rewrites atomically, rereads/verifies the hash, and only then enters `compiled`. A crash observed in `compiling` with a missing, partial, or mismatched prompt follows the same idempotent rewrite. Changed inputs retain the failed audit and create a new `compiling` transaction. Generator and SVG writes are forbidden before `compiled` and `generating`.
+
 ## 必需产物
 
 - `大纲.md`
@@ -9,32 +15,35 @@
 `.ppt-pilot/` 是用户不需要看到的内部状态目录，存放其余全部过程产物：
 
 - `run.json`
-- `简报.md`、`研究.md`、`来源.md`
-- `故事板.md`、`文稿审查.md`
-- `theme.json`、`质量检查报告.md`
-- `visual-briefs/`
+- `.ppt-pilot/简报.md`、`.ppt-pilot/研究.md`、`.ppt-pilot/来源.md`
+- `.ppt-pilot/故事板.md`、`.ppt-pilot/文稿审查.md`
+- `.ppt-pilot/theme.json`、`.ppt-pilot/质量检查报告.md`
 - `generation-prompts/`
 - `samples/`（锚点页 SVG：封面与密度最高内容页）
 
-新运行根目录只保留用户可读的 `大纲.md`、最终页面 `slides/` 与内部目录 `.ppt-pilot/`。`resume`／`revise` 对旧英文运行或旧布局运行原位读取并存续既有路径。
+新运行根目录只保留用户可读的 `大纲.md`、最终页面 `slides/` 与内部目录 `.ppt-pilot/`；`.ppt-pilot/大纲.md` 不得作为活动读取或写入路径。`resume`／`revise` 对旧英文运行或旧布局运行原位读取并存续既有路径。
 
-`generation-prompts/` 位于 `.ppt-pilot/` 内部，是新运行的必需视觉执行产物目录。每个首次生成或 `recompose` 的页面都必须创建 `.ppt-pilot/generation-prompts/<slide-id>.md`；`patch` 不重新生成。每份文件严格遵循黄金格式：`# <slide-id> 页面生成 Prompt` 标题、恰好九个加粗字段的 `## Snapshot metadata`（slide_id、visual_brief_snapshot_id、storyboard_snapshot_id、theme_snapshot_id、applied_visual_revision_ids、prompt_snapshot_id、user_page_request、expected_output、workspace_output_path）、以及 `## Compiled Prompt` 后的**模板正文（必须来自 [generation-prompt-template.md](generation-prompt-template.md)，仅允许内容占位符与步骤 1 演示逻辑替换）**；期望输出是一个 fenced `xml` 中的完整 SVG。全文件只允许工作区相对路径，禁止绝对路径、盘符、UNC、URL、JSON 数据块与 UNTRUSTED 围栏。新运行编译正文必须全文来自 [generation-prompt-template.md](generation-prompt-template.md)，仅允许内容占位符与大纲所选演示逻辑对步骤 1 的替换。
+`generation-prompts/` 位于 `.ppt-pilot/` 内部，是新运行的必需视觉执行产物目录。每个首次生成或 `recompose` 的页面都必须创建 `.ppt-pilot/generation-prompts/<slide-id>.md`；`patch` 不重新生成。每份文件严格遵循黄金格式：`# <slide-id> 页面生成 Prompt` 标题、恰好九个加粗字段的 `## Snapshot metadata`（slide_id、storyboard_snapshot_id、theme_snapshot_id、applied_visual_revision_ids、prompt_snapshot_id、user_page_request、expected_output、workspace_output_path、format），以及 `## Compiled Prompt` 后的规范正文。`format` 字段值精确为 `creative-brief-v1`，标识新格式；prompt snapshot 不再引用 brief。`expected_output` 字段值精确为常量 `恰好一个 xml 代码围栏中的完整 SVG`。正文必须由 [generation-prompt-template.md](generation-prompt-template.md) 的 repository bytes 唯一派生，只允许恰好两个 whole-line replacement：`[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`；不得改写其他模板字节或加入第三 fragment。全文件只允许工作区相对路径，禁止绝对路径、盘符、UNC、URL、raw answer、history JSON 与 UNTRUSTED 围栏。
 
-`generation-prompts/<slide-id>.md` 是从 visual brief 派生的可恢复执行产物，不得成为主张、来源、主题或修订历史的唯一副本。输入快照变化后旧 Prompt 失效；恢复时必须重新编译，不能依赖旧对话。不存在根目录 `redesign-prompts/` 兼容目录；所有生成统一写入 `.ppt-pilot/generation-prompts/`。
+`generation-prompts/<slide-id>.md` 是由已批准故事板与 theme.json 直接编译的可恢复执行产物，不得成为主张、来源、主题或修订历史的唯一副本。输入快照变化后旧 Prompt 失效；恢复时必须重新编译，不能依赖旧对话。不存在根目录 `redesign-prompts/` 兼容目录；所有生成统一写入 `.ppt-pilot/generation-prompts/`。
 
-`visual-briefs/` 在任何新的锚点、正式页面生成或视觉修订前都是必需的视觉产物目录，每个待处理页面必须有有效的 `<slide-id>.md`；旧运行不兼容，必须按本契约完整补建。
+`visual-briefs/` 只在旧运行惰性保留：目录只读历史，不迁移、不重写、不参与新编译；新运行不创建该目录。
+
+`大纲.md` 生成稳定 `outline_snapshot_id`；`.ppt-pilot/故事板.md` 和每份后续 visual brief 都必须原样携带同一 `outline_snapshot_id`，不得从大纲 prose、标题或页面文案重算叙事选择。故事板还必须包含稳定页面／内容块 ID、锁定文案、主张／来源／限定／指标映射；详细 schema 以[叙事与故事板契约](narrative-and-storyboard.md)为唯一权威。大纲内容或任一规范化叙事字段变化都会产生新的快照，使故事板及全部下游产物失效。
+
+`outline_snapshot_id` 还是 canonical prompt snapshot payload 的必需机器字段。它必须持久化在 visual brief provenance、canonical prompt snapshot payload，以及该页 `run.json.visual_generation_transaction`（即 per-slide owner）中，并参与 `prompt_snapshot_id` 的派生；不得只存在于故事板或可见 Markdown。outline → storyboard → visual brief → prompt 四层必须使用相同的 `outline_snapshot_id`。generation prompt 的 `## Snapshot metadata` 仍然恰好保持九个可见字段，不增加第十字段；`outline_snapshot_id` 只属于机器 provenance。任何 outline snapshot mismatch／不一致都必须分类为可重建的 stale 或内部 provenance conflict，并 block／阻断 dispatch／分发；完成一致性校验前不得调用 generator。
 
 `samples/` 存放锚点页 SVG（封面与密度最高内容页）；正式页面写入 `slides/`。
 
 ### Task 6 identity 与旧 prompt 目录产物规则
 
-theme.json 与每份 visual-briefs/<slide-id>.md 必须包含完全相同的四个 schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`。这些 identity 字段以及 `generation_intent`、`generation_trigger_id`、`compiled_prompt_sha256` 和 `prompt_snapshot_id` 持久在 visual brief、`theme.json` 与 `run.json.visual_generation_transaction` 中；`generation-prompts/<slide-id>.md` 本身按黄金布局只显示九个元数据字段，不重复机器字段。missing fields 只能由已验证 registry／manifest／fallback identity table 与持久 operation owner 重建；不得从 SVG、目录、请求文案或用户措辞推断。
+`theme.json` 与每份 `.ppt-pilot/visual-briefs/<slide-id>.md` 必须包含完全相同的四个 deck-level schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`。`theme.json` 还拥有整套 palette、typography、spacing 与品牌方向，但不拥有任何 per-slide operation。逐页 `generation_intent`、`generation_trigger_id`、`effective_revision_projection_sha256`、`prompt_snapshot_id` 和 `visual_generation_transaction` 只持久在 visual brief／generation prompt provenance／`run.json` 对应 owner 中；不得写入 `theme.json`。missing identity 只能由已验证 registry／manifest／fallback identity table 重建；不得从 SVG、目录、请求文案或用户措辞推断。
 
-`generation_intent`／`generation_trigger_id` 的产物矩阵固定为：`initial_generation` + `initial:<slide-id>:<visual_brief_snapshot_id>` + `initial generation from approved visual brief` + `none (initial generation)`；`user_recompose` + `interaction:<applied-history-id>` + `raw answer from applied history record only`；`deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` + `deterministic single-column or two-column fallback after two failed patches` + `none (deterministic fallback after two failed patches)`；尾缀 `:2` 为常量标识（两次 patch 失败后的确定性回退），不随后续重试递增。`local_patch` + `patch:<slide-id>:<qa-defect-id>` + `requires_current_svg` + `compile_full_prompt: false`。
+`generation_intent`／`generation_trigger_id` 的产物矩阵固定为：`initial_generation` + `initial:<slide-id>:<visual_brief_snapshot_id>` + `initial generation from approved visual brief`；`user_recompose` + `interaction:<applied-history-id>` + assembler 已规范化并物化后的 intent 摘要，raw answer/history JSON 不进入 generation prompt；`deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` + `deterministic single-column or two-column fallback after two failed patches`；尾缀 `:2` 为常量标识，不随后续重试递增。`local_patch` + `patch:<slide-id>:<qa-defect-id>` + `requires_current_svg` + `compile_full_prompt: false`。
 
-same `interaction:<id>` copied to every affected brief; each slide keeps distinct slide-specific transaction identities and prompt snapshots。Deck-scope user_recompose fan-out copies the same `interaction:<id>` to every affected brief; each slide keeps distinct slide-specific transaction identities and prompt snapshots.
+Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受影响 brief；每页仍保有不同的 visual brief snapshot、prompt snapshot 和 transaction identity。
 
-不存在 `redesign-prompts/` 兼容目录；所有生成统一写入 `generation-prompts/`。只有持久 provenance 内部不一致、stored body/hash 不一致、brief/theme/storyboard snapshot 无法唯一解释、或多个 operation owner 冲突时才是 `prompt_snapshot_conflict`。
+旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert；所有新生成统一写入 `.ppt-pilot/generation-prompts/`。只有持久 provenance 内部不一致、stored body/hash 不一致、outline/brief/theme/storyboard snapshot 无法唯一解释、revision projection/hash/effective fields 不一致或多个 operation owner 冲突时才是 `prompt_snapshot_conflict`。
 
 
 ### Generation prompt golden layout, byte grammar, hash domains, and stale semantics
@@ -113,7 +122,7 @@ same `interaction:<id>` copied to every affected brief; each slide keeps distinc
 - `status: applied`；
 - `artifact_owner`：权威记录所镜像到的当前阶段产物。
 
-`affected_scope: deck` 或整套主题／品牌决定镜像到 `theme.json.user_revision_notes`；`affected_scope: anchor` 镜像到 `theme.json.user_revision_notes` 和受影响锚点的 visual brief；具体页面决定镜像到对应 `visual-briefs/<slide-id>.md`。镜像使用同一 `visual-revision-<N>` ID 并可以从历史重建；`run.json.interaction_history` 是权威记录并且必须跨失效保留。直接视觉修订与 guided 锚点修订采用同一记录、归并和冲突规则，不得把探索性预览、对话摘要或 SVG 本身作为唯一副本。
+`affected_scope: deck` 或整套主题／品牌决定镜像到 `theme.json.user_revision_notes`；`affected_scope: anchor` 镜像到 `theme.json.user_revision_notes` 和受影响锚点的 visual brief；具体页面决定镜像到对应 `.ppt-pilot/visual-briefs/<slide-id>.md`。镜像使用同一 `visual-revision-<N>` ID 并可以从历史重建；`run.json.interaction_history` 是权威记录并且必须跨失效保留。直接视觉修订与 guided 锚点修订采用同一记录、归并和冲突规则，不得把探索性预览、对话摘要或 SVG 本身作为唯一副本。
 
 明确替换同一字段的后续记录必须在 `supersedes` 中列出旧记录及字段。被替换记录保留在历史中，但其废弃规则不得进入当前有效契约。若无法确定新规则是共存还是替换、作用域不明确、目标字段不存在，或镜像与权威记录冲突，停止应用并持久化一个澄清问题；不得同时激活互斥规则。
 
@@ -202,42 +211,51 @@ Markdown 记录使用与 JSON 相同的字段名。阶段产物镜像可以随�
 
 ## 可选 `visual_generation_blocker`
 
-`visual_generation_blocker` 是 schema-version 1 的可选顶层对象，用于持久化页面首次生成或 `recompose` 的风格 prompt 解析／编译阻断。它不是用户问题，不写入 `pending_interaction`；缺少该对象的既有 schema-version 1 运行仍然有效。
+`visual_generation_blocker` 是 schema-version 1 的可选顶层对象，用于持久化页面首次生成或 `recompose` 的风格身份／资产解析以及规范 generation prompt 编译阻断。它不是用户问题，不写入 `pending_interaction`；缺少该对象的既有 schema-version 1 运行仍然有效。
 
 对象存在时必须包含：
 
-- `state: style_prompt_unavailable`；
+- `state`：`style_assets_unavailable` 或 `generation_prompt_unavailable`；
 - `slide_id`：被阻断页面；
-- `reason`：下列稳定 resolver reason 之一；
+- `reason`：与 `state` 匹配的下列稳定 reason 之一；
 - `selected_style_id`：来自当前 visual brief 的风格 ID；
 - `resource`：只允许规范化 Skill 相对路径，或路径安全前失败时的 `none`；
 - `visual_brief_snapshot_id` 与 `theme_snapshot_id`：阻断判定时使用的快照；
 - `status: active`。
 
-稳定 reason 集合固定为：`registry_missing`、`registry_path_unsafe`、`registry_target_invalid`、`registry_unreadable`、`registry_malformed`、`registry_schema_unsupported`、`registry_duplicate_style`、`style_not_registered`、`style_kind_invalid`、`entrypoint_missing`、`entrypoint_path_unsafe`、`entrypoint_target_invalid`、`legacy_entrypoint_malformed`、`legacy_identity_mismatch`、`manifest_malformed`、`manifest_schema_unsupported`、`manifest_identity_mismatch`、`manifest_version_invalid`、`style_asset_field_missing`、`style_asset_path_unsafe`、`style_asset_target_invalid`、`style_asset_unreadable`、`prompt_field_missing`、`prompt_path_unsafe`、`prompt_file_missing`、`prompt_target_invalid`、`prompt_unreadable`、`prompt_template_invalid`、`prompt_snapshot_conflict`。同一状态有多个缺陷时按 resolver traversal 的第一失败项选择唯一 reason：registry-wide 未选 pack root 错误先于 selected prompt 错误；selected tokens／guidance 错误先于 prompt 错误。
+`style_assets_unavailable` 的稳定 reason 集合固定为：`registry_missing`、`registry_path_unsafe`、`registry_target_invalid`、`registry_unreadable`、`registry_malformed`、`registry_schema_unsupported`、`registry_duplicate_style`、`style_not_registered`、`style_kind_invalid`、`entrypoint_missing`、`entrypoint_path_unsafe`、`entrypoint_target_invalid`、`entrypoint_unreadable`、`legacy_entrypoint_malformed`、`legacy_identity_mismatch`、`manifest_malformed`、`manifest_schema_unsupported`、`manifest_identity_mismatch`、`manifest_version_invalid`、`style_asset_field_missing`、`style_asset_path_unsafe`、`style_asset_target_invalid`、`style_asset_unreadable`、`style_asset_malformed`、`style_asset_schema_unsupported`、`prompt_snapshot_conflict`。同一状态有多个缺陷时按 resolver traversal 的第一失败项选择唯一 reason：registry-wide 未选 pack root 错误先于 selected assets；selected tokens 错误先于 guidance 错误。
+
+`generation_prompt_unavailable` 的稳定 reason 集合固定为：`prompt_template_invalid`、`prompt_preflight_invalid`、`prompt_snapshot_conflict`。前两项只验证仓库规范的 `references/generation-prompt-template.md` 及其编译结果；任何风格包内的历史完整模板文件都不读取、不验证，也不产生 blocker。
 
 写入、刷新或清除规则：
 
 1. blocker 写入使用单次原子 `run.json` 替换；保持 `stage`、`mode`、`interaction_history` 不变，并保持受影响 slide 在 `dirty_slides` 中。
-2. `resource` 不得保存未验证绝对路径、Windows 盘符、UNC、URL、工作区路径、`..` 越界路径或机密内容；路径安全前失败统一写 `none`。
+2. `resource` 不得保存未验证绝对路径、Windows 盘符、UNC、URL、工作区路径、`..` 越界路径或机密内容；路径安全前失败统一写 `none`。风格状态只保存已验证 `assets/styles/...` 路径；规范模板状态只保存 `references/generation-prompt-template.md`。
 3. 同一 slide 已有 active blocker 时，恢复后重新验证当前资源和快照；仍失败则幂等刷新同一对象，不启动 generator。
 4. 另一 slide 已有 active blocker 时，先处理原 blocker，不创建并行 blocker；同一运行一次只允许一个 active `visual_generation_blocker`。
-5. prompt durable 后仍允许看到 `visual_generation_transaction.state: compiling` 和 active blocker；随后必须以一次 `run.json` 原子替换同时把匹配 transaction 改为 `compiled` 并移除 blocker。
-6. 阻断只作用于受影响 slide：该 slide 的 generator calls 与 SVG writes 必须为 0，不得降级为 patch、不得改用其他风格、不得创建或覆盖 SVG。批内并发下，blocker 只暂停新事务派发与受影响 slide 的恢复；已进入 `generating`、`candidate_written` 或 `validated` 的其他 slide 事务照常完成验证与提升。
+5. canonical blocker 只能在无副作用 preflight 失败后独立写入；本次尝试不得同时存在 prompt、`compiling` transaction 与 active blocker。历史 crash 留下旧协议组合时，不采用 durable prompt，必须重新执行完整 preflight。
+6. 阻断只作用于受影响 slide：该 slide 的 generator calls 与 SVG writes 必须为 0，不得降级为 patch、不得改用其他风格、不得创建或覆盖 SVG。blocker 必须在下一页开始前处理或停止；不存在其他 slide 的 active durable transaction 可以绕过它。
 
 全局恢复顺序固定为：`pending_interaction` > `manuscript_review.pending_round` > `visual_generation_blocker` > `visual_generation_transaction` > stage scan。前一项存在时不得处理后一项。pending review 必须复用同一 cycle／round／snapshot；匹配 durable 报告只提交一次 history 并清除 pending。
 
+### Transaction 创建前的无副作用 preflight
+
+每次首次生成或 `recompose` 必须先完成下面五个内存阶段：读取批准 outline/storyboard/theme 快照与权威 revisions（不再读取 effective brief）；组装 canonical narrative bullets 与 style baseline；验证所有 snapshot、锁定 block、claim/source/qualifier/metric、narrative/revision/theme、block/layout/capacity/safe-area/font/Office-safe 关系；从 repository template 恰好执行两个 marker replacement；验证 canonical bytes、自包含性并计算全部 hash/snapshot。每批 3–4 页可以让批内多个页面完成这些内存／只读准备与 preflight；这些准备不创建 durable owner。只有轮到该 `slide_id` 且前一页 transaction 已清理或停止，才允许第一次原子写入 `visual_generation_transaction.state: compiling`。
+
+确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。该失败没有可恢复的半 transaction；路由到 authoritative outline/storyboard/theme correction（快照直接来自 storyboard + theme），或在规范模板／规范字节自身失败时独立写 canonical blocker。成功路径固定为：preflight success → atomic `compiling` → prompt write/close/reread/hash → atomic `compiled` → atomic `generating` → exactly one fresh generator → candidate/hash/QA → validated → promotion。
+
 ## 可选 `visual_generation_transaction`
 
-`visual_generation_transaction` 是 schema-version 1 的可选顶层对象，用于恢复页面首次生成和 `recompose` 的跨文件生产步骤；默认同一运行一次只允许一个 active transaction，仅当多个事务同属当前生产批次、目标 slide 互不相同且都处于 `compiling`／`compiled` 段时，才允许最多一个批次页数（3–4）个并发 active transaction，而候选写入、验证与 promotion 仍按 slide_id 升序逐页串行提交。完整 transaction schema 固定为：`transaction_id`、`slide_id`、`generation_intent`、`generation_trigger_id`、`prompt_path`、`prompt_snapshot_id`、`compiled_prompt_sha256`、`candidate_path`、`final_path`、`state`、`generation_attempt`、`candidate_sha256`、`failure_reason`。
+`visual_generation_transaction` 是 schema-version 1 的可选顶层对象，用于恢复页面首次生成和 `recompose` 的跨文件生产步骤。顶层 `visual_generation_transaction` 只能是单个对象或缺失，一次只允许一个 active `visual_generation_transaction`；列表、映射和多个按页 active owner 都无效。每批 3–4 页的 durable 工作按 `slide_id` 升序逐页执行 compile -> generate -> validate -> promote；下一页只能在前一页 promoted 后原子清理 transaction，或前一页 failed 后明确停止并清理可安全清理的临时产物后开始。完整 transaction schema 固定为：`transaction_id`、`slide_id`、`generation_intent`、`generation_trigger_id`、`prompt_path`、`prompt_snapshot_id`、`compiled_prompt_sha256`、`candidate_path`、`final_path`、`state`、`generation_attempt`、`candidate_sha256`、`failure_reason`。
 
-字段语义固定如下：`transaction_id == prompt_snapshot_id`，值是完整 `sha256:<64hex>`（启用 golden block 第 11 条 unhashed 回退时为完整 `unhashed:<token>`）；`prompt_path` 必须是 `generation-prompts/<slide-id>.md`；`candidate_path` 必须是 `slides/.candidates/<slide-id>-<64hex>.svg`，其中 `<64hex>` 来自 transaction ID 去掉 `sha256:` 后的后缀（unhashed 回退时为 `slides/.candidates/<slide-id>-<token>.svg`）；`final_path` 必须是 `slides/<slide-id>.svg`。`compiled_prompt_sha256` 只覆盖 compiled prompt body bytes；`candidate_sha256` 只能在候选 SVG 写入、关闭并复读后计算并提交，`compiling`、`compiled` 与 `generating` 状态不得预填 candidate hash。
+字段语义固定如下：`transaction_id == prompt_snapshot_id`，值是完整 `sha256:<64hex>`（启用 golden block 第 11 条 unhashed 回退时为完整 `unhashed:<token>`）；内部 `prompt_path` 必须是 `generation-prompts/<slide-id>.md` 且明确相对于 `.ppt-pilot/`，其拥有的外部文件是 `.ppt-pilot/generation-prompts/<slide-id>.md`；`candidate_path` 必须是 `slides/.candidates/<slide-id>-<64hex>.svg`，其中 `<64hex>` 来自 transaction ID 去掉 `sha256:` 后的后缀（unhashed 回退时为 `slides/.candidates/<slide-id>-<token>.svg`）；`final_path` 必须是 `slides/<slide-id>.svg`。`compiled_prompt_sha256` 只覆盖 compiled prompt body bytes；`candidate_sha256` 只能在候选 SVG 写入、关闭并复读后计算并提交，`compiling`、`compiled` 与 `generating` 状态不得预填 candidate hash。
 
 允许状态图精确为：
 
 ```text
 normal: compiling -> compiled -> generating -> candidate_written -> validated -> promoted
-failure: generating | candidate_written | validated -> failed
+failure: compiling | generating | candidate_written | validated -> failed
+recovery: failed -> compiling
 recovery: failed -> generating
 recovery: failed -> validated
 replacement: failed transaction -> new compiling transaction
@@ -245,9 +263,9 @@ replacement: failed transaction -> new compiling transaction
 
 `failed transaction -> new compiling transaction` 只用于 authoritative inputs changed 或 deterministic fallback，是原子对象替换，不是同一 transaction edge。新操作到来时若已有非终态 transaction，必须先按全局恢复顺序恢复或停止，不得覆盖；transaction 未达到 `promoted` 前不得清除对应 `dirty_slides`，没有 pending 和 blocker 时才恢复 transaction，transaction 未完成时不得进入普通 stage scan。
 
-`failure_reason` 只能为 null 或以下 11 个稳定 reason：`generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch`、`svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed`、`final_promotion_conflict`、`transaction_state_conflict`。
+`failure_reason` 只能为 null 或以下 12 个稳定 reason：`prompt_write_failed`、`generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch`、`svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed`、`final_promotion_conflict`、`transaction_state_conflict`。
 
-固定跨文件顺序和 crash 恢复如下：先原子写入 `state: compiling` 并保留 previous final SVG；再持久化 `generation-prompts/<slide-id>.md`；prompt durable 后可以暂时保留 active `visual_generation_blocker`。只有复核 durable prompt 的 `prompt_snapshot_id` 与 `compiled_prompt_sha256` 匹配后，才能用一次 `run.json` 原子替换同时把 transaction 改为 `compiled` 并移除匹配 blocker；golden block 第 11 条 unhashed 回退生效时，该复核改为重新推导并比对九个元数据字段与 payload keys，不做摘要比较。随后先原子改为 `generating`，再调用 fresh generator。若 crash 留在 `generating`，此时没有 committed expected candidate hash；deterministic path 上的任何 orphan candidate 都必须 delete/isolate，never adopted，然后重新调用 generator。只有 transaction durable 为 `candidate_written` 且记录非空 `candidate_sha256` 时，resume 才可复读候选并比较 hash；不匹配转 `failed: candidate_hash_mismatch`，匹配才继续验证。
+固定跨文件顺序和 crash 恢复如下：步骤只在上节五阶段无副作用 preflight 已完整成功后开始。先原子创建 `state: compiling` 并保留 previous final SVG；再以同目录 temp file + rename 原子持久化 `.ppt-pilot/generation-prompts/<slide-id>.md`，关闭、复读并验证 `prompt_snapshot_id` 与 `compiled_prompt_sha256`；匹配后才以一次 `run.json` 原子替换提交 `compiled`。prompt temp 写入、rename、复读或 hash 验证失败必须记录 `prompt_write_failed` 并原子 `compiling -> failed`，且此前 generator calls、candidate writes 与 SVG writes 必须为 0。显式 resume 时，authoritative inputs、template/body bytes 与 snapshots unchanged 才允许同一 transaction `failed -> compiling`，先隔离／删除 orphan temp，再完整执行原子写、复读与 hash 验证；authoritative inputs changed 时保留 failed audit，并以新的 `compiling` transaction 原子替换。本次尝试不得同时存在 active `visual_generation_blocker`；canonical blocker 只可能由 transaction 创建前的独立 preflight 失败写入。golden block 第 11 条 unhashed 回退生效时，复核改为重新推导并比对九个元数据字段与 payload keys，不做摘要比较。随后先原子改为 `generating`，再调用恰好一个 fresh generator。若 crash 留在 `generating`，此时没有 committed expected candidate hash；deterministic path 上的任何 orphan candidate 都必须 delete/isolate，never adopted，然后在显式恢复中重新调用 generator。只有 transaction durable 为 `candidate_written` 且记录非空 `candidate_sha256` 时，resume 才可复读候选并比较 hash；不匹配转 `failed: candidate_hash_mismatch`，匹配才继续验证。
 
 候选验证通过后原子改为 `validated`。只有 `validated` 能提升候选到 final：先把候选原子替换为 final path，再原子把 transaction 改为 `promoted`。如果 final 替换后、状态提交前 crash，resume 比较 final bytes 与记录的 `candidate_sha256`；相同补写 `promoted`，不同转 `failed: final_promotion_conflict`。dirty_slides 只在 promoted transaction 的页面和整套 QA 均通过后，随移除 transaction 的同一 `run.json` 原子替换清除；previous final SVG 在失败、验证和冲突期间始终保留。
 
@@ -255,6 +273,7 @@ replacement: failed transaction -> new compiling transaction
 
 | failed reasons | 唯一下一步 |
 |---|---|
+| `prompt_write_failed` | 显式 resume 先确认 authoritative inputs、template/body bytes 与 snapshots 是否 unchanged。unchanged：保留同一 transaction ID，原子 `failed -> compiling`，隔离／删除 orphan temp，重新执行 temp+rename、关闭、复读、hash 验证，成功后才提交 `compiled`；整个过程在 `compiled -> generating` 前 generator/SVG side effects 为 0。changed：保留 failed audit，以新的 `compiling` transaction 原子替换。 |
 | `generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch` | 下一次显式 resume 删除或隔离 orphan candidate，同一 transaction 原子 `failed -> generating`，`generation_attempt + 1`，保留同一 trigger 与 authoritative inputs，并重新调用 generator；每次宿主调用最多 generator 1 次，不自动循环；同一 transaction 的 `generation_attempt` 达到 `3` 后不得再次 resume 为 `generating`，改为持久化 production blocker 并停止，等待用户决定。 |
 | `svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed` | 先把 failure reason 与一个精确 defect 幂等持久化到 visual brief／QA owner；然后进入 patch，或在已更新 brief 的同一次 `run.json` 替换中以新的 deterministic_fallback `compiling` transaction 替换 failed transaction。失败 candidate 不能提升为 final。 |
 | `final_promotion_conflict`、`transaction_state_conflict` | 持久化一个 production `blocker` 的 `pending_interaction` 并停止；不得覆盖未知 final 或删除 failed transaction。用户解决后若是 unchanged valid candidate 且 candidate/hash/provenance 未变，则原子 `failed -> validated` 并重试 promotion；若 authoritative inputs changed，则以新的 `compiling` transaction 替换。 |

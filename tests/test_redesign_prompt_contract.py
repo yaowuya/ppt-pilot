@@ -88,6 +88,19 @@ class TemplateCreativeReformTest(unittest.TestCase):
         self.assertIn("不得改变数字、单位、期间、限定词", grammar)
         self.assertNotIn("lay out the supplied regions", grammar)
 
+    def test_generation_path_direct_from_storyboard_and_theme(self):
+        path_doc = read_text(skill_root() / "references" / "visual-brief-and-generation.md")
+        self.assertIn("storyboard", path_doc)
+        self.assertIn("theme.json", path_doc)
+        self.assertNotIn("必须先持久化", path_doc)
+        self.assertNotIn("有效页面规格", path_doc)
+
+    def test_artifact_contract_no_new_brief_requirement(self):
+        contract = read_text(skill_root() / "references" / "artifact-contract.md")
+        self.assertNotIn("visual-briefs/", contract.split("新运行")[0])
+        self.assertIn("惰性", contract)
+        self.assertIn("只读", contract)
+
 
 CANONICAL_REPLACEMENT_MARKER_RE = re.compile(rb"\[\[[^\[\]\r\n]+\]\]")
 
