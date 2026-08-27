@@ -65,6 +65,29 @@ class TemplateCreativeReformTest(unittest.TestCase):
         self.assertIn("改写", template)
         self.assertIn("补充", template)
 
+    def test_byte_grammar_specifies_three_domains(self):
+        grammar = read_text(skill_root() / "references" / "generation-prompt-byte-grammar.md")
+        self.assertIn("[[CANONICAL_NARRATIVE_BULLETS]]", grammar)
+        self.assertIn("[[STYLE_BASELINE]]", grammar)
+        self.assertNotIn("[[EFFECTIVE_PAGE_SPECIFICATION]]", grammar)
+        self.assertNotIn("Exactly two replacement domains", grammar)
+
+    def test_byte_grammar_new_payload_keys(self):
+        grammar = read_text(skill_root() / "references" / "generation-prompt-byte-grammar.md")
+        self.assertIn("style_baseline_snapshot_id", grammar)
+        self.assertNotIn("visual_brief_snapshot_id", grammar)
+        self.assertNotIn("effective_revision_projection_sha256", grammar)
+
+    def test_byte_grammar_fact_preflight(self):
+        grammar = read_text(skill_root() / "references" / "generation-prompt-byte-grammar.md")
+        self.assertIn("事实", grammar)
+        self.assertIn("preflight", grammar)
+
+    def test_byte_grammar_locked_expectation_reformulated(self):
+        grammar = read_text(skill_root() / "references" / "generation-prompt-byte-grammar.md")
+        self.assertIn("不得改变数字、单位、期间、限定词", grammar)
+        self.assertNotIn("lay out the supplied regions", grammar)
+
 
 CANONICAL_REPLACEMENT_MARKER_RE = re.compile(rb"\[\[[^\[\]\r\n]+\]\]")
 
