@@ -105,6 +105,18 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("完全可编辑", text)
         self.assertIn("powerpoint", lower)
 
+    def test_readme_and_design_show_root_outline_and_internal_run_layout(self):
+        readme = read_text(self.readme)
+        design = read_text(self.design)
+        for text in (readme, design):
+            self.assertRegex(text, r"ppt-output/<deck-id>/[\s\S]{0,240}大纲\.md")
+            self.assertRegex(text, r"大纲\.md[^\n]*(?:用户|根目录)")
+            self.assertIn("slides/", text)
+            self.assertIn(".ppt-pilot/", text)
+            for artifact in ("简报.md", "研究.md", "来源.md", "故事板.md", "文稿审查.md", "质量检查报告.md"):
+                self.assertIn(artifact, text)
+        self.assertNotRegex(design, r"(?m)^run\.json\n简报\.md\n研究\.md\n来源\.md\n大纲\.md")
+
     def test_acceptance_matrix_covers_hosts_handoffs_and_strict_gate(self):
         path = repo_root() / "docs" / "acceptance.md"
         self.assertTrue(path.exists())
@@ -139,10 +151,8 @@ class SkillPackageTests(unittest.TestCase):
 
         for text in (readme, design):
             for token in (
-                "minimal-business.redesign.md",
-                "tech-dark.redesign.md",
-                "bold-editorial.redesign.md",
-                "canway-midyear-review/REDESIGN.md",
+                "effective visual brief",
+                "generation-prompts/<slide-id>.md",
                 "1.3.0",
                 "generation_trigger_id",
                 "visual_generation_blocker",
@@ -153,17 +163,17 @@ class SkillPackageTests(unittest.TestCase):
                 "pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan",
                 text,
             )
-            self.assertIn("独立可编译的完整模板", text)
+            self.assertIn("fresh generator", text)
             self.assertNotIn("可独立交给 fresh generator", text)
 
-        self.assertIn("visual brief 是权威页面状态和 prompt compiler 输入", readme)
-        self.assertIn("fresh generator 只接收编译后的 `generation-prompts/<slide-id>.md`", readme)
-        self.assertIn("不得直接接收 visual brief 或原始风格 prompt", readme)
-        self.assertIn("完整、可独立编译的 redesign prompt 模板", readme)
+        self.assertIn("完全 render-ready 的 effective visual brief", readme)
+        self.assertIn("fresh generator 只接收复读 hash 一致的 durable prompt", readme)
+        self.assertIn("不注入 style-owned prompt body 或第三 revision fragment", readme)
+        self.assertIn("唯一 repository template", readme)
         self.assertNotIn("可独立交给 fresh generator", readme)
-        self.assertIn("visual brief 是页面视觉权威状态与 compiler 输入", design)
-        self.assertIn("generation prompt 是 fresh generator 的唯一执行输入", design)
-        self.assertIn("fresh generator 不得直接接收 visual brief 或原始风格 prompt", design)
+        self.assertIn("effective visual brief", design)
+        self.assertIn("fresh generator 的唯一执行输入", design)
+        self.assertIn("运行时永远不读取、不验证、不哈希", design)
 
         focused = "python -m unittest tests.test_skill_package tests.test_redesign_prompt_contract -v"
         full = "python -m unittest discover -s tests -v"

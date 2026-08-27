@@ -6,7 +6,9 @@
 
 ## 演示逻辑框架
 
-本 Skill 的叙事整理统一使用两条互补的逻辑线：**金字塔原理**决定论证结构，**SCQA 与常用叙事模板**决定讲述顺序。两者在大纲阶段一并选定，贯穿到逐页故事板字段；故事板编写中途不得更换整体结构。大纲选定或未指定的演示逻辑会注入[页面生成最终 Prompt 模板](generation-prompt-template.md)的步骤 1：未指定时默认使用金字塔原理，指定其它逻辑时由该逻辑的提纯要点替换默认说明。
+本 Skill 把叙事拆成三个可组合、不可互相替代的规范化层：**金字塔原理**只负责论证层级并写入 `argument_framework`；**SCQA**只负责开场从情境、冲突到问题的过渡并写入 `opening_framework`；三段式／Why-What-How／总-分-总只负责整套页面推进并写入 `sequence_template`。不得把三者当作从自然语言中猜测的同级标签，也不得从自然语言、标题、正文或用户措辞再次推断叙事选择。三个字段在大纲阶段一次确定，故事板编写中途不得隐式改写。
+
+`大纲.md` 还必须冻结 `narrative_id`、`narrative_choice_reason` 与 `narrative_step1_bullets`。其中 `narrative_step1_bullets` 是已经提纯、可直接编译的步骤 1 项目符号字节；下游只能逐字节复制，不得重写、摘要或从自然语言重新生成。`outline_snapshot_id` 对包括上述字段在内的整份规范化大纲计算稳定快照，作为故事板及后续页面产物的上游身份。
 
 ### 金字塔原理（麦肯锡）
 
@@ -36,7 +38,7 @@ Q 是否显式成页会改变核心叙事，属于故事板冲突，按"大纲�
 | Why-What-How | 为什么重要 → 方案是什么 → 如何落地 | 新品介绍、方案推介 |
 | 总-分-总 | 每章标题先给观点小结，中间展开论证，结尾回扣强调 | 默认通用结构 |
 
-选择规则：从简报的受众、场合与预期受众行动推断唯一最合适的模板；多个模板都可行时，`guided` 在大纲批准问题中给出推荐项与备选项及理由，`auto` 选择安全默认并记录理由。所选模板与理由写入 `大纲.md` 的"所选演示结构"记录；后续 `revise` 改变结构时按大纲失效规则处理。
+选择规则：从简报的受众、场合与预期受众行动确定唯一最合适的页面推进模板；多个模板都可行时，`guided` 在大纲批准问题中给出推荐项与备选项及理由，`auto` 选择安全默认并记录理由。把最终选择规范化为 `sequence_template`，把论证结构规范化为 `argument_framework`，把开场骨架规范化为 `opening_framework`；`narrative_choice_reason` 记录选择理由。后续 `revise` 改变任一字段时按大纲失效规则处理。
 
 ### 每页黄金规则
 
@@ -64,8 +66,14 @@ Q 是否显式成页会改变核心叙事，属于故事板冲突，按"大纲�
 
 大纲记录：
 
+- `argument_framework`：论证层级框架；当前规范值为金字塔原理；
+- `opening_framework`：开场框架；使用 SCQA 时明确记录，未使用时记录 `none`，不得省略；
+- `sequence_template`：三段式、Why-What-How 或总-分-总等页面推进模板；
+- `narrative_id`：本次规范化叙事选择的稳定 ID；
+- `narrative_step1_bullets`：供下游逐字节复制的步骤 1 项目符号，不含解释性前后文；
+- `narrative_choice_reason`：该组合为何适合受众、场合与预期行动；
+- `outline_snapshot_id`：覆盖整份大纲（含上述规范化字段）的稳定内容快照；
 - 核心论点与预期受众行动；
-- 所选演示结构：SCQA 骨架加三段式／Why-What-How／总-分-总模板的选择及理由；
 - 各章节结论及其与核心论点的关系；
 - 重要 `claim_id` 与 `source_id`；
 - 反方观点、风险、假设和未解决证据缺口；
@@ -97,21 +105,34 @@ Q 是否显式成页会改变核心叙事，属于故事板冲突，按"大纲�
 
 ## `故事板.md` 页面结构
 
-每页创建一条记录，并在修订中保持 ID 稳定。每条记录包含：
+每页创建一条记录，并在修订中保持 ID 稳定。故事板顶层记录所消费的 `outline_snapshot_id`，且必须与已批准大纲完全相同。每条页面记录包含：
 
-- `slide_id`：`S01`、`S02` 等；
-- `role`：cover、context、problem、evidence、comparison、process、architecture、implication、recommendation、close，或其他明确叙事角色；
+- `slide_id`：`S01`、`S02` 等稳定页面 ID；
+- `role`：cover、section、single-assertion、context、problem、evidence、comparison、process、architecture、implication、recommendation、close，或其他明确叙事角色；
 - `assertion_title`：希望受众接受的单句结论；
 - `audience_takeaway`：受众应该记住或执行的内容；
-- `content_blocks`：按顺序组织的文案、主张、标签和图表／表格内容；
-- `source_ids`：支持每个重要主张的来源 ID；只有不含事实的导航页才能使用空列表；
+- `source_ids`：按 `content_blocks` 数组顺序、再按每块 `source_ids` 顺序取得的 ordered unique union；首次出现即固定位置，无来源时为 `[]`，不得遗漏、增补或重排块级来源；
+- `forbidden_claims`：本页不得暗示、扩大或改写的主张列表；
+- `content_blocks`：按 `reading_order` 排列的锁定内容块数组；
 - `visual_intent`：视觉必须揭示的关系，而不是装饰物要求；
 - `layout_family`：根据内容关系建议的语义布局家族；
 - `density_budget`：low、medium 或 high，并明确文本、实体和比较数量上限；
-- `previous_link`：上一页如何提出本页回答的问题；S01 使用 `START`；
-- `next_link`：本页为下一页提出的问题或决策；最后一页使用 `END`。
+- `previous_link`：第一页必须严格为 `START`；其余页面必须严格等于数组中紧邻上一页的 `slide_id`；
+- `next_link`：最后一页必须严格为 `END`；其余页面必须严格等于数组中紧邻下一页的 `slide_id`。相邻页面的 `next_link`／`previous_link` 必须互为同一对页面的双向一致链接，不允许跳页、非相邻 ID 或其他哨兵值。
 
-每个内容块旁还要记录其支持的主张 ID。故事板中的文案必须已达到演示稿可用状态，不得保留占位文案、“添加图表”或未解决的创作指令。
+每个 `content_blocks` 条目都必须完整记录以下锁定字段，并遵守确定性 value grammar：
+
+- `block_id`：字符串，严格为 `<slide-id>-B<positive integer>`（例如 `S02-B1`），页面内唯一且修订中稳定；正整数不带符号、小数或前导零；
+- `display_copy`：non-empty final string；必须是可直接上页的精确最终文案，不得只含空白；
+- `priority`：枚举严格为 `core|support`，不得使用近义值；
+- `reading_order`：从 1 开始、页面内唯一且连续的 positive integer；JSON 字符串、布尔值与小数都无效；
+- `claim_id`：non-empty stable string；只有不表达主张的导航文案可使用 literal `none`；
+- `source_ids`：ordered unique string list；当且仅当 `claim_id` 为 `none` 时使用 `[]`，否则至少包含一个直接来源 ID，不能含重复项；
+- `qualifiers`：ordered qualifier objects；无限定时使用 `[]`。每个对象恰好包含 `display_text`、`confidence`、`scope`、`causality`；`display_text` 为页面可显示原文，`confidence` 枚举严格为 `high|medium|low|unverified`，`scope` 与 `causality` 是非空字符串，不适用时使用 literal `none`；
+- `metric`：无指标时为 literal `none`；有指标时为对象，恰好包含 `display_value`、`number_text`、`unit`、`period`、`comparator`、`baseline`。`display_value` 与 `number_text` 必须是非空原文字符串；其余可选标量不适用时使用 literal `none`；
+- 页面级 `forbidden_claims`：ordered string list；每项为非空字符串且保持批准顺序，无禁止主张时使用 `[]`。
+
+上述 grammar 禁止用 JSON `null`、缺字段或 empty string 表示不适用；只允许各字段明确指定的 literal `none` 或 `[]`。序列化必须保持数组顺序，且不得加入 schema 外键。这些字段形成下游锁定内容。后续组装只能从故事板逐字机械复制或映射 `display_copy`、主张、来源、限定与指标字段，不能润色、补写或交换块的语义。页面级 `audience_takeaway` 与 `forbidden_claims` 同样保持锁定。故事板中的文案必须已达到演示稿可用状态，不得保留占位文案、“添加图表”或未解决的创作指令。
 
 ## 密度与可读性
 
@@ -120,6 +141,8 @@ Q 是否显式成页会改变核心叙事，属于故事板冲突，按"大纲�
 - 低密度：一条信息、一个视觉关系，最多两个支持细节；
 - 中密度：一条信息和两到四个证据块；
 - 高密度：确有必要的架构、比较、流程或数据视图，并具有明确层级。
+
+special-page exception：cover／封面、section／章节和 single-assertion／单一断言页面可以少于两个 support 支持块，甚至没有支持块，只要其角色、来源边界与单一结论完整；必须 preserve／保留所有 real blocks／真实内容块，不能删掉已有证据。special-page cannot／不得 fabricate／编造 claims／主张，也不得为了满足通用的“2–5 个支持点”或其他计数规则而凑数、制造支持论点或编造内容块。
 
 内容超过密度预算时，应拆分为连续页面或删除低优先级内容，不能通过缩小字号解决。拆分后必须保留叙事链接和来源覆盖；字号不得低于视觉契约下限。
 

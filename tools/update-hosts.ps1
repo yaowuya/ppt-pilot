@@ -5,8 +5,9 @@ DeepSeek harness（.agents 插件市场）、Claude Code（用户级技能目录
 
 .DESCRIPTION
 可选伴随工具。DeepSeek 侧复用 install-deepseek-plugin.ps1 的插件约定；
-Claude Code 侧复制到 $HOME\.claude\skills\ppt-start\（旧版备份为 *.bak-<时间戳>，
-仅保留最近一份）。Codex 侧复制到 $HOME\.agents\skills\ppt-start\。-ProjectClaude 额外写入 <RepoRoot>\.claude\skills\。
+Claude Code 侧复制到 $HOME\.claude\skills\ppt-start\，旧版备份到 $HOME\.claude\skill-backups\；
+Codex 侧复制到 $HOME\.agents\skills\ppt-start\，旧版备份到 $HOME\.agents\skill-backups\。备份仅保留最近一份。
+-ProjectClaude 额外写入 <RepoRoot>\.claude\skills\。
 
 .PARAMETER SkipDeepSeek
 跳过 DeepSeek 插件更新。
@@ -41,15 +42,28 @@ $packSrc = Join-Path $RepoRoot 'skills\ppt-start'
 if (-not (Test-Path (Join-Path $packSrc 'SKILL.md'))) { throw "源 Skill 缺 SKILL.md：$packSrc" }
 
 function Copy-SkillWithBackup([string]$dst) {
-    if (Test-Path $dst) {
-        $bak = "$dst.bak-$ts"
-        Move-Item -LiteralPath $dst -Destination $bak
-        Get-ChildItem -Path (Split-Path -Parent $dst) -Directory -Filter '*.bak-*' -ErrorAction SilentlyContinue |
-            Where-Object Name -like 'ppt-start.bak-*' | Sort-Object Name -Descending | Select-Object -Skip 1 |
-            ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
-        Write-Host "  备份旧版 -> $(Split-Path -Leaf $bak)"
+    $skillsRoot = Split-Path -Parent $dst
+    $harnessRoot = Split-Path -Parent $skillsRoot
+    $backupRoot = Join-Path $harnessRoot 'skill-backups'
+    $legacyBackups = @(Get-ChildItem -Path $skillsRoot -Directory -Filter 'ppt-start.bak-*' -ErrorAction SilentlyContinue)
+    if ($legacyBackups.Count -gt 0) {
+        New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
+        foreach ($legacy in $legacyBackups) {
+            Move-Item -LiteralPath $legacy.FullName -Destination (Join-Path $backupRoot $legacy.Name)
+        }
     }
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
+    if (Test-Path $dst) {
+        New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
+        $bak = Join-Path $backupRoot "ppt-start.bak-$ts"
+        Move-Item -LiteralPath $dst -Destination $bak
+        Write-Host "  备份旧版 -> $bak"
+    }
+    if (Test-Path $backupRoot) {
+        Get-ChildItem -Path $backupRoot -Directory -Filter 'ppt-start.bak-*' -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending | Select-Object -Skip 1 |
+            ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
+    }
+    New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null
     Copy-Item -Recurse -Force $packSrc $dst
 }
 

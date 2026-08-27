@@ -10,7 +10,7 @@
 3. 写入 .codex-plugin\plugin.json（版本 1.0.0+codex.<时间戳>，或用 -Version 覆盖）
 4. 校正 marketplace.json：缺少 ppt-pilot 条目时自动追加（已有则不动），原文件先备份
 
-幂等：可重复运行升级；每次覆盖前把上一版备份为 *.bak-<时间戳>（仅保留最近一份）。
+幂等：可重复运行升级；每次覆盖前把上一版备份到 `<plugin>\backups\ppt-start.bak-<时间戳>`（位于 skills 扫描目录之外，仅保留最近一份）。
 
 .PARAMETER MarketplaceRoot
 harness 插件市场根目录，默认 $HOME\.agents\plugins。
@@ -47,19 +47,30 @@ if (-not (Test-Path (Join-Path $packSrc 'SKILL.md'))) { throw "源 Skill 不完�
 
 $pluginDir = Join-Path $MarketplaceRoot 'plugins\ppt-pilot'
 $skillDst = Join-Path $pluginDir 'skills\ppt-start'
+$backupRoot = Join-Path $pluginDir 'backups'
 
 # --- 1. 目录 ---
 New-Item -ItemType Directory -Force -Path (Join-Path $pluginDir '.codex-plugin') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $pluginDir 'skills') | Out-Null
 
-# --- 2. 复制 Skill（旧版备份）---
+# --- 2. 复制 Skill（旧版备份到非 skills 扫描目录）---
+$legacyBackups = @(Get-ChildItem -Path (Join-Path $pluginDir 'skills') -Directory -Filter 'ppt-start.bak-*' -ErrorAction SilentlyContinue)
+if ($legacyBackups.Count -gt 0) {
+    New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
+    foreach ($legacy in $legacyBackups) {
+        Move-Item -LiteralPath $legacy.FullName -Destination (Join-Path $backupRoot $legacy.Name)
+    }
+}
 if (Test-Path $skillDst) {
-    $bak = "$skillDst.bak-$timestamp"
+    New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
+    $bak = Join-Path $backupRoot "ppt-start.bak-$timestamp"
     Move-Item -LiteralPath $skillDst -Destination $bak
-    Get-ChildItem -Path (Join-Path $pluginDir 'skills') -Directory -Filter 'ppt-start.bak-*' -ErrorAction SilentlyContinue |
+    Write-Host "已备份旧版 -> $bak"
+}
+if (Test-Path $backupRoot) {
+    Get-ChildItem -Path $backupRoot -Directory -Filter 'ppt-start.bak-*' -ErrorAction SilentlyContinue |
         Sort-Object Name -Descending | Select-Object -Skip 1 |
         ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
-    Write-Host "已备份旧版 -> $(Split-Path -Leaf $bak)"
 }
 Copy-Item -Recurse -Force $packSrc $skillDst
 
