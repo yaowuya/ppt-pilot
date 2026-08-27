@@ -436,28 +436,33 @@ def _reject_unsafe_replacement(raw: bytes) -> bytes:
     return normalized
 
 
+STYLE_BASELINE_TOKEN = b"[[STYLE_BASELINE]]\n"
+
+
 def _canonical_template_segments() -> tuple[bytes, bytes, bytes]:
     template = _canonical_template_bytes()
     lines = template.splitlines(keepends=True)
     if lines.count(CANONICAL_NARRATIVE_BULLETS_TOKEN) != 1:
         raise ValueError("prompt_template_invalid")
-    if lines.count(EFFECTIVE_PAGE_SPECIFICATION_TOKEN) != 1:
+    if lines.count(STYLE_BASELINE_TOKEN) != 1:
+        raise ValueError("prompt_template_invalid")
+    if lines.count(EFFECTIVE_PAGE_SPECIFICATION_TOKEN) != 0:
         raise ValueError("prompt_template_invalid")
     markers = CANONICAL_REPLACEMENT_MARKER_RE.findall(template)
     expected = [
         CANONICAL_NARRATIVE_BULLETS_TOKEN.rstrip(b"\n"),
-        EFFECTIVE_PAGE_SPECIFICATION_TOKEN.rstrip(b"\n"),
+        STYLE_BASELINE_TOKEN.rstrip(b"\n"),
     ]
     if markers != expected:
         raise ValueError("prompt_template_invalid")
     before_narrative, remainder = template.split(CANONICAL_NARRATIVE_BULLETS_TOKEN)
-    between, after_specification = remainder.split(EFFECTIVE_PAGE_SPECIFICATION_TOKEN)
+    between, after_specification = remainder.split(STYLE_BASELINE_TOKEN)
     return before_narrative, between, after_specification
 
 
-def compile_prompt_body(narrative_bullets: bytes, effective_page_specification: bytes) -> bytes:
+def compile_prompt_body(narrative_bullets: bytes, style_baseline: bytes) -> bytes:
     narrative = _reject_unsafe_replacement(narrative_bullets)
-    specification = _reject_unsafe_replacement(effective_page_specification)
+    specification = _reject_unsafe_replacement(style_baseline)
     before, between, after = _canonical_template_segments()
     compiled = before + narrative + between + specification + after
     validate_compiled_prompt_body(compiled)
@@ -474,10 +479,10 @@ def validate_compiled_prompt_body(body: bytes) -> None:
     interior = body[len(before):len(body) - len(after) if after else None]
     if interior.count(between) != 1:
         raise ValueError("prompt_preflight_invalid")
-    narrative, specification = interior.split(between, 1)
+    narrative, style_baseline = interior.split(between, 1)
     narrative = _reject_unsafe_replacement(narrative)
-    specification = _reject_unsafe_replacement(specification)
-    if body != before + narrative + between + specification + after:
+    style_baseline = _reject_unsafe_replacement(style_baseline)
+    if body != before + narrative + between + style_baseline + after:
         raise ValueError("prompt_preflight_invalid")
 
 
@@ -487,7 +492,6 @@ def sha256_id(data: bytes) -> str:
 
 METADATA_FIELD_ORDER = (
     "slide_id",
-    "visual_brief_snapshot_id",
     "storyboard_snapshot_id",
     "theme_snapshot_id",
     "applied_visual_revision_ids",
@@ -495,6 +499,7 @@ METADATA_FIELD_ORDER = (
     "user_page_request",
     "expected_output",
     "workspace_output_path",
+    "format",
 )
 
 
@@ -981,21 +986,19 @@ class RedesignPromptContractTests(unittest.TestCase):
             "- **层级执行**: 严格遵循已批准的核心信息与支撑信息划分。\n"
         ).encode("utf-8")
         page_specification = (
-            "- 核心主标题：FY26 H1 pilot review\n"
-            "- 关键分论点：pilot scope；risk controls；next actions\n"
-            "- 布局：hierarchical-bento；区域顺序为标题、主证据、行动\n"
-            "- 视觉令牌：强调色 #6d5efc；风险色 #7c3aed；标题 34px；正文 18px\n"
-            "- 来源：S07-A、S07-B\n"
+            "- 软风格基线：背景 #F7F8FA；主色 #17324D；强调色 #6d5efc；Arial, Microsoft YaHei\n"
+            "- 生成器自选布局与层级；保持整套 deck 一致\n"
         ).encode("utf-8")
         compiled = compile_prompt_body(narrative, page_specification)
         template = normalize_lf(self.generation_prompt_template.read_bytes())
 
         self.assertEqual(template.count(CANONICAL_NARRATIVE_BULLETS_TOKEN), 1)
-        self.assertEqual(template.count(EFFECTIVE_PAGE_SPECIFICATION_TOKEN), 1)
+        self.assertEqual(template.count(STYLE_BASELINE_TOKEN), 1)
+        self.assertEqual(template.count(EFFECTIVE_PAGE_SPECIFICATION_TOKEN), 0)
         self.assertEqual(
             compiled,
             template.replace(CANONICAL_NARRATIVE_BULLETS_TOKEN, narrative).replace(
-                EFFECTIVE_PAGE_SPECIFICATION_TOKEN,
+                STYLE_BASELINE_TOKEN,
                 page_specification,
             ),
         )
@@ -1011,8 +1014,8 @@ class RedesignPromptContractTests(unittest.TestCase):
                 b"prefix " + CANONICAL_NARRATIVE_BULLETS_TOKEN,
             ),
             template.replace(
-                EFFECTIVE_PAGE_SPECIFICATION_TOKEN,
-                EFFECTIVE_PAGE_SPECIFICATION_TOKEN.rstrip(b"\n") + b" suffix\n",
+                STYLE_BASELINE_TOKEN,
+                STYLE_BASELINE_TOKEN.rstrip(b"\n") + b" suffix\n",
             ),
             template.replace(
                 CANONICAL_NARRATIVE_BULLETS_TOKEN,
@@ -1029,7 +1032,7 @@ class RedesignPromptContractTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
                         compile_prompt_body(
                             DEFAULT_CANONICAL_NARRATIVE_BULLETS,
-                            b"- locked effective specification\n",
+                            b"- soft style baseline\n",
                         )
 
     def test_noncanonical_resolved_template_path_is_rejected(self):
@@ -1045,7 +1048,10 @@ class RedesignPromptContractTests(unittest.TestCase):
             DEFAULT_CANONICAL_NARRATIVE_BULLETS,
             b"Injected heading text\n",
         )
-        self.assertIn(b"Injected heading text\n\n---\n", compiled)
+        # STYLE_BASELINE 替换文本不再紧邻 `---` 分隔线；断言注入文本不得形成 Setext 标题
+        self.assertIn(b"Injected heading text\n", compiled)
+        self.assertNotIn(b"Injected heading text\n----", compiled)
+        self.assertNotIn(b"Injected heading text\n====", compiled)
 
     def test_fixture_template_text_cannot_override_repository_template(self):
         payload = self._load_generation_prompt_snapshot_payload()
@@ -1156,7 +1162,6 @@ class RedesignPromptContractTests(unittest.TestCase):
         ).encode("utf-8")
         metadata = {
             "slide_id": "S01",
-            "visual_brief_snapshot_id": "sha256:" + "1" * 64,
             "storyboard_snapshot_id": "sha256:" + "2" * 64,
             "theme_snapshot_id": "sha256:" + "3" * 64,
             "applied_visual_revision_ids": [],
@@ -1164,6 +1169,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             "user_page_request": "首次生成 S01",
             "expected_output": "恰好一个 xml 代码围栏中的完整 SVG",
             "workspace_output_path": "slides/S01.svg",
+            "format": "creative-brief-v1",
         }
         with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
             render_generation_prompt(metadata, old_s01, "S01")
@@ -1206,16 +1212,14 @@ class RedesignPromptContractTests(unittest.TestCase):
     def test_template_locks_decisions_and_svg_contract_without_contradictions(self):
         template = read_text(self.generation_prompt_template)
         for required in (
-            "严格实现已批准",
-            "不得重新提纯",
-            "不得重新选择",
-            "显示文案",
+            "不得重新选择叙事逻辑",
+            "提纯",
+            "改写",
+            "补充",
             "限定词",
             "来源",
-            "layout_family",
-            "区域",
-            "顺序",
-            "视觉令牌",
+            "风格基线",
+            "软参考",
             "1280 720",
             "64px",
             "24px",
@@ -1228,7 +1232,7 @@ class RedesignPromptContractTests(unittest.TestCase):
         ):
             with self.subTest(required=required):
                 self.assertIn(required, template)
-        for forbidden in ('<rect rx=', 'ry="', "选择最合适", "卡片数量由你", "配色需"):
+        for forbidden in ('<rect rx=', 'ry="', "选择最合适", "卡片数量由你", "配色需", "layout_family", "视觉令牌"):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, template)
 
@@ -1300,8 +1304,8 @@ class RedesignPromptContractTests(unittest.TestCase):
         _validate_canonical_template_path(payload["snapshot_inputs"])
         template_bytes = _canonical_template_bytes()
         narrative_bullets = normalize_lf(payload["narrative_bullets"].encode("utf-8"))
-        effective_page_specification = normalize_lf(payload["effective_page_specification"].encode("utf-8"))
-        body = compile_prompt_body(narrative_bullets, effective_page_specification)
+        style_baseline = normalize_lf(payload["style_baseline"].encode("utf-8"))
+        body = compile_prompt_body(narrative_bullets, style_baseline)
         template_snapshot_id = sha256_id(template_bytes)
         compiled_prompt_sha256 = sha256_id(body)
         canonical_payload = copy.deepcopy(payload["snapshot_inputs"])
@@ -1311,7 +1315,6 @@ class RedesignPromptContractTests(unittest.TestCase):
         transaction_id = prompt_snapshot_id
         metadata = {
             "slide_id": payload["slide_id"],
-            "visual_brief_snapshot_id": canonical_payload["visual_brief_snapshot_id"],
             "storyboard_snapshot_id": canonical_payload["storyboard_snapshot_id"],
             "theme_snapshot_id": canonical_payload["theme_snapshot_id"],
             "applied_visual_revision_ids": canonical_payload["applied_visual_revision_ids"],
@@ -1319,6 +1322,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             "user_page_request": payload["user_page_request"],
             "expected_output": "恰好一个 xml 代码围栏中的完整 SVG",
             "workspace_output_path": f"slides/{payload['slide_id']}.svg",
+            "format": canonical_payload["format"],
         }
         return {
             "template_bytes": template_bytes,
@@ -1395,13 +1399,11 @@ class RedesignPromptContractTests(unittest.TestCase):
             mutation_ids,
             {
                 "narrative-bullets",
-                "effective-page-specification",
+                "style-baseline",
                 "outline-snapshot",
-                "brief-snapshot",
                 "storyboard-snapshot",
                 "theme-snapshot",
                 "active-revisions",
-                "effective-revision-projection",
                 "generation-trigger",
                 "generation-intent",
                 "selected-style",
@@ -1707,23 +1709,20 @@ class RedesignPromptContractTests(unittest.TestCase):
             "旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert",
             "新生成统一写入 `.ppt-pilot/generation-prompts/<slide-id>.md`",
             "不得从 SVG、目录、请求文案或用户措辞推断",
-            "same `interaction:<id>` copied to every affected brief",
-            "distinct slide-specific transaction identities and prompt snapshots",
         ):
             with self.subTest(reference="redesign", token=token):
                 self.assertIn(token, redesign)
 
         for token in (
-            "来源与版本",
-            "修订物化与生成 owner",
-            "generation_intent",
-            "generation_trigger_id",
-            "applied_effective_fields",
-            "materialization_count",
-            "visual-brief assembler 是唯一应用视觉修订的组件",
-            "compiler 只从权威历史重新推导同一 projection",
-            "不再应用修订",
-            "raw answer／history JSON",
+            "页面编译路径",
+            "编译输入",
+            "软风格基线",
+            "事实底线",
+            "编译步骤",
+            "generation-prompts/<slide-id>.md",
+            "storyboard_snapshot_id",
+            "theme.json",
+            "旧运行兼容",
         ):
             with self.subTest(reference="visual", token=token):
                 self.assertIn(token, visual)
