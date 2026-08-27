@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "canonical_case": {
+    "outline": {
+      "approved": true,
+      "argument_framework": "pyramid",
+      "opening_framework": "SCQA",
+      "sequence_template": "why-what-how",
+      "narrative_id": "narrative-001",
+      "narrative_step1_bullets": [
+        "Lead with the decision",
+        "Group evidence under the decision"
+      ],
+      "narrative_choice_reason": "Decision audience needs an answer-first progression",
+      "core_argument": "Approve the measured retention investment for Q3",
+      "sections": [
+        {
+          "section_id": "SEC01",
+          "title": "Decision",
+          "order": 1
+        },
+        {
+          "section_id": "SEC02",
+          "title": "Evidence",
+          "order": 2
+        }
+      ],
+      "claim_evidence_relationships": [
+        {
+          "claim_id": "claim-retention-q2",
+          "evidence_source_ids": [
+            "source-cohort-q2"
+          ]
+        },
+        {
+          "claim_id": "claim-retention-delta",
+          "evidence_source_ids": [
+            "source-cohort-q2"
+          ]
+        }
+      ],
+      "outline_snapshot_id": "sha256:407b8ece2582891493d24a1bc56abfb40d1d3ed6d5efc90bcc30f33cc80d67f7"
+    },
+    "storyboard": {
+      "outline_snapshot_id": "sha256:407b8ece2582891493d24a1bc56abfb40d1d3ed6d5efc90bcc30f33cc80d67f7",
+      "pages": [
+        {
+          "slide_id": "S01",
+          "role": "cover",
+          "assertion_title": "The decision is ready",
+          "audience_takeaway": "Approve the proposed direction",
+          "source_ids": [],
+          "visual_intent": "Decision-led title cover",
+          "layout_family": "cover",
+          "density_budget": "low",
+          "previous_link": "START",
+          "next_link": "S02",
+          "forbidden_claims": [],
+          "content_blocks": [
+            {
+              "block_id": "S01-B1",
+              "display_copy": "The decision is ready",
+              "priority": "core",
+              "reading_order": 1,
+              "claim_id": "none",
+              "source_ids": [],
+              "qualifiers": [],
+              "metric": "none"
+            }
+          ]
+        },
+        {
+          "slide_id": "S02",
+          "role": "evidence",
+          "assertion_title": "Retention improved in the measured cohort",
+          "audience_takeaway": "Use the measured cohort as evidence, not a universal claim",
+          "source_ids": [
+            "source-cohort-q2"
+          ],
+          "visual_intent": "Show the measured level and delta with cohort caveat",
+          "layout_family": "evidence-comparison",
+          "density_budget": "medium",
+          "previous_link": "S01",
+          "next_link": "END",
+          "forbidden_claims": [
+            "All customers improved"
+          ],
+          "content_blocks": [
+            {
+              "block_id": "S02-B1",
+              "display_copy": "Retention reached 72% in Q2",
+              "priority": "core",
+              "reading_order": 1,
+              "claim_id": "claim-retention-q2",
+              "source_ids": [
+                "source-cohort-q2"
+              ],
+              "qualifiers": [
+                {
+                  "display_text": "Measured cohort only",
+                  "confidence": "high",
+                  "scope": "Q2 retained cohort",
+                  "causality": "none"
+                }
+              ],
+              "metric": {
+                "display_value": "72%",
+                "number_text": "72",
+                "unit": "%",
+                "period": "Q2",
+                "comparator": "Q1",
+                "baseline": "65%"
+              }
+            },
+            {
+              "block_id": "S02-B2",
+              "display_copy": "Seven-point increase from Q1",
+              "priority": "support",
+              "reading_order": 2,
+              "claim_id": "claim-retention-delta",
+              "source_ids": [
+                "source-cohort-q2"
+              ],
+              "qualifiers": [],
+              "metric": {
+                "display_value": "+7 pp",
+                "number_text": "+7",
+                "unit": "percentage_points",
+                "period": "Q2",
+                "comparator": "Q1",
+                "baseline": "65%"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "visual_brief_provenance": {
+      "slide_id": "S02",
+      "outline_snapshot_id": "sha256:407b8ece2582891493d24a1bc56abfb40d1d3ed6d5efc90bcc30f33cc80d67f7",
+      "storyboard_snapshot_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "visual_brief_snapshot_id": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "prompt_snapshot_payload": {
+      "slide_id": "S02",
+      "outline_snapshot_id": "sha256:407b8ece2582891493d24a1bc56abfb40d1d3ed6d5efc90bcc30f33cc80d67f7",
+      "storyboard_snapshot_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "visual_brief_snapshot_id": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "theme_snapshot_id": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "applied_visual_revision_ids": []
+    },
+    "visual_generation_transaction": {
+      "slide_id": "S02",
+      "outline_snapshot_id": "sha256:407b8ece2582891493d24a1bc56abfb40d1d3ed6d5efc90bcc30f33cc80d67f7",
+      "prompt_snapshot_id": "sha256:f06d864c1c96a5d5980c4731d51529ca46b2602cd99bb3c21f096fbc68754d76",
+      "transaction_id": "sha256:f06d864c1c96a5d5980c4731d51529ca46b2602cd99bb3c21f096fbc68754d76"
+    }
+  },
+  "mutation_cases": [
+    {"id": "changed-sequence-template", "mutation": "changed_sequence_template", "expected": "outline_stale"},
+    {"id": "changed-narrative-bullets", "mutation": "changed_narrative_bullets", "expected": "outline_stale"},
+    {"id": "changed-approved-content", "mutation": "changed_approved_content", "expected": "outline_stale"},
+    {"id": "storyboard-outline-mismatch", "mutation": "storyboard_outline_mismatch", "expected": "outline_snapshot_conflict"},
+    {"id": "visual-brief-outline-mismatch", "mutation": "visual_brief_outline_mismatch", "expected": "outline_snapshot_conflict"},
+    {"id": "prompt-outline-mismatch", "mutation": "prompt_outline_mismatch", "expected": "outline_snapshot_conflict"},
+    {"id": "owner-outline-mismatch", "mutation": "owner_outline_mismatch", "expected": "outline_snapshot_conflict"},
+    {"id": "duplicate-block-id", "mutation": "duplicate_block_id", "expected": "invalid_block_id"},
+    {"id": "invalid-block-id", "mutation": "invalid_block_id", "expected": "invalid_block_id"},
+    {"id": "duplicate-reading-order", "mutation": "duplicate_reading_order", "expected": "invalid_reading_order"},
+    {"id": "non-integer-reading-order", "mutation": "non_integer_reading_order", "expected": "invalid_reading_order"},
+    {"id": "invalid-priority", "mutation": "invalid_priority", "expected": "invalid_priority"},
+    {"id": "missing-claim-source", "mutation": "missing_claim_source", "expected": "invalid_claim_source_mapping"},
+    {"id": "incomplete-metric", "mutation": "incomplete_metric", "expected": "invalid_metric"},
+    {"id": "incomplete-qualifier", "mutation": "incomplete_qualifier", "expected": "invalid_qualifier"},
+    {"id": "missing-page-field", "mutation": "missing_page_field", "expected": "invalid_page_schema"},
+    {"id": "extra-page-key", "mutation": "extra_page_key", "expected": "invalid_page_schema"},
+    {"id": "extra-block-key", "mutation": "extra_block_key", "expected": "invalid_block_schema"},
+    {"id": "out-of-order-blocks", "mutation": "out_of_order_blocks", "expected": "invalid_reading_order"},
+    {"id": "wrong-link-sentinel", "mutation": "wrong_link_sentinel", "expected": "invalid_page_links"},
+    {"id": "broken-adjacent-link", "mutation": "broken_adjacent_link", "expected": "invalid_page_links"},
+    {"id": "page-source-mismatch", "mutation": "page_source_mismatch", "expected": "invalid_page_sources"},
+    {"id": "special-page-single-core", "mutation": "special_page_single_core", "expected": "valid"}
+  ]
+}

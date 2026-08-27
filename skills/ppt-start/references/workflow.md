@@ -16,7 +16,7 @@
 
 因此，`run.json.mode` 只能持久化 `guided` 或 `auto`；`new`、`resume`、`revise` 都不写入该字段。
 
-新运行统一生成 `简报.md`、`研究.md`、`来源.md`、`大纲.md`、`故事板.md`、`文稿审查.md` 和 `质量检查报告.md`。`resume`／`revise` 打开旧英文运行时，必须先依据 `run.json` 与完整文件集合解析该运行实际使用的名称，然后原位读取；不得自动重命名、复制或迁移。后续写回沿用该运行已经采用的同一套名称。
+新运行的运行根目录只放用户可读的 `大纲.md`、最终页面 `slides/` 与内部目录 `.ppt-pilot/`。内部 `.ppt-pilot/` 存放 `run.json`、`简报.md`、`研究.md`、`来源.md`、`故事板.md`、`文稿审查.md`、`质量检查报告.md`、theme、visual briefs、generation prompts 与 samples；不得把新运行的 `大纲.md` 写入内部目录。旧英文或旧布局运行由 `resume`／`revise` 原位读取，保持一套连贯路径，不自动迁移。
 
 ## 全局恢复顺序
 
@@ -30,9 +30,11 @@
 | `visual_generation_transaction` | 4 | 只有没有 pending 与 blocker 时恢复；按 transaction 状态继续，不做普通 stage scan。 |
 | stage scan | 5 | 只有前四类 durable control state 都不存在时，才寻找第一个未完成或脏阶段继续。 |
 
-`visual_generation_blocker` 不是用户问题，不写入 `pending_interaction`。它只能记录安全 Skill 相对 `resource` 或 `none`，不能持久化未验证绝对路径、URL、工作区路径或机密内容；写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，并保持受影响 slide dirty。prompt 已 durable 后允许恢复者看到 `visual_generation_transaction.state: compiling` 与 active blocker 同时存在；随后只能通过一次 `run.json` 原子替换同时把 transaction 改为 `compiled` 并移除匹配 blocker。阻断期间不得启动 generator、不得写 SVG、不得降级为 patch 或改用其他风格。
+`visual_generation_blocker` 不是用户问题，不写入 `pending_interaction`。它只能记录安全 Skill 相对 `resource` 或 `none`，不能持久化未验证绝对路径、URL、工作区路径或机密内容；写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，并保持受影响 slide dirty。历史 crash 留下 durable prompt／`compiling` transaction／active blocker 旧协议组合时，prompt 必须视为不可信派生产物：保持受影响 slide dirty，保留 previous final，按需隔离旧 prompt 与 orphan candidate，并按 [artifact-contract.md](artifact-contract.md) 重新执行完整无副作用 preflight；不得采用旧 prompt，不得直接标记为 `compiled`，也不得直接移除 blocker。只有完整 preflight 成功后，才允许以原子替换结束旧协议组合并创建新的 `compiling` transaction；失败则按 canonical blocker 规则保留或幂等刷新 blocker。阻断期间不得启动 generator、不得写 SVG、不得降级为 patch 或改用其他风格。
 
-`visual_generation_transaction` 恢复保持同一全局 order：只有无 pending、无 blocker 时处理；默认同一运行一次只允许一个 active transaction，仅当多个事务同属当前生产批次且目标 slide 互不相同时，才允许最多一个批次页数（3–4）个并发 active transaction，恢复时按 slide_id 升序逐个处理。它的 schema、状态图、failure reason consumer 和 No arbitrary delete/cancel 规则以 [artifact-contract.md](artifact-contract.md) 为准；工作流层必须保持 `compiling -> compiled -> generating -> candidate_written -> validated -> promoted`、`generating | candidate_written | validated -> failed`、`failed -> generating`、`failed -> validated` 与 `failed transaction -> new compiling transaction` 的精确语义。transport retry 使用 `generation_attempt + 1` 且每次宿主调用最多 generator 1 次；production `blocker` 冲突解决只能走 unchanged valid candidate 的 promotion retry，或 authoritative inputs changed 的新 compiling replacement。
+正式生产保持每批 3–4 页；批内可以对多个页面做内存／只读准备与 preflight，但不得写任何 durable transaction、prompt、candidate 或 SVG。顶层 `visual_generation_transaction` 只能是单个对象或缺失，一次只允许一个 active `visual_generation_transaction`；不得使用列表、映射或按页并发 owner。durable 工作按 `slide_id` 升序逐页完成 compile -> generate -> validate -> promote。下一页只能在前一页 promoted 后以原子更新清理 transaction，或前一页失败后明确停止并清理可安全清理的临时产物后开始。
+
+`visual_generation_transaction` 恢复保持同一全局 order：只有无 pending、无 blocker 时处理。它的 schema、状态图、failure reason consumer 和 No arbitrary delete/cancel 规则以 [artifact-contract.md](artifact-contract.md) 为准；工作流层必须保持 `compiling -> compiled -> generating -> candidate_written -> validated -> promoted`、`generating | candidate_written | validated -> failed`、`failed -> generating`、`failed -> validated` 与 `failed transaction -> new compiling transaction` 的精确语义。transport retry 使用 `generation_attempt + 1` 且每次宿主调用最多 generator 1 次；production `blocker` 冲突解决只能走 unchanged valid candidate 的 promotion retry，或 authoritative inputs changed 的新 compiling replacement。
 
 ## guided 检查点
 
@@ -50,7 +52,7 @@ findings 字段 schema、七维检查、设计师视角材料缺口协议、用�
 
 ### 批准检查点与视觉阶段转换
 
-审查通过时记录顶层 `manuscript_approved` 检查点，并把 `run.json.manuscript_review.state` 保持为 `manuscript_approved`：解析主题令牌前设置 `stage: theme`，制作锚点前设置 `stage: anchor`，生成正式页面前设置 `stage: production`。视觉 brief 与页面生成 Prompt 不是新的顶层阶段；其组装、编译与 fresh generator 输入隔离分别遵循 [逐页视觉 brief 与生成](visual-brief-and-generation.md) 与 [redesign-prompt](redesign-prompt.md)。
+审查通过时记录顶层 `manuscript_approved` 检查点，并把 `run.json.manuscript_review.state` 保持为 `manuscript_approved`：解析主题令牌前设置 `stage: theme`，制作锚点前设置 `stage: anchor`，生成正式页面前设置 `stage: production`。主题阶段解析当前有效主题后直接编译锚点页 prompt；锚点批准或 `auto` 内部验证完成后，在 `production` 中按页从故事板与 `theme.json` 直接编译其余页面 prompt。任何页面在对应 `generation-prompts/<slide-id>.md` 有效前都不能生成。页面生成 Prompt 不是新的顶层阶段；其编译与 fresh generator 输入隔离分别遵循[逐页视觉 brief 与生成](visual-brief-and-generation.md)与 [redesign-prompt](redesign-prompt.md)。
 
 ### 生产护栏
 

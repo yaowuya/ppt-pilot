@@ -8,43 +8,43 @@
 
 新安装先读取 `assets/styles/registry.json` 发现可选风格；缺 registry 时只允许下方完整 fallback 表中的三个 legacy seed。用户给出稳定 ID 或唯一显示名时可直接选择；未明确选择时仍按 guided／auto 规则决定，不得因新增风格包改变默认行为。根据主题、受众、品牌／风格约束和内容密度选择，不得只按主题关键词机械轮换。用户提供的品牌颜色可以覆盖 seed 或 style pack，但必须先检查对比度并记录最终值。
 
-风格解析是 package oracle 契约，不是运行时安全实现。主题阶段和生成阶段必须使用同一 traversal、同一 reason 词表与同一 no-follow ownership 规则；不得在两个文档中各自发明条件。宿主仍必须对真实文件系统执行 no-follow／`lstat`、普通文件、UTF-8 和 JSON 检查。
+风格解析是身份、令牌与指导的 package oracle 契约，不是运行时安全实现。主题阶段和生成阶段必须使用同一 traversal、同一 reason 词表与同一 no-follow ownership 规则；不得在两个文档中各自发明条件。宿主仍必须对真实文件系统执行 no-follow／`lstat`、普通文件、UTF-8 和 JSON 检查。风格资产不拥有可执行生成正文；该正文只来自 `references/generation-prompt-template.md` 的规范编译。
 
 ### registry 与 pack root
 
 - `assets/styles/registry.json` 只有在 no-follow／`lstat` 明确不存在时才进入 fallback；link、symlink、junction、reparse point、目录、特殊文件、不可读、非 UTF-8、JSON 无效或 schema 非 1 都是 blocker，不当作 missing。
 - registry 的 style ID 与 display name 必须唯一；否则返回 `registry_duplicate_style`。
 - 任何 `style_pack` 的 entrypoint 必须精确等于 `<entry-id>/manifest.json`；exact pack root 必须是 `assets/styles/<entry-id>/` 的直接子目录，所有 pack roots 互不相同且互不嵌套。这个 registry-wide 检查按 registry 数组顺序执行，也覆盖未选 pack，失败返回 `entrypoint_path_unsafe`。
-- 路径拒绝范围固定：空值、绝对路径、Windows 盘符、UNC、URL、`.`／`..` 穿越、no-follow target 集合 link/symlink/junction/reparse。no-follow target 在 registry/entrypoint/asset/prompt 中统一映射到对应 *_path_unsafe；目录和特殊文件仍是 target invalid。
+- 路径拒绝范围固定：空值、绝对路径、Windows 盘符、UNC、URL、`.`／`..` 穿越、no-follow target 集合 link/symlink/junction/reparse。no-follow target 在 registry、entrypoint 或 style asset 中统一映射到对应 `*_path_unsafe`；目录和特殊文件仍是 target invalid，entrypoint 不可读或非 UTF-8 返回 `entrypoint_unreadable`。
 
 ### legacy seed 与 style pack ownership
 
-- `legacy_seed` 的 `entrypoint` 和 `redesign_prompt` 都相对 `assets/styles/` 根解析，规范化后仍必须在该根内，且不能位于任一注册 style-pack 子目录。seed JSON 必须是既有 seed 结构且 `name == selected_style_id`；否则分别返回 `legacy_entrypoint_malformed` 或 `legacy_identity_mismatch`。
-- registry-backed legacy 只有三个内置 legacy ID 的旧 v1 条目缺 `redesign_prompt` 时，始终从 entrypoint 派生 `<entrypoint-stem>.redesign.md`；派生 prompt 缺失返回 `prompt_file_missing`。其他 legacy 缺 prompt 字段返回 `prompt_field_missing`。
+- `legacy_seed` 的 `entrypoint` 相对 `assets/styles/` 根解析，规范化后仍必须在该根内，且不能位于任一注册 style-pack 子目录。entrypoint 不可读或非 UTF-8 返回 `entrypoint_unreadable`；seed JSON 必须是既有 seed 结构且 `name == selected_style_id`，否则分别返回 `legacy_entrypoint_malformed` 或 `legacy_identity_mismatch`。
 - `style_pack` manifest 必须位于 exact pack root 内，`schema_version == 1`，`id`、`kind`、`display_name` 与 registry／selected 一致，`version` 必须 fullmatch `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`；失败映射到 `manifest_malformed`、`manifest_schema_unsupported`、`manifest_identity_mismatch` 或 `manifest_version_invalid`。
-- `files.tokens`、`files.guidance`、`files.redesign_prompt` 都相对 exact pack root 解析，不得指向 legacy 文件、styles 根文件或兄弟 pack。tokens／guidance 的路径 ownership 与 containment 使用生成解析同一规则：字段缺失返回 `style_asset_field_missing`，路径越界或 no-follow target 返回 `style_asset_path_unsafe`，目标缺失、目录或特殊文件返回 `style_asset_target_invalid`，不可读返回 `style_asset_unreadable`。theme.json 必须记录已验证 tokens／guidance 规范路径，后续身份握手要求这些记录与当前 manifest 一致。
+- schema-v1 manifest 只要求 `files.tokens` 与 `files.guidance`。二者相对 exact pack root 解析，不得指向 legacy 文件、styles 根文件或兄弟 pack；字段缺失返回 `style_asset_field_missing`，路径越界或 no-follow target 返回 `style_asset_path_unsafe`，目标缺失、目录或特殊文件返回 `style_asset_target_invalid`，不可读或非 UTF-8 返回 `style_asset_unreadable`，tokens JSON 无效返回 `style_asset_malformed`，tokens schema 非 1 返回 `style_asset_schema_unsupported`。`theme.json` 必须记录已验证 tokens／guidance 规范路径，后续身份握手要求这些记录与当前 manifest 一致。
+- registry 或 manifest 中的其他 schema-v1 字段按向前兼容规则忽略。历史完整模板文件可以保留在磁盘，但解析器不得查找、派生、读取、验证或哈希这些文件，也不得把其路径或字节写入生成 provenance。
 
 ### 身份握手、ordinary stale 与 blocker
 
-`theme.json` 与 visual brief 必须记录并核对 selected style ID、display name、kind、manifest version。四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）必须在 `theme.json` 与每份 brief 完全一致；权威定义见[产物契约 Task 6](artifact-contract.md)。style-pack 的持久值还必须与当前 registry／manifest 精确一致；registry-backed legacy 的 version 必须是字符串 `none`；fallback 使用下方 fallback identity table 并同时匹配 seed `name`。missing fields 只能从 registry／manifest／fallback identity table 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。brief 与 theme 彼此冲突、legacy version 非 `none`、或多个 owner 声明不同 style 时，返回 `prompt_snapshot_conflict` 并写 `style_prompt_unavailable` blocker。brief 与 theme 一致但安装升级导致当前 registry display name 或 manifest version 改变时，属于 ordinary stale：按现有 theme 失效规则返回 `theme`，重建 theme 和受影响 visual briefs，不写 blocker。
+`theme.json` 与 visual brief 必须记录并核对 selected style ID、display name、kind、manifest version。四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）必须在 `theme.json` 与每份 brief 完全一致；权威定义见[产物契约 Task 6](artifact-contract.md)。style-pack 的持久值还必须与当前 registry／manifest 精确一致；registry-backed legacy 的 version 必须是字符串 `none`；fallback 使用下方 fallback identity table 并同时匹配 seed `name`。missing fields 只能从 registry／manifest／fallback identity table 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。brief 与 theme 彼此冲突、legacy version 非 `none`、或多个 owner 声明不同 style 时，返回 `prompt_snapshot_conflict` 并写 `style_assets_unavailable` blocker。brief 与 theme 一致但安装升级导致当前 registry display name 或 manifest version 改变时，属于 ordinary stale：按现有 theme 失效规则返回 `theme`，重建 theme 和受影响 visual briefs，不写 blocker。历史模板文件的存在、路径或字节变化永远不是 identity、ordinary stale 或 snapshot 输入。
 
 ### 缺 registry fallback identity table
 
-fallback 只在 registry path no-follow 缺失时探测，并且必须验证三 seed identity 与三 companion prompt contract 后才允许 legacy。任一 seed 或 companion 缺失、不可读、格式错误或身份不符，都统一返回 `registry_missing`；selected ID 不在表内也返回 `registry_missing`，不得扫描未知目录或发现 style pack。
+fallback 只在 registry path no-follow 缺失时探测，并且必须先验证下列三份 seed JSON 的结构与 `name` 身份；三份 seed 全部有效后，才允许三个 legacy ID 解析到对应 entrypoint。任一 seed 缺失、不可读、格式错误或身份不符，都统一返回 `registry_missing`；selected ID 不在表内也返回 `registry_missing`，不得扫描未知目录或发现 style pack。
 
-| selected_style_id | selected_style_display_name | style_kind | style_manifest_version | entrypoint | companion prompt |
-|---|---|---|---|---|---|
-| `minimal-business` | `极简商务` | `legacy_seed` | `none` | `minimal-business.json` | `minimal-business.redesign.md` |
-| `tech-dark` | `深色科技` | `legacy_seed` | `none` | `tech-dark.json` | `tech-dark.redesign.md` |
-| `bold-editorial` | `强调编辑` | `legacy_seed` | `none` | `bold-editorial.json` | `bold-editorial.redesign.md` |
+| selected_style_id | selected_style_display_name | style_kind | style_manifest_version | entrypoint |
+|---|---|---|---|---|
+| `minimal-business` | `极简商务` | `legacy_seed` | `none` | `minimal-business.json` |
+| `tech-dark` | `深色科技` | `legacy_seed` | `none` | `tech-dark.json` |
+| `bold-editorial` | `强调编辑` | `legacy_seed` | `none` | `bold-editorial.json` |
 
 ### 稳定 reason traversal
 
-所有 prompt 解析／编译失败使用 `state: style_prompt_unavailable`，按 traversal 的第一个失败项返回唯一 reason：`registry_missing`、`registry_path_unsafe`、`registry_target_invalid`、`registry_unreadable`、`registry_malformed`、`registry_schema_unsupported`、`registry_duplicate_style`、`style_not_registered`、`style_kind_invalid`、`entrypoint_missing`、`entrypoint_path_unsafe`、`entrypoint_target_invalid`、`legacy_entrypoint_malformed`、`legacy_identity_mismatch`、`manifest_malformed`、`manifest_schema_unsupported`、`manifest_identity_mismatch`、`manifest_version_invalid`、`style_asset_field_missing`、`style_asset_path_unsafe`、`style_asset_target_invalid`、`style_asset_unreadable`、`prompt_field_missing`、`prompt_path_unsafe`、`prompt_file_missing`、`prompt_target_invalid`、`prompt_unreadable`、`prompt_template_invalid`、`prompt_snapshot_conflict`。
+所有风格身份或资产解析失败使用 `state: style_assets_unavailable`，按 traversal 的第一个失败项返回唯一 reason：`registry_missing`、`registry_path_unsafe`、`registry_target_invalid`、`registry_unreadable`、`registry_malformed`、`registry_schema_unsupported`、`registry_duplicate_style`、`style_not_registered`、`style_kind_invalid`、`entrypoint_missing`、`entrypoint_path_unsafe`、`entrypoint_target_invalid`、`entrypoint_unreadable`、`legacy_entrypoint_malformed`、`legacy_identity_mismatch`、`manifest_malformed`、`manifest_schema_unsupported`、`manifest_identity_mismatch`、`manifest_version_invalid`、`style_asset_field_missing`、`style_asset_path_unsafe`、`style_asset_target_invalid`、`style_asset_unreadable`、`style_asset_malformed`、`style_asset_schema_unsupported`、`prompt_snapshot_conflict`。
 
-Traversal 顺序固定为：registry target 状态；registry duplicate；registry-wide pack-root shape；selected style lookup/kind；selected entrypoint 字段、路径、target；legacy seed JSON/identity 或 style-pack manifest JSON/schema/identity/version；style-pack tokens/guidance field/path/target/readability；prompt field/path/target/readability/template（含 `STYLE_ID == selected_style_id`）；persisted provenance/snapshot。多缺陷时严格按此顺序与 registry 数组顺序选择：未选 pack root 错误先于 selected prompt 错误，selected tokens/guidance 错误先于 prompt 错误。
+Traversal 顺序固定为：registry target 状态；registry duplicate；registry-wide pack-root shape；selected style lookup/kind；selected entrypoint 字段、路径、target；legacy seed JSON/identity 或 style-pack manifest JSON/schema/identity/version；style-pack tokens/guidance field/path/target/readability；persisted identity conflict。多缺陷时严格按此顺序与 registry 数组顺序选择：未选 pack root 错误先于 selected assets，selected tokens 先于 guidance。
 
-风格包不得包含单页成品示例、参考构图或固定区域图；Office-safe SVG 兼容性由生成与 QA 契约验证，不得从成品示例或既有 SVG 反推构图。
+风格包不得包含活跃的单页成品示例、参考构图或固定区域图；Office-safe SVG 兼容性由生成与 QA 契约验证，不得从成品示例或既有 SVG 反推构图。
 
 ### 条件式主题问题
 
@@ -52,7 +52,7 @@ Traversal 顺序固定为：registry target 状态；registry duplicate；regist
 
 `theme.json` 记录所选种子、最终颜色、字体、间距、形状令牌、语言和已批准覆盖项。不得包含远程 URL 或机器绝对路径。生成或重建该文件时，必须从 `run.json.interaction_history` 恢复 `artifact_owner: theme.json` 的阶段产物镜像到 `user_revision_notes`；不得把 `theme.json` 当作锚点修订记录的唯一权威，也不得因主题失效覆盖或丢失权威交互历史。
 
-主题阶段不能直接从故事板生成 SVG。先把当前有效主题、布局选择和权威视觉修订历史归并到逐页 `visual-briefs/<slide-id>.md`，再由锚点或生产阶段消费。每页必须明确唯一焦点、第一至第三阅读位置、主次面积或替代层级编码、完整字体阶梯、语义色和禁止母题；具体字段与冲突处理遵循[逐页视觉 brief 与生成契约](visual-brief-and-generation.md)。
+主题阶段解析当前有效主题后，直接把软风格基线（色板角色、字体栈、间距节奏、禁止母题）纳入编译输入，用于编译锚点与生产页面的 generation prompt；不再组装逐页 visual brief。
 
 主题归并使用固定优先级：
 
@@ -60,13 +60,15 @@ Traversal 顺序固定为：registry target 状态；registry duplicate；regist
 不可覆盖内容／证据／兼容性规则 > seed defaults > latest deck theme/brand decision > latest scoped slide decision > local patch defect
 ```
 
-每条品牌／主题或页面决定来自 `run.json.interaction_history` 的已应用记录。后续规则替换同字段时必须记录 `supersedes`；废弃规则留在历史中，但不得进入当前主题、active contract 或 visual brief。`affected_scope: deck` 的最新决定写入 `theme.json.user_revision_notes`，页面决定写入对应 `visual-briefs/<slide-id>.md`。同字段冲突而替换关系或作用域不明确时停止，不得混用相互矛盾的令牌或从 SVG 反推主题。
+每条品牌／主题或页面决定来自 `run.json.interaction_history` 的已应用记录。后续规则替换同字段时必须记录 `supersedes`；废弃规则留在历史中，但不得进入当前主题、active contract 或编译输入。`affected_scope: deck` 的最新决定写入 `theme.json.user_revision_notes`，页面决定写入对应页编译输入（叙事/素材/风格基线表述）。同字段冲突而替换关系或作用域不明确时停止，不得混用相互矛盾的令牌或从 SVG 反推主题。
 
 ## 色彩层级
 
 主导色约占 60%–70% 的视觉权重，另配一到两个辅助色和一个鲜明强调色。背景与表面色承担功能；强调色只用于最高价值的比较、行动或例外，不用于一般装饰。
 
 关键数字与关键比较必须用强调色或明确标注（对比色、圈注、箭头差值）突出，且每页只保留一个主强调焦点——这是故事板"每页黄金规则"在视觉层的执行细则。强调服务于该页 `visual_intent`，优先把关键比较绘制为带指标、期间、单位和来源 ID 的图表，而不是文字罗列；同一页出现多个并列强调时按重要性只保留一个，其余降级为辅助色或普通标注。
+
+风格基线是软参考方向，生成器可在保持整套 deck 一致性的前提下自选布局与视觉表达；关键数字与关键比较的强调规则仍是输出硬契约的一部分。
 
 正文／脚注文本的对比度至少为 4.5:1；大号文本和关键图形边界至少为 3:1。用户覆盖色与种子冲突时，应修改令牌，而不是给文字添加描边或阴影。
 

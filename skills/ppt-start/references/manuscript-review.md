@@ -4,15 +4,17 @@
 
 ## 完整文稿定义
 
-只有以下五个输入全部写完并冻结，文稿才算完整：
+新运行只有以下五个输入全部写完并冻结，文稿才算完整：
 
-- `简报.md`
-- `研究.md`
-- `来源.md`
-- `大纲.md`
-- `故事板.md`
+- `.ppt-pilot/简报.md`
+- `.ppt-pilot/研究.md`
+- `.ppt-pilot/来源.md`
+- 运行根目录 `大纲.md`
+- `.ppt-pilot/故事板.md`
 
-这些是新运行的标准名称。旧英文运行可以继续使用 `brief.md`、`research.md`、`sources.md`、`outline.md` 和 `storyboard.md`；同一轮必须读取并冻结该运行实际使用的一整套名称，不得混用或自动改名。
+新运行仅写入上述中文规范名称；新运行不得把 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md` 或 `manuscript-review.md` 作为写入目标，且 `.ppt-pilot/大纲.md` 不得作为活动读取或写入路径。
+
+`resume`／`revise` 对既有旧英文运行原位读取并使用 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md` 及已有 `manuscript-review.md`，冻结快照记录该运行实际使用的文件名。不得仅因文件名为英文而拒绝运行、重命名文件、复制或迁移文件，或重算／重建已批准上游产物；不得混用中英文两套路径。兼容性不豁免质量门：输入缺失、内容无效、stale／过期或 dirty／脏状态仍必须阻断审查或恢复。
 
 这些文件稳定后，创作上下文才可以移交文稿审查。
 
@@ -22,13 +24,13 @@
 
 ## 审查输入、权限与模式
 
-每轮先尝试把审查委派给一个**全新且独立的子 Agent／上下文**，只授予以下只读输入：
+每轮先尝试把审查委派给一个**全新且独立的子 Agent／上下文**，只授予该运行实际使用的以下五个只读输入：
 
-- `简报.md`
-- `研究.md`
-- `来源.md`
-- `大纲.md`
-- `故事板.md`
+- 新运行：`.ppt-pilot/简报.md`；旧英文运行：`brief.md`
+- 新运行：`.ppt-pilot/研究.md`；旧英文运行：`research.md`
+- 新运行：`.ppt-pilot/来源.md`；旧英文运行：`sources.md`
+- 新运行：运行根目录 `大纲.md`；旧英文运行：`outline.md`
+- 新运行：`.ppt-pilot/故事板.md`；旧英文运行：`storyboard.md`
 - 本审查规范文件
 
 独立审稿人不得接收创作对话、设计主题、样例、`theme.json`、`samples/`、`slides/`、截图或其他视觉产物。
@@ -55,7 +57,7 @@
 
 ## 审查输出与持久化职责
 
-审稿人返回包含问题和审查来源的结构化报告载荷。审稿人绝不修改文稿文件，也不写入工作区文件。创作上下文负责把返回载荷原样保存到当前运行实际使用的审查报告；新运行写入 `文稿审查.md`，旧英文运行沿用 `manuscript-review.md`，并把后续作者修订说明单独记录到 `run.json.manuscript_review.review_history`。
+审稿人返回包含问题和审查来源的结构化报告载荷。审稿人绝不修改文稿文件，也不写入工作区文件。创作上下文负责把返回载荷原样保存到当前运行实际使用的审查报告：新运行写入 `.ppt-pilot/文稿审查.md`；既有旧英文运行继续原位更新其 `manuscript-review.md`，不得仅为改名创建中文副本。后续作者修订说明单独记录到 `run.json.manuscript_review.review_history`。
 
 每条问题必须包含以下全部字段：
 

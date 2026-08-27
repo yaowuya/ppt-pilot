@@ -23,8 +23,7 @@
   ],
   "files": {
     "tokens": "tokens.json",
-    "guidance": "STYLE.md",
-    "redesign_prompt": "REDESIGN.md"
+    "guidance": "STYLE.md"
   },
   "compatibility": {
     "office_safe_svg": true,

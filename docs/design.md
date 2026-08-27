@@ -26,13 +26,13 @@ MVP 刻意保持纯指令架构。它只使用宿主常规的工作区能力，�
 - `references/`：各阶段流程与契约；
 - `assets/styles/registry.json`：风格发现注册表；
 - `assets/styles/*.json`：三个兼容的扁平风格种子；
-- `assets/styles/minimal-business.redesign.md`、`assets/styles/tech-dark.redesign.md`、`assets/styles/bold-editorial.redesign.md`：三个 legacy seed 自有完整 redesign prompt；
-- `assets/styles/<style-id>/`：包含 manifest、tokens、中文抽象设计指导与自有完整 prompt 的 rich style packs；当前 `canway-midyear-review/REDESIGN.md` 由 Canway manifest 声明；
+- `assets/styles/<style-id>/`：包含 manifest、tokens 与中文抽象设计指导的 rich style packs；历史完整 prompt 文件可以留在资产目录，但运行时永远不读取、不验证、不哈希；
+- `references/generation-prompt-template.md`：所有风格、所有首次生成与 `recompose` 唯一的 repository prompt body；
 - `assets/examples/`：一份 Office-safe SVG 示例。
 
-运行目录中的 `visual-briefs/<slide-id>.md` 是自包含的逐页视觉生成状态，不属于共享 Skill 安装资产；首次生成、用户 `recompose` 与确定性回退还会编译并持久化 `generation-prompts/<slide-id>.md`，其中包含所选风格完整 prompt 的替换后正文和 provenance。
+运行目录中的 `.ppt-pilot/visual-briefs/<slide-id>.md` 是自包含、完全 render-ready 的逐页视觉状态，不属于共享 Skill 安装资产；首次生成、用户 `recompose` 与确定性回退还会从唯一 repository template 编译并持久化 `.ppt-pilot/generation-prompts/<slide-id>.md`。编译正文只包含 canonical outline bullets 与 effective page specification 两个 replacement，provenance 只保留必要的 snapshot、revision IDs/hash 与 transaction identity。
 
-共享 `references/redesign-prompt.md` 是 resolver-only contract：它只规定 selected style identity、registry／manifest／legacy companion 解析、路径 containment、模板 marker、snapshot、blocker、transaction、fresh generator 输入隔离和失败恢复。它不得保存四个风格的完整视觉生成正文，也不得把某个风格的布局语言作为共享默认。
+共享 `references/redesign-prompt.md` 规定 selected style identity、registry／manifest／asset 路径 containment、exactly-two marker 编译、snapshot、无副作用 preflight、blocker、transaction、fresh generator 输入隔离和失败恢复。风格资产不拥有 prompt body；共享契约也不得把某个风格的布局语言作为默认。
 
 共享 frontmatter 只包含 `name` 与 `description`，其中 `name` 为 `ppt-start`。运行时指令使用“读取、写入、委派、检查”等语义动作，不依赖宿主专属工具名、变量、权限语法或调用语法。
 
@@ -48,9 +48,11 @@ brief
   -> assertion-led outline
   -> page storyboard
   -> mandatory manuscript review (subagent preferred; inline fallback on attributable failure)
-  -> theme and layout planning
-  -> two anchor SVGs
-  -> batched SVG production
+  -> deck-scoped theme
+  -> effective visual brief (outline/storyboard/theme/revisions; revisions materialized once)
+  -> in-memory validation + exactly two canonical replacements + hash preflight
+  -> durable transaction/prompt -> one fresh generator -> candidate/hash/QA/promotion
+  -> two anchors and batched SVG production
   -> per-slide and deck-level QA
   -> complete
 ```
@@ -63,7 +65,7 @@ brief -> research -> outline -> storyboard -> manuscript_review -> theme -> anch
 
 `guided` 与 `auto` 是写入 `run.json.mode` 的持久执行策略。`guided` 在简报、大纲和锚点 SVG 后提出一个直接问题并等待明确批准；新运行未显式指定策略时默认 `guided`。只有显式 `auto` 才跳过可选问题和批准，但用户权限或没有安全默认值的决策仍然阻塞，且全部中间产物仍需创建和验证。`new`、`resume` 与 `revise` 是入口动作：恢复和修订先读取 `run.json`、保留既有执行策略，再分别继续未完成工作或使受影响依赖项失效。
 
-`theme` 阶段把已批准故事板、当前主题、权威视觉修订历史和 SVG／QA 契约归并为逐页 visual brief。`anchor` 与 `production` 只能消费有效 brief；SVG 本身不是设计状态。visual brief 组装属于既有阶段内部工作，不增加新的顶层阶段值。
+`theme` 阶段先建立 deck-scoped theme/style，再由 visual-brief assembler 把批准 outline、锁定 storyboard、当前 theme 和权威视觉修订归并为逐页 effective visual brief。assembler 是唯一应用修订的 owner，并把 deterministic projection 恰好一次写入最终 `effective_*` 字段。`anchor` 与 `production` 只能在 brief、exactly-two compiled prompt 与完整内存 preflight 均有效后创建 transaction；SVG 本身不是设计状态。上述组装与编译属于既有阶段内部工作，不增加新的顶层阶段值。
 
 ## 用户交互与确认
 
@@ -77,25 +79,23 @@ brief -> research -> outline -> storyboard -> manuscript_review -> theme -> anch
 
 ## 文件化运行协议
 
-每套演示文稿位于 `ppt-output/<deck-id>/`：
+每套演示文稿位于 `ppt-output/<deck-id>/`。新运行只在根目录暴露用户可读大纲和最终页面，其余过程状态都收进内部目录：
 
 ```text
-run.json
-简报.md
-研究.md
-来源.md
-大纲.md
-故事板.md
-文稿审查.md
-theme.json
-visual-briefs/<slide-id>.md
-generation-prompts/<slide-id>.md
-samples/*.svg
-slides/*.svg
-质量检查报告.md
+ppt-output/<deck-id>/
+├── 大纲.md          # 根目录中的用户可读大纲
+├── slides/*.svg     # 最终页面
+└── .ppt-pilot/      # 内部过程状态
+    ├── run.json
+    ├── 简报.md / 研究.md / 来源.md
+    ├── 故事板.md / 文稿审查.md
+    ├── theme.json / 质量检查报告.md
+    ├── visual-briefs/<slide-id>.md
+    ├── generation-prompts/<slide-id>.md
+    └── samples/*.svg
 ```
 
-`run.json` 使用 `schema_version: 1`，记录 `guided`／`auto` 执行策略、当前阶段、文稿审查状态、可选的 `pending_interaction`／`interaction_history`、嵌套 `manuscript_review.pending_round`、`visual_generation_blocker`、`visual_generation_transaction` 和脏页面；入口动作不写入 `mode`。`manuscript_review.cycle` 也是可选 schema-v1 字段，旧运行缺少时按 1。直接视觉修订以 `visual-revision-<N>` 保存在权威 `interaction_history`，并通过 `supersedes` 排除废弃规则。每个 `visual-briefs/<slide-id>.md` 记录锁定内容、主题与风格 provenance、有效修订、层级、构图、模式和 QA 要求；其中 `generation_intent` 与 `generation_trigger_id` 说明当前视觉操作的持久来源，不能从 SVG 是否存在或用户措辞猜测。`generation-prompts/<slide-id>.md` 记录 resolved prompt path、style／brief／theme／storyboard snapshots、`compiled_prompt_sha256`、`prompt_snapshot_id` 和 transaction provenance。这些文件足以让一个受支持宿主把运行交给另一个宿主，而不依赖此前对话。
+`run.json` 使用 `schema_version: 1`，记录 `guided`／`auto` 执行策略、当前阶段、文稿审查状态、可选的 `pending_interaction`／`interaction_history`、嵌套 `manuscript_review.pending_round`、`visual_generation_blocker`、`visual_generation_transaction` 和脏页面；入口动作不写入 `mode`。`manuscript_review.cycle` 也是可选 schema-v1 字段，旧运行缺少时按 1。直接视觉修订以 `visual-revision-<N>` 保存在权威 `interaction_history`，并通过 `supersedes` 排除废弃字段值。每个 `.ppt-pilot/visual-briefs/<slide-id>.md` 恰有七个规范章节，机械锁定 storyboard blocks，持久化最终 hierarchy/composition/visual/output 值、revision IDs/hash、operation owner 与 QA 要求；`theme.json` 只保存 deck theme/style，不保存逐页 trigger、projection hash、prompt snapshot 或 transaction。`.ppt-pilot/generation-prompts/<slide-id>.md` 只记录九个 metadata 字段与由 repository template 两个 replacement 唯一派生的 compiled body；不包含 raw answer/history JSON 或 style-owned body。这些文件足以让一个受支持宿主把运行交给另一个宿主，而不依赖此前对话。
 
 中文 Markdown 名称是新运行的标准。为了让既有运行仍能恢复，`resume`／`revise` 可以继续原位读取旧英文名称 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md`、`manuscript-review.md` 和 `qa-report.md`，但不得自动重命名、复制或迁移。实际名称由 `run.json` 的引用字段和目录中的完整文件集合共同决定；无法唯一判定时停止并报告冲突。
 
@@ -146,23 +146,25 @@ subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创�
 - `tech-dark`
 - `bold-editorial`
 
-并提供非默认 rich style pack `canway-midyear-review`，中文显示名为“嘉为年中总结风格”，manifest 内容版本必须精确为 `1.3.0`，并在 `files.redesign_prompt` 中声明 `canway-midyear-review/REDESIGN.md`。它的 manifest 引用机器可读 tokens、中文 `STYLE.md` 抽象规则和风格自有完整 prompt；这些都不是单页成品 SVG 或固定构图参考。颜色、字体、间距、形状和语义角色可以复用；每页区域、卡片数量、连接关系和阅读路径必须由当前 visual brief 重新推导，避免把风格身份固化为同一张版式。
+并提供非默认 rich style pack `canway-midyear-review`，中文显示名为“嘉为年中总结风格”，manifest 内容版本必须精确为 `1.3.0`。运行时只要求 manifest 的 machine-readable tokens 与中文 `STYLE.md` 抽象指导；历史 `files.redesign_prompt`／`REDESIGN.md` 即使留在旧 schema 或磁盘，也不读取、不验证、不哈希，不参与 provenance。颜色、字体、间距、形状和语义角色可以复用；每页区域、卡片数量、连接关系和阅读路径由 visual-brief assembler 根据当前锁定内容最终解析，不能留给 generator 或把风格身份固化为同一张版式。
 
 布局根据内容语义选择，不机械轮换。支持封面／章节、单一结论、比较、时间线／流程、层级／架构、数据／图表、Bento 汇总和收束／行动。除非内容要求，相邻页面不得重复同一家族。
 
 全面生产前生成两个锚点：封面，以及最困难或信息密度最高的内容页。`guided` 策略等待批准，`auto` 策略执行同等内部检查。
 
-### 风格 prompt、身份与恢复边界
+### 风格身份、规范编译与恢复边界
 
-四个内置风格的完整 prompt 是风格自有的独立可编译的完整模板：`minimal-business.redesign.md`、`tech-dark.redesign.md`、`bold-editorial.redesign.md` 与 `canway-midyear-review/REDESIGN.md`。legacy seed 可以通过 registry 的 `redesign_prompt` 字段或已知 companion 规则定位；style pack 只能通过自己的 manifest 定位。新增 style pack 只新增 registry 条目和 manifest／prompt 资产，不修改共享 resolver schema 或逻辑。visual brief 是页面视觉权威状态与 compiler 输入；编译后的 generation prompt 是 fresh generator 的唯一执行输入，fresh generator 不得直接接收 visual brief 或原始风格 prompt。
+所有风格共用唯一 repository `references/generation-prompt-template.md`。style resolver 只解析并验证 identity、registry／manifest、tokens 与 guidance；legacy companion 和 style-pack 历史完整 prompt 都不参与运行。visual brief 是 fully render-ready 的页面视觉权威状态与 compiler 输入；compiler 仅执行 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[EFFECTIVE_PAGE_SPECIFICATION]]` 两个 whole-line replacement。编译后的 durable generation prompt 是 fresh generator 的唯一执行输入。
 
-`theme.json` 与 visual brief 持久保存同一组 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind` 与 `style_manifest_version`。编译 prompt 时只信任这些持久字段、registry／manifest 和快照；display name 或 manifest version 升级属于 ordinary stale 并触发重建，互相矛盾或无法唯一重建才是 `prompt_snapshot_conflict`。
+`theme.json` 与 visual brief 只共享 `selected_style_id`、`selected_style_display_name`、`style_kind` 与 `style_manifest_version` 四个 identity 字段；前者保持 deck-scoped，后者拥有逐页 `generation_intent`、`generation_trigger_id`、revision projection hash 与最终页面规格。display name 或 manifest version 升级属于 ordinary stale 并触发 theme/brief/prompt 重建；持久 owners 互相矛盾或 provenance 无法唯一解释才是 `prompt_snapshot_conflict`。
 
-操作触发也必须持久化：首次生成使用 `generation_trigger_id: initial:<slide-id>:<visual_brief_snapshot_id>`，用户重构使用 `interaction:<interaction_history-id>`，两次 patch 后确定性回退使用 `fallback:<slide-id>:<failed-transaction-64hex>:2`，局部修补使用 `patch:<slide-id>:<qa-defect-id>`。deck-scope 用户重构可以共享同一个 trigger，但每页仍有独立 prompt snapshot 和 transaction identity。
+操作触发必须持久化：首次生成使用 `generation_trigger_id: initial:<slide-id>:<visual_brief_snapshot_id>`，用户重构使用 `interaction:<interaction_history-id>`，两次 patch 后确定性回退使用 `fallback:<slide-id>:<failed-transaction-64hex>:2`，局部修补使用 `patch:<slide-id>:<qa-defect-id>`。deck-scope 用户重构可以共享同一个 trigger，但每页仍有独立 prompt snapshot 和 transaction identity。assembler 按权威 history 重新组装每份 brief，并把 active normalized revision projection 恰好应用一次；compiler 只重新推导并验证同一 IDs/projection/hash/effective fields，不再次应用，也不把 raw answer/history JSON 注入 prompt。
 
-当 style prompt、路径、身份或 snapshot 无法解析时，运行写入 `run.json.visual_generation_blocker` 并保持 slide dirty，不启动 generator、不覆盖 SVG、不改用其他风格。成功编译后，`run.json.visual_generation_transaction` 以 `compiling -> compiled -> generating -> candidate_written -> validated -> promoted` 描述可恢复状态；每一步只声称单个 `run.json` 原子替换，跨文件 prompt／候选写入只通过复读 hash 恢复。全局恢复顺序精确为 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan`；前四类 durable control state 均不存在或已完成后才能扫描普通阶段。
+首次生成与 `recompose` 的前五步完全在内存中完成：读取 authoritative inputs；组装 narrative 与 effective page specification；验证 snapshots、锁定 blocks/evidence、revision/theme、layout/map/capacity、安全区、字号与 Office-safe 关系；执行恰好两个 replacements；验证 canonical bytes 并计算 hashes。确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。只有成功后才创建 `run.json.visual_generation_transaction.state: compiling`，写/关闭/复读/hash prompt，再进入 `compiled`、`generating`，调用恰好一个 fresh generator，并依次完成 candidate/hash/QA/validated/promotion。canonical blocker 只能在 preflight 失败且本次没有 transaction/prompt 时独立写入。全局恢复顺序仍为 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan`；previous final 保留，orphan candidate 永不采用，candidate hash 与 promotion 冲突按 transaction 契约恢复。
 
-旧 `redesign-prompts/` 目录永远 inert：可作为只读历史保留，但不能写入、移动、删除、激活或用来推断当前风格。当前 prompt 有效性只由新 `generation-prompts/` provenance、visual brief、theme、storyboard 和安装包 prompt snapshot 决定。
+正式生产保持每批 3–4 页；批内可为多个页面完成内存／只读准备与 preflight。顶层 `visual_generation_transaction` 只能是单个对象或缺失，一次只允许一个 active `visual_generation_transaction`；durable 工作按 `slide_id` 升序逐页完成 compile -> generate -> validate -> promote，不存在 transaction 列表、映射或按页并发 owner。下一页只能在前一页 promoted 后清理 transaction，或前一页 failed 后明确停止并清理可安全清理的临时产物后开始。
+
+旧 `.ppt-pilot/redesign-prompts/` 目录永远 inert：可作为只读历史保留，但不能写入、移动、删除、激活或用来推断当前风格。当前 prompt 有效性只由 authoritative inputs、effective visual brief、唯一 repository template、两个 replacement 与 canonical hash provenance 决定。
 
 ## Office-safe SVG 契约
 
@@ -187,7 +189,7 @@ MVP 禁止：
 
 宿主能够渲染时执行视觉检查，包括 3 秒焦点识别、第一至第三阅读顺序、主次支配、六级字体阶梯、语义色、卡片分组、假设页证据边界和视觉债务；不能渲染时，报告必须写 `visual_qa: not_rendered`。源文件检查不能冒充视觉批准。
 
-视觉修订先分类：局部碰撞、溢出、令牌、微小对齐、连接线或非事实错字使用 `patch`，输入为完整 brief、当前 SVG 和一个精确 defect；焦点、层级、阅读路径、布局、卡片密度、字体、语义色、品牌方向或参考变化使用 `recompose`，输入为完整 brief、锁定故事板和当前主题，且旧 SVG 不能作为几何底稿。事实或来源变化返回文稿流程。
+视觉修订先分类：局部碰撞、溢出、令牌、微小对齐、连接线或非事实错字使用 `patch`，输入为 complete effective brief、当前 SVG 和一个精确 defect；焦点、层级、阅读路径、布局、卡片密度、字体、语义色、品牌方向或参考变化使用 `recompose`。recompose 由 assembler 从批准 outline/storyboard、deck theme 与 authoritative revisions 重建 fully materialized brief，不以旧 SVG 为几何底稿；fresh generator 仍只接收该 brief 编译出的 durable prompt。事实或来源变化返回文稿流程。
 
 每次全新生成或 recompose 都创建修复次数为 0 的新候选。候选最多自动 patch 两次；问题持续存在时，确定性降级为简单单栏或双栏布局；回退后仍有 SVG 硬失败就阻断交付。
 

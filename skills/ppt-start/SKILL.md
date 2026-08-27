@@ -30,13 +30,13 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 执行某阶段前，先读取该阶段链接的参考文档。
 
 1. 简报与可选研究——[简报与研究](references/brief-and-research.md)
-2. 用演示逻辑整理材料：金字塔原理定论证骨架，SCQA 与叙事结构模板（三段式／Why-What-How／总-分-总）定讲述顺序，产出结论先行的大纲与逐页故事板——[叙事与故事板](references/narrative-and-storyboard.md)
+2. 把叙事规范化为可组合字段：金字塔原理只定 `argument_framework` 论证层级，SCQA 只定 `opening_framework` 开场过渡，三段式／Why-What-How／总-分-总只定 `sequence_template` 页面推进；冻结 `narrative_id`、`narrative_step1_bullets`、选择理由与 `outline_snapshot_id`，再产出结论先行的大纲和带稳定块／主张／来源映射的逐页故事板——[叙事与故事板](references/narrative-and-storyboard.md)
 3. 文稿审查（subagent 优先，失败时 inline fallback）——[文稿审查](references/manuscript-review.md)
 4. 主题、风格包与语义布局选择——[设计系统](references/design-system.md)和[布局目录](references/layout-catalog.md)
-5. 在生成任何视觉页面前，先按[逐页视觉 brief 与生成](references/visual-brief-and-generation.md)组装并验证对应 `visual-briefs/<slide-id>.md`；没有有效 brief 不得生成 SVG。
-6. 每个页面的首次生成和任何 `recompose` 都必须按[页面生成与重新排版专用 Prompt](references/redesign-prompt.md)写入 `generation-prompts/<slide-id>.md`，格式以黄金范本为准：`# <slide-id> 页面生成 Prompt` 标题、九字段 `## Snapshot metadata`、`## Compiled Prompt` 精简编译体，全文件只用工作区相对路径；并在 fresh 独立上下文中只用该 Prompt 生成候选；不得由 visual brief 直接生成 SVG。旧 `redesign-prompts/` 只读兼容。
+5. 在生成任何视觉页面前，先按[页面编译路径](references/visual-brief-and-generation.md)从已批准故事板与 `theme.json` 编译并验证对应 `generation-prompts/<slide-id>.md`；没有有效 prompt 不得生成 SVG。
+6. 每个页面的首次生成和任何 `recompose` 都必须按[页面生成与重新排版专用 Prompt](references/redesign-prompt.md)：从 repository [generation-prompt-template.md](references/generation-prompt-template.md)在内存恰好两个规范替换 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[EFFECTIVE_PAGE_SPECIFICATION]]`；完全在内存中完成 preflight 后才创建 `compiling` transaction，写入并复读 `.ppt-pilot/generation-prompts/<slide-id>.md`，提交 `compiled`／`generating` 后由一个 fresh 独立上下文只用该 Prompt 生成候选。不得由 visual brief 直接生成 SVG，不得注入第三 fragment 或 raw revision history。旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert。
 7. 两页锚点 SVG——[SVG 契约](references/svg-contract.md)
-8. 生成任何正式页面前，先读取 [QA、恢复与修订](references/qa-and-revision.md)；按每批 3–4 页生产；批内允许把多个已编译 Prompt 并发派发给多个 fresh generator，但每次只写入并验证一个 SVG，通过后才能继续。
+8. 生成任何正式页面前，先读取 [QA、恢复与修订](references/qa-and-revision.md)；按每批 3–4 页生产。批内可为多个页面完成内存／只读准备与 preflight，但 durable 状态必须按 `slide_id` 升序逐页执行 compile -> generate -> validate -> promote；顶层 `visual_generation_transaction` 只能是单个对象或缺失，一次只允许一个 active `visual_generation_transaction`。下一页只能在前一页完成 promotion 后清理 transaction，或失败后明确停止／清理后开始。
 
 阶段转换遵循[工作流](references/workflow.md)，文件和状态字段遵循[产物契约](references/artifact-contract.md)。
 
@@ -51,8 +51,8 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 - 每页最多修复两次，之后使用简单布局回退；回退后仍有硬检查失败时必须停止。
 - `resume` 入口必须先读取 `run.json` 并保留既有 `run.json.mode`；除非产物缺失、格式错误或被标记为脏，否则不得重新计算已批准的上游工作。
 - 纯视觉修改或可证明不改变事实的文字修正，只把受影响页面和 QA 标记为脏，不重新进行文稿审查。
-- 所有首次页面生成和 `recompose` 必须持久化 `generation-prompts/<slide-id>.md`（黄金格式：九字段 `## Snapshot metadata` + `## Compiled Prompt` 精简编译体，只用工作区相对路径），由 fresh 独立生成上下文只返回 fenced SVG；创作上下文提取裸 SVG 后再执行正式 QA。旧 `redesign-prompts/` 仅作只读兼容。
-- 风格 prompt 解析或编译失败时写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 与 dirty slide，不启动 generator、不写 SVG、不改用其他风格、不降级为 patch。prompt durable 但 `run.json` 尚未提交时，`compiling` transaction 与 active blocker 可同时存在；恢复时只能用一次 `run.json` 替换同时提交 `compiled` 并移除匹配 blocker。
+- 所有首次页面生成和 `recompose` 必须从唯一 [generation-prompt-template.md](references/generation-prompt-template.md) 编译 `.ppt-pilot/generation-prompts/<slide-id>.md`：在内存恰好替换 canonical narrative bullets 与 fully render-ready effective page specification，验证 canonical bytes、所有关系门禁并计算 hashes；只有全部成功后才创建 transaction。fresh 独立生成上下文只接收复读 hash 一致、transaction 已进入 `generating` 的 durable Prompt，并只返回 fenced SVG；创作上下文提取裸 SVG 后再执行正式 QA。
+- 确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。authoritative outline/storyboard/theme/brief 缺陷返回对应 owner；只有规范模板／规范字节或无法唯一解释的 provenance 自身失败，才在没有本次 transaction/prompt 的情况下独立写 `run.json.visual_generation_blocker`。历史 crash 留下旧协议的 prompt／`compiling`／blocker 组合时，不采用旧 Prompt，必须从完整无副作用 preflight 重启。
 - 主张、来源、事实性文案、大纲或故事板变化会使批准失效；重新生成视觉页面前必须进行新的文稿审查。
 
 ## 输出规则
@@ -65,4 +65,4 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 
 ## 完成条件
 
-只有文稿质量门通过、全部 SVG 硬检查通过、整套 QA 已写入当前运行实际使用的 QA 报告（新运行为 `质量检查报告.md`，旧英文运行为 `qa-report.md`），并且 `run.json` 的阶段为 `complete`，本次运行才算完成。
+只有文稿质量门通过、全部 SVG 硬检查通过、整套 QA 已写入 `.ppt-pilot/质量检查报告.md`，并且 `run.json` 的阶段为 `complete`，本次运行才算完成。

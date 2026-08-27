@@ -28,10 +28,9 @@
       "generation_trigger_id": "interaction:visual-revision-3",
       "trigger_owner_state": "valid",
       "trigger_owner_count": 1,
-      "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "user_page_request": "已批准页面调整：effective_density_strategy 调整为 \"balanced-comparison\""
     },
     "old_directory": {
       "path": "redesign-prompts/S05.md",
@@ -44,7 +43,10 @@
       {
         "id": "visual-revision-3",
         "status": "applied",
-        "answer": "默认重新排版 owner"
+        "answer": "RAW_DEFAULT_RECOMPOSE_ANSWER_MUST_NOT_ENTER_PROMPT",
+        "normalized_changes": {
+          "effective_density_strategy": "balanced-comparison"
+        }
       }
     ]
   },
@@ -73,20 +75,23 @@
       "mode": "recompose",
       "trigger": "initial:<slide-id>:<visual_brief_snapshot_id>",
       "reason": "initial generation from approved visual brief",
-      "USER_WORDING": "none (initial generation)",
-      "prior_candidate": "none"
+      "user_page_request": "initial generation from approved visual brief",
+      "prior_candidate": "none",
+      "compile_full_prompt": true
     },
     "user_recompose": {
       "mode": "recompose",
       "trigger": "interaction:<applied-history-id>",
-      "USER_WORDING_source": "applied history raw answer",
-      "USER_WORDING": "raw answer from applied history record only"
+      "user_page_request_source": "deterministic natural-language summary of applied normalized_changes in canonical key order",
+      "user_page_request": "derived normalized summary only; raw answer and history JSON excluded",
+      "compile_full_prompt": true
     },
     "deterministic_fallback": {
       "mode": "recompose",
       "trigger": "fallback:<slide-id>:<failed-transaction-64hex>:2",
       "reason": "deterministic single-column or two-column fallback after two failed patches",
-      "USER_WORDING": "none (deterministic fallback after two failed patches)"
+      "user_page_request": "deterministic fallback after two failed patches",
+      "compile_full_prompt": true
     },
     "local_patch": {
       "mode": "patch",
@@ -146,8 +151,6 @@
         "generation_trigger_id": "interaction:visual-revision-3",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "style_identity": {
@@ -155,7 +158,8 @@
           "selected_style_display_name": "嘉为年中总结风格",
           "style_kind": "style_pack",
           "style_manifest_version": "1.2.0"
-        }
+        },
+        "user_page_request": "已批准页面调整：effective_density_strategy 调整为 \"balanced-comparison\""
       },
       "expected": "rebuild",
       "expected_backfill": {
@@ -377,19 +381,23 @@
         "generation_trigger_id": "interaction:visual-revision-7",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "user_page_request": "已批准页面调整：effective_density_strategy 调整为 \"bounded-evidence\"；effective_focal_object 调整为 \"B-risk\""
       },
       "interaction_history": [
         {
           "id": "visual-revision-7",
           "status": "applied",
-          "answer": "换个排版，突出风险边界"
+          "answer": "RAW_USER_RECOMPOSE_ANSWER_MUST_NOT_ENTER_PROMPT",
+          "normalized_changes": {
+            "effective_focal_object": "B-risk",
+            "effective_density_strategy": "bounded-evidence"
+          }
         }
       ],
-      "expected_user_wording": "换个排版，突出风险边界",
+      "expected_user_page_request": "已批准页面调整：effective_density_strategy 调整为 \"bounded-evidence\"；effective_focal_object 调整为 \"B-risk\"",
+      "raw_answer_sentinel": "RAW_USER_RECOMPOSE_ANSWER_MUST_NOT_ENTER_PROMPT",
       "expected": "valid"
     },
     {
@@ -399,8 +407,6 @@
         "generation_trigger_id": "interaction:visual-revision-404",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
@@ -414,8 +420,6 @@
         "generation_trigger_id": "interaction:visual-revision-8",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
@@ -435,8 +439,6 @@
         "generation_trigger_id": "interaction:visual-revision-8",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
@@ -461,16 +463,18 @@
         "generation_trigger_id": "interaction:visual-revision-9",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "user_page_request": "已批准页面调整：effective_layout_family 调整为 \"hierarchical-bento\""
       },
       "interaction_history": [
         {
           "id": "visual-revision-9",
           "status": "applied",
-          "answer": "整套重新排版",
+          "answer": "RAW_DECK_RECOMPOSE_ANSWER_MUST_NOT_ENTER_PROMPT",
+          "normalized_changes": {
+            "effective_layout_family": "hierarchical-bento"
+          },
           "affected_scope": "deck"
         }
       ],
@@ -573,13 +577,6 @@
       "expected": "valid"
     },
     {
-      "id": "prompt-hash-changed-is-ordinary-stale",
-      "persisted_operation_owner": {
-        "current_prompt_hash_64hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-      },
-      "expected": "ordinary_stale"
-    },
-    {
       "id": "stored-body-mismatch-conflicts",
       "persisted_operation_owner": {
         "current_body_hash_64hex": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
@@ -594,10 +591,8 @@
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
         "reason": "initial generation from approved visual brief",
-        "USER_WORDING": "none (initial generation)",
+        "user_page_request": "initial generation from approved visual brief",
         "prior_candidate": "none",
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       },
@@ -610,12 +605,10 @@
         "generation_trigger_id": "interaction:visual-revision-3",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "reason": "initial generation from approved visual brief",
-        "USER_WORDING": "none (initial generation)",
+        "user_page_request": "initial generation from approved visual brief",
         "prior_candidate": "none"
       },
       "expected": "prompt_snapshot_conflict"
@@ -627,12 +620,10 @@
         "generation_trigger_id": "initial:S05:sha256:briefsnap",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "reason": "initial generation from approved visual brief",
-        "USER_WORDING": "use user text",
+        "user_page_request": "use user text",
         "prior_candidate": "none"
       },
       "expected": "prompt_snapshot_conflict"
@@ -644,12 +635,10 @@
         "generation_trigger_id": "fallback:S05:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff:2",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "reason": "deterministic single-column or two-column fallback after two failed patches",
-        "USER_WORDING": "none (deterministic fallback after two failed patches)"
+        "user_page_request": "deterministic fallback after two failed patches"
       },
       "expected": "valid"
     },
@@ -660,12 +649,10 @@
         "generation_trigger_id": "fallback:S05:not64:2",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "reason": "deterministic single-column or two-column fallback after two failed patches",
-        "USER_WORDING": "none (deterministic fallback after two failed patches)"
+        "user_page_request": "deterministic fallback after two failed patches"
       },
       "expected": "prompt_snapshot_conflict"
     },
@@ -676,8 +663,6 @@
         "generation_trigger_id": "patch:S05:qa-overlap-1",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "requires_current_svg": true,
@@ -692,8 +677,6 @@
         "generation_trigger_id": "interaction:visual-revision-3",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "requires_current_svg": true,
@@ -708,8 +691,6 @@
         "generation_trigger_id": "patch:S05:qa-overlap-1",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "requires_current_svg": false,
@@ -724,8 +705,6 @@
         "generation_trigger_id": "patch:S05:qa-overlap-1",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "requires_current_svg": true,
@@ -742,8 +721,6 @@
         "generation_trigger_id": "interaction:visual-revision-3",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "style_identity": {
@@ -751,7 +728,8 @@
           "selected_style_display_name": "嘉为年中总结风格",
           "style_kind": "style_pack",
           "style_manifest_version": "1.2.0"
-        }
+        },
+        "user_page_request": "已批准页面调整：effective_density_strategy 调整为 \"balanced-comparison\""
       },
       "expected": "prompt_snapshot_conflict"
     },
@@ -764,8 +742,6 @@
         "generation_trigger_id": "interaction:visual-revision-3",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "style_identity": {
@@ -773,7 +749,8 @@
           "selected_style_display_name": "嘉为年中总结风格",
           "style_kind": "style_pack",
           "style_manifest_version": "1.1.0"
-        }
+        },
+        "user_page_request": "已批准页面调整：effective_density_strategy 调整为 \"balanced-comparison\""
       },
       "expected": "prompt_snapshot_conflict"
     },
@@ -786,8 +763,6 @@
         "generation_trigger_id": "interaction:visual-revision-3",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "current_prompt_hash_64hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "style_identity": {
@@ -795,7 +770,8 @@
           "selected_style_display_name": "嘉为年中总结风格",
           "style_kind": "legacy_seed",
           "style_manifest_version": "1.2.0"
-        }
+        },
+        "user_page_request": "已批准页面调整：effective_density_strategy 调整为 \"balanced-comparison\""
       },
       "expected": "prompt_snapshot_conflict"
     },

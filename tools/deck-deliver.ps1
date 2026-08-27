@@ -55,7 +55,7 @@ function ConvertTo-HtmlText {
 
 function Get-StoryboardNotes {
     param([string]$RunPath, [string]$SlideId)
-    foreach ($name in @('故事板.md', 'storyboard.md')) {
+    foreach ($name in @('.ppt-pilot\故事板.md')) {
         $path = Join-Path $RunPath $name
         if (Test-Path $path) { return @{ raw = (Get-Content -LiteralPath $path -Raw -Encoding UTF8); file = $name } }
     }
@@ -128,7 +128,7 @@ if ($RunDir) {
     }
 }
 
-$runJsonPath = Join-Path $runPath 'run.json'
+$runJsonPath = Join-Path $runPath '.ppt-pilot\run.json'
 $run = Get-Content -LiteralPath $runJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $deckId = if ($run.deck_id) { [string]$run.deck_id } else { Split-Path -Leaf $runPath }
 $stage = if ($run.stage) { [string]$run.stage } else { 'unknown' }
@@ -146,7 +146,7 @@ if ($stage -ne 'complete') { $warnings += "run.json.stage 为 $stage（非 compl
 # ---------------------------------------------------------------------------
 $storyboard = Get-StoryboardNotes -RunPath $runPath
 $sections = @{}
-if ($storyboard) { $sections = Split-StoryboardSections -Raw $storyboard.raw } else { $warnings += '未找到 故事板.md/storyboard.md，演讲者备注将为空。' }
+if ($storyboard) { $sections = Split-StoryboardSections -Raw $storyboard.raw } else { $warnings += '未找到 .ppt-pilot/故事板.md，演讲者备注将为空。' }
 
 $slideInfos = @()
 foreach ($file in $slideFiles) {

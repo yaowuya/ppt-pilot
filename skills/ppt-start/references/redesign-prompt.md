@@ -1,14 +1,18 @@
 # 页面首次生成与重新排版专用 Prompt 契约
 
+## Active request and path names
+
+Active generation uses `user_page_request`, never the old active slot name. Initial generation derives it from the approved storyboard and theme; deterministic fallback uses its fixed fallback request. For `user_recompose`, the orchestrator selects the single applied `interaction:<id>` owner, sorts its `normalized_changes` keys canonically, and renders a deterministic concise natural-language summary of those normalized values without adding facts; the raw `answer` remains only in `interaction_history` and neither it nor history JSON enters the prompt. New prompts are written to `.ppt-pilot/generation-prompts/<slide-id>.md`. The transaction stores `generation-prompts/<slide-id>.md`; `prompt_path is relative to `.ppt-pilot/``. Old marker names are accepted only by explicit stale-reader classification and are inert.
+
 ## 强制适用范围
 
 本契约是 **所有页面** 视觉生成的统一执行入口：
 
 - 每个页面首次生成必须使用；
 - 每个 `recompose` 必须使用，包括用户明确要求重新排版与系统主动重构；
-- `patch` 不使用本契约；本契约不得用于 patch，仍读取完整 brief、当前 SVG 和一个精确 defect。
+- `patch` 不使用本契约；本契约不得用于 patch，仍读取完整编译输入（故事板+theme）、当前 SVG 和一个精确 defect。
 
-完成 visual brief 后，**不得由 visual brief 直接生成** SVG。必须先编译 `generation-prompts/<slide-id>.md`，再由 fresh 独立上下文只使用该 Prompt 生成。
+完成编译输入组装后，**不得由故事板或 theme 直接生成** SVG。必须先在内存完成规范编译与全部确定性 preflight，随后创建 transaction 并持久化 `.ppt-pilot/generation-prompts/<slide-id>.md`，再由 fresh 独立上下文只使用该 Prompt 生成。
 
 ## 明确重新排版的触发与路由
 
@@ -24,47 +28,43 @@
 
 ## 持久产物与权威关系
 
-`visual-briefs/<slide-id>.md` 继续是内容、证据和视觉约束的权威来源。每个首次生成或 `recompose` 都必须额外生成：
+每个首次生成或 `recompose` 都直接从已批准故事板与 `theme.json` 编译 `.ppt-pilot/generation-prompts/<slide-id>.md`（编译路径见 [visual-brief-and-generation.md](visual-brief-and-generation.md)）。不再组装逐页 visual brief；旧运行已有 `.ppt-pilot/visual-briefs/` 惰性保留为只读历史，不迁移、不重写、不参与新编译。
 
-```text
-generation-prompts/<slide-id>.md
-```
+该文件的持久布局以黄金范本为唯一标准（完整规则见下方字节契约）：第 1 行是 `# <slide-id> 页面生成 Prompt`；随后是恰好九个加粗字段组成的 `## Snapshot metadata`（`slide_id`、`storyboard_snapshot_id`、`theme_snapshot_id`、`applied_visual_revision_ids`、`prompt_snapshot_id`、`user_page_request`、`expected_output`、`workspace_output_path`、`format`，其中 `format` 精确为 `creative-brief-v1`）；最后一个标题是 `## Compiled Prompt`，其后是规范模板的完整编译正文。全文件所有路径必须是工作区相对路径，禁止绝对路径、盘符、UNC 与 URL；所有动态内容都由恰好两个 whole-line marker 序列化：`[[CANONICAL_NARRATIVE_BULLETS]]`（叙事+素材）与 `[[STYLE_BASELINE]]`（软风格基线）。正文不得包含 raw answer、history JSON、未解析 marker、风格模板 schema 头、硬约束 ID 列表或 UNTRUSTED 围栏，也不得指示 generator 调用工具或读取外部文件。
 
-该文件的持久布局以黄金范本为唯一标准（完整规则见下方字节契约）：第 1 行是 `# <slide-id> 页面生成 Prompt`；随后是恰好九个加粗字段组成的 `## Snapshot metadata`（`slide_id`、`visual_brief_snapshot_id`、`storyboard_snapshot_id`、`theme_snapshot_id`、`applied_visual_revision_ids`、`prompt_snapshot_id`、`user_page_request`、`expected_output`、`workspace_output_path`）；最后一个标题是 `## Compiled Prompt`，其后是精简编译体。全文件所有路径必须是工作区相对路径，禁止绝对路径、盘符、UNC 与 URL；主题色板与风格构图语义内联进单行 `主题:` 与 `建议语义:` 槽位；编译体不得包含 JSON 数据块、PROMPT_SCHEMA_VERSION 头、HARD_CONSTRAINT_IDS 列表或 UNTRUSTED 围栏，也不得指示 generator 调用工具或读取外部文件。
+风格身份四字段属于 deck-level `theme.json`；逐页 `generation_intent`／`generation_trigger_id`、revision projection 与 transaction 由 `run.json` owner 持有。generation prompt 本身只显示九个元数据字段，且 provenance 只保留 revision IDs，不保留原始回答或历史对象。
 
-风格身份四字段、`generation_intent`／`generation_trigger_id`、`compiled_prompt_sha256` 等机器字段持久在 visual brief、`theme.json` 与 `run.json.visual_generation_transaction` 中；该文件本身只显示九个元数据字段。schema-v1 identity 与 operation owner 的完整规则见下节。
+输入快照、主题、锁定内容或有效视觉修订变化后，旧 Prompt 立即失效。`.ppt-pilot/generation-prompts/` 是派生产物，不能覆盖故事板或权威修订历史。
 
-输入快照、主题或有效视觉修订变化后，旧 Prompt 立即失效。`generation-prompts/` 是派生产物，不能覆盖 visual brief 或权威修订历史。
-
-早期版本产生的 `redesign-prompts/<slide-id>.md` 只作只读兼容；新运行统一写入 `generation-prompts/`，不得同时激活两种路径。
+新生成统一写入 `.ppt-pilot/generation-prompts/<slide-id>.md`；旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert。
 
 ### schema-v1 identity、operation owner 与旧目录迁移
 
-四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）必须在 `theme.json` 与每份 brief 完全一致；权威定义见[产物契约 Task 6](artifact-contract.md)。四字段不提升 schema 版本；`style_manifest_version` 对 `legacy_seed` 固定为 `none`，对 `style_pack` 固定为当前 manifest version。missing fields 只能从已验证 registry／manifest／fallback identity table 或已持久 operation owner 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。
+四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）由 `theme.json` 持有；权威定义见[产物契约 Task 6](artifact-contract.md)。四字段不提升 schema 版本；`style_manifest_version` 对 `legacy_seed` 固定为 `none`，对 `style_pack` 固定为当前 manifest version。missing fields 只能从已验证 registry／manifest／fallback identity table 或已持久 operation owner 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。
 
-`generation_intent` 与 `generation_trigger_id` 是 visual brief 和 generation prompt 的 operation owner。四个合法 operation rows 固定如下：
+`generation_intent` 与 `generation_trigger_id` 是 generation prompt 的 operation owner。四个合法 operation rows 固定如下：
 
 | generation_intent | mode | generation_trigger_id | fixed reason / sentinel |
 |---|---|---|---|
-| `initial_generation` | `recompose` | `initial:<slide-id>:<visual_brief_snapshot_id>` | `initial generation from approved visual brief`；`USER_WORDING` 为 `none (initial generation)`；prior candidate 为 `none` |
-| `user_recompose` | `recompose` | `interaction:<applied-history-id>` | `USER_WORDING` 为 `raw answer from applied history record only`，只能来自该 applied history 记录的原始 answer |
-| `deterministic_fallback` | `recompose` | `fallback:<slide-id>:<failed-transaction-64hex>:2` | `deterministic single-column or two-column fallback after two failed patches`；`USER_WORDING` 为 `none (deterministic fallback after two failed patches)` |
+| `initial_generation` | `recompose` | `initial:<slide-id>:<storyboard_snapshot_id>` | `initial generation from approved storyboard and theme`；`user_page_request` 为 `none (initial generation)`；prior candidate 为 `none` |
+| `user_recompose` | `recompose` | `interaction:<applied-history-id>` | `user_page_request` 只能是从权威 history 规范化并推导后的简短意图摘要；raw answer 与 history JSON 不进入 prompt |
+| `deterministic_fallback` | `recompose` | `fallback:<slide-id>:<failed-transaction-64hex>:2` | `deterministic single-column or two-column fallback after two failed patches`；`user_page_request` 为 `none (deterministic fallback after two failed patches)` |
 | `local_patch` | `patch` | `patch:<slide-id>:<qa-defect-id>` | `requires_current_svg: true`；`compile_full_prompt: false`，不得编译完整 generation prompt |
 
-brief 与 theme 的四字段彼此冲突、legacy version 不是 `none`、trigger owner 缺失/无效/多个、stored compiled body 与 hash 不一致、或同一 transaction/provenance 无法唯一解释时返回 `prompt_snapshot_conflict`。brief/theme 彼此一致但当前 registry display name、manifest version、prompt path 或 prompt hash 已变化时属于 ordinary stale，重建 theme/brief/generation prompt，不写 style blocker。
+theme 四字段缺失/冲突、legacy version 不是 `none`、trigger owner 缺失/无效/多个、stored compiled body 与 hash 不一致、或同一 transaction/provenance 无法唯一解释时返回 `prompt_snapshot_conflict`。当前 registry display name 或 manifest version 已变化时属于 ordinary stale，重建 theme/generation prompt，不写 style blocker。历史完整模板文件的存在、路径或字节变化不参与 stale、provenance 或 snapshot identity。
 
-same `interaction:<id>` copied to every affected brief; each slide keeps distinct slide-specific transaction identities and prompt snapshots。Deck-scope user_recompose fan-out copies the same `interaction:<id>` to every affected brief; each slide keeps distinct slide-specific transaction identities and prompt snapshots.
+same `interaction:<id>` copied to every affected page compile input; each slide keeps distinct slide-specific transaction identities and prompt snapshots。Deck-scope user_recompose fan-out copies the same `interaction:<id>` to every affected page compile input; each slide keeps distinct slide-specific transaction identities and prompt snapshots.
 
-`redesign-prompts/` 始终 inert：旧目录只读保留为历史，不参与 prompt 选择，不写、不移动、不删除。只有旧目录时，下一次首次生成或 recompose 按当前 brief/style 编译 `generation-prompts/<slide-id>.md`；新目录 stale 时只替换新目录文件；双目录同页时以新目录 provenance 为准；不同 slide 独立处理；旧目录存在与否从不构成 style identity 或 operation owner 证据。
+不再支持旧 `redesign-prompts/` 目录；若发现该目录，下次首次生成或 recompose 按当前故事板/theme 编译 `generation-prompts/<slide-id>.md`；新目录 stale 时只替换新目录文件；双目录同页时以新目录 provenance 为准；不同 slide 独立处理；旧目录存在与否从不构成 style identity 或 operation owner 证据。
 
-## Style Prompt 解析与编译
+## 风格身份与资产解析
 
-解析器只是一份 package oracle／书面协议：测试中的 `resolve_style_prompt_case(case)` 用它验证包内路径、身份和 fallback 契约，但它不是运行时安全实现，也不能替代宿主对真实文件系统的 no-follow／`lstat` 检查。运行时必须从受信任的 Skill 根解析，不能从请求文本、目录猜测或旧 SVG 反推风格。
+解析器只是一份身份、令牌与指导的 package oracle／书面协议：测试中的 `resolve_style_case(case)` 用它验证包内路径、身份和 fallback 契约，但它不是运行时安全实现，也不能替代宿主对真实文件系统的 no-follow／`lstat` 检查。运行时必须从受信任的 Skill 根解析，不能从请求文本、目录猜测或旧 SVG 反推风格。风格资产不拥有生成正文；每次编译只读取规范的 `generation-prompt-template.md`。
 
 ### 固定解析顺序
 
-1. 先验证 `run.json.manuscript_review.state == manuscript_approved`，并确认当前 visual brief、storyboard、theme 快照有效。
-2. 只从 visual brief 读取唯一 `selected_style_id`。
+1. 先验证 `run.json.manuscript_review.state == manuscript_approved`，并确认当前 storyboard、theme 快照有效。
+2. 从 `theme.json` 读取唯一 `selected_style_id`。
 3. 定位 `assets/styles/registry.json`：
    - 只有 no-follow／`lstat` 明确返回不存在时才进入完整 fallback；
    - 任一路径组件或叶节点是 symlink、junction 或 reparse point 时返回 `registry_path_unsafe`；
@@ -72,18 +72,17 @@ same `interaction:<id>` copied to every affected brief; each slide keeps distinc
    - registry 中 style ID 和 display name 必须唯一，否则返回 `registry_duplicate_style`；
    - 在处理所选条目前，按 registry 数组顺序验证每个 `style_pack` 的 entrypoint 精确等于 `<entry-id>/manifest.json`，其 exact pack root 必须是 `assets/styles/<entry-id>/` 的直接子目录，所有 pack roots 必须互不相同且互不嵌套；失败统一返回 `entrypoint_path_unsafe`。这一步也覆盖未选中的 pack。
 4. registry 存在时按 `selected_style_id` 精确查找唯一条目；不存在返回 `style_not_registered`，`kind` 不是 `legacy_seed` 或 `style_pack` 返回 `style_kind_invalid`。
-5. selected `entrypoint` 缺失返回 `entrypoint_missing`；路径为空、绝对路径、Windows 盘符、UNC、URL、`.`／`..` 穿越或 no-follow target link/symlink/junction/reparse 返回 `entrypoint_path_unsafe`；目标缺失、目录或特殊文件返回 `entrypoint_target_invalid`。
-6. `legacy_seed`：`entrypoint` 和 `redesign_prompt` 都相对 `assets/styles/` 解析，规范化后仍必须位于 styles 根内，且不得位于任一已注册 style-pack 子目录；seed JSON 格式或结构错误返回 `legacy_entrypoint_malformed`，seed `name` 与 selected ID 不同返回 `legacy_identity_mismatch`。旧 v1 registry 条目只有在三个内置 legacy ID 上缺 `redesign_prompt` 时，始终从 entrypoint 派生 `<entrypoint-stem>.redesign.md`；该派生 prompt 缺失返回 `prompt_file_missing`，其他 legacy 缺字段返回 `prompt_field_missing`。
+5. selected `entrypoint` 缺失返回 `entrypoint_missing`；路径为空、绝对路径、Windows 盘符、UNC、URL、`.`／`..` 穿越或 no-follow target link/symlink/junction/reparse 返回 `entrypoint_path_unsafe`；目标缺失、目录或特殊文件返回 `entrypoint_target_invalid`；不可读或非 UTF-8 返回 `entrypoint_unreadable`。
+6. `legacy_seed`：`entrypoint` 相对 `assets/styles/` 解析，规范化后仍必须位于 styles 根内，且不得位于任一已注册 style-pack 子目录；seed JSON 格式或结构错误返回 `legacy_entrypoint_malformed`，seed `name` 与 selected ID 不同返回 `legacy_identity_mismatch`。
 7. `style_pack`：entrypoint 打开前再次确认所有组件和叶节点非 no-follow target link/symlink/junction/reparse，且 manifest 位于 exact pack root 内。manifest JSON 无效返回 `manifest_malformed`，schema 非 1 返回 `manifest_schema_unsupported`，`id`、`kind`、`display_name` 与 registry／selected 不一致返回 `manifest_identity_mismatch`，`version` 未 fullmatch `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$` 返回 `manifest_version_invalid`。
-8. style-pack `files.tokens` 与 `files.guidance` 字段缺失返回 `style_asset_field_missing`；二者都相对 exact pack root 解析，路径越界或 no-follow target link/symlink/junction/reparse 返回 `style_asset_path_unsafe`，目标缺失、目录或特殊文件返回 `style_asset_target_invalid`，不可读返回 `style_asset_unreadable`。tokens／guidance 内容由 theme／design-system 阶段验证，但路径 ownership 与 containment 使用本节同一规则，并在 `theme.json` 记录规范路径；resolver 在身份握手时要求这些记录与当前 manifest 一致。
-9. prompt 字段、路径、目标、读取和模板结构失败分别返回 `prompt_field_missing`、`prompt_path_unsafe`、`prompt_file_missing`、`prompt_target_invalid`、`prompt_unreadable`、`prompt_template_invalid`。legacy prompt 不得指向 style-pack 子目录；style-pack prompt 不得指向 legacy 文件、styles 根文件或兄弟 pack；prompt no-follow target link/symlink/junction/reparse 返回 `prompt_path_unsafe`。
-10. 在读取模板正文前完成身份握手：visual brief 与 `theme.json` 的 selected style ID、display name、kind、manifest version 必须彼此一致；style-pack 还必须与当前 registry／manifest 一致；registry-backed legacy 的 manifest version 必须是字符串 `none`；fallback 使用下方权威表并同时匹配 seed `name`。brief/theme 互相矛盾或多个持久 owner 声明不同 style 时返回 `prompt_snapshot_conflict`。brief/theme 一致但安装升级导致当前 display name 或 manifest version 改变时，这是 ordinary stale，按现有 theme 失效规则返回 `theme` 并重建，不写 style blocker。
-11. 读取模板，验证 `PROMPT_SCHEMA_VERSION: 1`、`STYLE_ID == selected_style_id`、完整 `HARD_CONSTRAINT_IDS`、marker 集合和占位符，然后按模板编译。
-12. 先建立 transaction，再持久化 `generation-prompts/<slide-id>.md`；prompt durable 后才能启动 fresh independent generator。
+8. style-pack 只要求 `files.tokens` 与 `files.guidance`；字段缺失返回 `style_asset_field_missing`。二者都相对 exact pack root 解析，路径越界或 no-follow target link/symlink/junction/reparse 返回 `style_asset_path_unsafe`，目标缺失、目录或特殊文件返回 `style_asset_target_invalid`，不可读或非 UTF-8 返回 `style_asset_unreadable`。tokens JSON 无效返回 `style_asset_malformed`，tokens schema 非 1 返回 `style_asset_schema_unsupported`；guidance 不解析为 JSON。二者规范路径记录在 `theme.json`，身份握手时必须与当前 manifest 一致。
+9. schema-v1 registry／manifest 的其他字段按向前兼容规则忽略。历史完整模板文件可留在磁盘，但 resolver 不得查找、派生、读取、验证或哈希，也不得把其路径或字节加入 provenance 或 snapshot identity。
+10. 在编译规范正文前完成身份握手：`theme.json` 的 selected style ID、display name、kind、manifest version 必须与当前 registry／manifest 一致；registry-backed legacy 的 manifest version 必须是字符串 `none`；fallback 使用下方权威表并同时匹配 seed `name`。theme 内部矛盾或多个持久 owner 声明不同 style 时返回 `prompt_snapshot_conflict`。theme 一致但安装升级导致当前 display name 或 manifest version 改变时，这是 ordinary stale，按现有 theme 失效规则返回 `theme` 并重建，不写 style blocker。
+11. 仅从 `generation-prompt-template.md` 在内存编译正文并完成本文件全部确定性 preflight；成功后才创建 `compiling` transaction，再持久化并复读 `.ppt-pilot/generation-prompts/<slide-id>.md`，提交 `compiled` 后才能启动 fresh independent generator。
 
 ### 稳定 reason traversal
 
-所有 prompt 解析／编译 blocker 使用 `state: style_prompt_unavailable`，并按下面 traversal 的第一个失败项返回唯一 reason。枚举文本包括：`registry_missing`、`registry_path_unsafe`、`registry_target_invalid`、`registry_unreadable`、`registry_malformed`、`registry_schema_unsupported`、`registry_duplicate_style`、`style_not_registered`、`style_kind_invalid`、`entrypoint_missing`、`entrypoint_path_unsafe`、`entrypoint_target_invalid`、`legacy_entrypoint_malformed`、`legacy_identity_mismatch`、`manifest_malformed`、`manifest_schema_unsupported`、`manifest_identity_mismatch`、`manifest_version_invalid`、`style_asset_field_missing`、`style_asset_path_unsafe`、`style_asset_target_invalid`、`style_asset_unreadable`、`prompt_field_missing`、`prompt_path_unsafe`、`prompt_file_missing`、`prompt_target_invalid`、`prompt_unreadable`、`prompt_template_invalid`、`prompt_snapshot_conflict`。
+所有风格身份或资产解析 blocker 使用 `state: style_assets_unavailable`，并按下面 traversal 的第一个失败项返回唯一 reason。枚举文本包括：`registry_missing`、`registry_path_unsafe`、`registry_target_invalid`、`registry_unreadable`、`registry_malformed`、`registry_schema_unsupported`、`registry_duplicate_style`、`style_not_registered`、`style_kind_invalid`、`entrypoint_missing`、`entrypoint_path_unsafe`、`entrypoint_target_invalid`、`entrypoint_unreadable`、`legacy_entrypoint_malformed`、`legacy_identity_mismatch`、`manifest_malformed`、`manifest_schema_unsupported`、`manifest_identity_mismatch`、`manifest_version_invalid`、`style_asset_field_missing`、`style_asset_path_unsafe`、`style_asset_target_invalid`、`style_asset_unreadable`、`style_asset_malformed`、`style_asset_schema_unsupported`、`prompt_snapshot_conflict`。
 
 | 顺序 | predicate | reason |
 |---|---|---|
@@ -100,71 +99,73 @@ same `interaction:<id>` copied to every affected brief; each slide keeps distinc
 | 5 | selected entrypoint 字段缺失 | `entrypoint_missing` |
 | 5 | selected entrypoint 路径越界／no-follow target | `entrypoint_path_unsafe` |
 | 5 | selected entrypoint 目标无效／缺失 | `entrypoint_target_invalid` |
+| 5 | selected entrypoint 不可读或非 UTF-8 | `entrypoint_unreadable` |
 | 6 | legacy JSON 无效／结构不完整 | `legacy_entrypoint_malformed` |
 | 6 | legacy `name` 与 selected ID 不同 | `legacy_identity_mismatch` |
 | 7 | manifest JSON／schema／identity／version 无效 | 对应 `manifest_*` reason |
 | 8 | selected pack 的 `files.tokens` 或 `files.guidance` 字段缺失 | `style_asset_field_missing` |
 | 8 | 上述资产路径越界／no-follow target | `style_asset_path_unsafe` |
 | 8 | 上述资产目标缺失、目录或特殊文件 | `style_asset_target_invalid` |
-| 8 | 上述资产不可读 | `style_asset_unreadable` |
-| 9 | prompt 字段、路径、目标、读取或模板结构失败 | 对应 `prompt_*` reason |
+| 8 | 上述资产不可读或非 UTF-8 | `style_asset_unreadable` |
+| 8 | tokens JSON 无效 | `style_asset_malformed` |
+| 8 | tokens schema 非 1 | `style_asset_schema_unsupported` |
 | 10 | persisted provenance／snapshot 无法唯一解释 | `prompt_snapshot_conflict` |
 
-同一状态有多个缺陷时严格按顺序与 registry 数组顺序选择一个 reason：未选 pack root 错误先于 selected prompt 错误；selected tokens/guidance 错误先于 prompt 错误。
+同一状态有多个缺陷时严格按顺序与 registry 数组顺序选择一个 reason：未选 pack root 错误先于 selected assets；selected tokens 错误先于 guidance 错误。
 
 ### 缺 registry fallback
 
-fallback 只在 no-follow／`lstat` 确认 `assets/styles/registry.json` 不存在时探测。必须先验证下列三份 seed JSON 的结构与 `name` 身份，以及三份 companion prompt 的 schema、`STYLE_ID`、marker 和占位符契约；六个文件全部有效后，才允许三个 legacy ID 解析到 companion prompt。任一 seed 或 companion 缺失、不可读、格式错误或身份不符，都统一返回 `registry_missing`；selected ID 是未知值或只存在于 registry-backed style-pack 时，也返回 `registry_missing`，不得扫描目录发现 style pack。
+fallback 只在 no-follow／`lstat` 确认 `assets/styles/registry.json` 不存在时探测。必须先验证下列三份 seed JSON 的结构与 `name` 身份；三份 seed 全部有效后，才允许三个 legacy ID 解析到对应 entrypoint。任一 seed 缺失、不可读、格式错误或身份不符，都统一返回 `registry_missing`；selected ID 是未知值或只存在于 registry-backed style-pack 时，也返回 `registry_missing`，不得扫描目录发现 style pack。磁盘上的其他历史文件不参与 fallback。
 
-| selected_style_id | selected_style_display_name | style_kind | style_manifest_version | entrypoint | companion prompt |
-|---|---|---|---|---|---|
-| `minimal-business` | `极简商务` | `legacy_seed` | `none` | `minimal-business.json` | `minimal-business.redesign.md` |
-| `tech-dark` | `深色科技` | `legacy_seed` | `none` | `tech-dark.json` | `tech-dark.redesign.md` |
-| `bold-editorial` | `强调编辑` | `legacy_seed` | `none` | `bold-editorial.json` | `bold-editorial.redesign.md` |
+| selected_style_id | selected_style_display_name | style_kind | style_manifest_version | entrypoint |
+|---|---|---|---|---|
+| `minimal-business` | `极简商务` | `legacy_seed` | `none` | `minimal-business.json` |
+| `tech-dark` | `深色科技` | `legacy_seed` | `none` | `tech-dark.json` |
+| `bold-editorial` | `强调编辑` | `legacy_seed` | `none` | `bold-editorial.json` |
 
 
-### Active visual revision 投影
+### 修订投影验证，不重复物化
 
-visual-brief assembler 只负责按既有 scope／supersedes 契约决定本页适用的 `applied_visual_revision_ids`；compiler 不重新猜测 deck／anchor／page applicability。编译 `[ACTIVE_VISUAL_REVISIONS]` 时必须执行唯一的 answer-free projection：
+编译输入按 [页面编译路径契约](visual-brief-and-generation.md) 从权威 history 完成 applicability、scope、ID、history mirror 与 `supersedes` 验证，确定 canonical active projection。compiler 不重新选择修订、不重排 ID，也不再次覆盖字段；它只执行以下一致性验证：
 
-1. brief 中的 `applied_visual_revision_ids` 必须已经是无重复且按 `visual-revision-N` 的 N 数值升序排列的列表；compiler 只验证该顺序，不重新排序。任一 unsorted source IDs、重复 ID 或非 `visual-revision-N` ID 都返回 `prompt_snapshot_conflict`；完整源列表写入 generation prompt provenance 与 composite snapshot，inactive record 的 ID 也必须保留。
-2. 每个 ID 必须存在于 keyed `run.json.interaction_history`，且 history record 满足 `kind: visual_revision`、`status: applied`；brief mirror 与权威 history 任一投影字段不一致时返回 `prompt_snapshot_conflict`。
-3. 每条 `supersedes` 必须是 `<earlier-id>:<normalized_changes-field>`；目标 ID 必须在同一排序列表中更早出现，字段必须存在。目标缺失、自身／未来目标、重复 edge、字段不存在或跨页 mirror 冲突都返回 `prompt_snapshot_conflict`。
-4. 按 N 升序应用 edge；字段被任何后续 applied record supersede 后永久 inactive，即使 superseding record 的同字段以后又被更新，旧字段也不得复活。
-5. prompt body 只投影 `id`、`stage`、`affected_scope`、`status`、`artifact_owner`、规范排序的 `supersedes` 和仍 active 的 `normalized_changes`；raw `answer`、recommendation、clarification、理由文字和其他未列字段一律排除。
-6. `normalized_changes` 递归使用 canonical JSON key 顺序；没有 active fields 的 record 从 `[ACTIVE_VISUAL_REVISIONS]` body 中省略，但其 ID 仍保留在 `applied_visual_revision_ids` provenance。替换 bytes 是 projection array 的 canonical JSON 加恰好一个 LF；无有效投影时写 `[]
-`。
+1. `applied_visual_revision_ids` 必须是无重复、按 `visual-revision-N` 数值升序的完整源列表，每个 ID 对应权威 history 中 `kind: visual_revision`、`status: applied` 的同一记录。
+2. 重新验证每条 `<earlier-id>:<normalized_changes-field>` edge，按同一规范算法推导 deterministic active projection；缺失、自身／未来目标、重复 edge、字段不存在或 mirror 冲突均返回 `prompt_snapshot_conflict`。
+3. generation prompt provenance 只保留 revision IDs；`[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]` 只包含最终有效字段。raw `answer`、recommendation、clarification、未归一化 history 对象和 raw JSON 一律排除。
+4. compiler 的替换域固定为 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`，不得增加修订专用的第三片段。无修订时 `applied_visual_revision_ids` 为 `[]`。
 
-### 编译上下文
+### 编译上下文与精确 preflight 顺序
 
-- 从 `generation-prompts/<slide-id>.md` 组装模板输入，加入当前 visual brief（locked content）、active theme、source/version、normalized revisions、审核和 QA 边界。
-- 写入 `generation-prompts/<slide-id>.md` 并持久化 `prompt_snapshot_id`。
-- `visual_generation_blocker.resource` 只保存规范化 Skill 相对路径；路径安全前失败写 `none`，不得持久化未验证绝对路径、URL 或机密内容。
+首次生成和 `recompose` 的编译器必须先完成全部内存工作，随后才能产生任何 durable side effect：
 
-### 编译门禁（pre-dispatch gate）
+1. 读取当前批准 outline、storyboard、theme 与权威 revisions；不写文件或状态。
+2. 在内存组装 canonical narrative bullets（叙事要点+素材+事实底线）与 style baseline（软风格基线）。后者已包含 palette 角色、字体栈、间距节奏与禁止母题。
+3. 在内存验证 outline/storyboard/theme snapshots 相等；素材事实底线（数字/单位/限定词/因果/来源映射）与故事板一致；narrative bullets 与 outline 一致；theme identity、64 px safe area、字号下限、`path+A` 与 Office-safe allowlist 完整。
+4. 从 repository `references/generation-prompt-template.md` 读取规范 bytes，在内存恰好进行两个 whole-line marker 替换：`[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`。
+5. 验证模板与 compiled body 的 canonical byte derivation、自包含性、无外部文件指令、无未解析 marker、无 raw revision material，并计算 template/body/compiled prompt/composite snapshot hashes。
+6. 只有步骤 1–5 全部成功后，才原子创建 `visual_generation_transaction.state: compiling`；随后写 `.ppt-pilot/generation-prompts/<slide-id>.md`，关闭、复读、核对 hash，再原子提交 `compiled`。
+7. 从 `compiled` 原子进入 `generating` 后，才向恰好一个 fresh generator 派发 durable prompt；之后依次处理 candidate 写入／hash、fact-source 与 SVG/visual QA、validated 和 promotion。
 
-generation prompt 是一次性执行契约：fresh generator 只做一次请求、一次响应。因此所有能确定性检查的缺陷必须在**派发前**拦截，不得留给生成后的 SVG QA 去失败——每次 QA 失败都会消耗一次 generator 请求并触发修复阶梯。编译器在写入 prompt 文件之前必须通过以下四项检查；任一失败都不得创建 transaction、不得派发请求，而应把缺陷分类为 brief／storyboard defect 走既有失效规则回上游解决（零 generator 请求消耗）：
+确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。缺陷分类为 outline／storyboard／theme defect 并返回对应权威 owner；只有规范模板、规范字节或无法唯一解释的 snapshot/provenance 自身失败才写 canonical `visual_generation_blocker`。preflight 包括但不限于以下关系门禁：
 
-1. **自包含性**：隔离句声称"你已获得全部输入"，文件必须兑现这句话。禁止出现未解析的模板占位符或未定义的全大写标识符（如 `INFORMATION_HIERARCHY`）；禁止"见 XX 文档／章节／字段"式外部引用。brief 的信息层级（primary_message、reading_order、management_judgment）必须实际投影进 `建议语义`／`限定条件` 行，不得只写名称。
-2. **布局语义一致性**：固定骨架中的"Bento Grid"措辞是通用骨架；当 brief 的 `layout_family` 不是 Bento 类布局（如状态泳道、时间线）时，`建议语义` 必须显式写出 layout_family 全称和结构描述，并声明其优先于 Bento 措辞，使生成器不会按卡片墙理解泳道页。
-3. **枚举与顺序一致**：`核心结论` 中的计数、分组与顺序必须与 `锁定内容` 的结构和 `建议语义` 的排布一致；照抄 assertion_title 导致两者矛盾（如结论顺序与泳道顺序不同）属于编译失败。
-4. **字号下限与容纳预算**：brief 排版阶梯中每个字号必须不低于设计系统对应角色的下限（标题 40px；正文与次级信息文本按角色判定，正文类 ≥20px 或有明确语义理由的标签字号，脚注／来源 ≥14px）；同时按 `构图.density_strategy` 与安全区面积估算锁定内容的行数与字符量，超出容纳预算即注定溢出。两类失败都在上游解决：改 brief 字号令牌，或拆页／瘦身故事板。
-
-门禁通过后才进入 transaction 创建与派发。门禁本身不改变黄金格式的字节语法与哈希域；它只是派发前的确定性验收。
+- **事实底线与叙事相等**：素材中的数字、单位、期间、限定词、因果、来源映射与故事板一致；canonical narrative bullets 与 outline 的叙事要点一致；不得靠改写规避差异。
+- **风格基线闭合**：palette 是最终颜色值；type/spacing/shape/output 无 token 名或待选项；标题 ≥40 px、正文 ≥20 px、脚注 ≥14 px；所有 region 位于 64 px safe area 并遵循 24 px rhythm。
+- **规范编译**：模板源路径唯一；两个 replacement bytes 经过注入／Setext／路径／外部输入防护；compiled bytes 由 repository template 加这两个 replacement 唯一派生。
 
 ### `visual_generation_blocker` 生命周期
 
-风格 prompt 解析／编译失败时，必须以单次原子 `run.json` 替换写入 `visual_generation_blocker`，字段和 reason 集合遵循 [artifact-contract.md](artifact-contract.md)。写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，受影响 `slide_id` 必须继续留在 `dirty_slides`。阻断期间不得启动 fresh generator、不得创建／覆盖 SVG、不得降级为 patch、不得改用其他风格或 stale cached prompt。
+风格身份／资产解析失败时写入 `state: style_assets_unavailable`；规范模板读取、编译或 pre-dispatch gate 失败时写入 `state: generation_prompt_unavailable`。两类情况都必须以单次原子 `run.json` 替换写入 `visual_generation_blocker`，字段和 reason 集合遵循 [artifact-contract.md](artifact-contract.md)。写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，受影响 `slide_id` 必须继续留在 `dirty_slides`。阻断期间不得启动 fresh generator、不得创建／覆盖 SVG、不得降级为 patch、不得改用其他风格或 stale cached generation prompt。
 
-`resource` 只允许保存已经通过 containment 和 no-follow 检查的 `assets/styles/...` Skill 相对路径；路径安全前失败、绝对路径、Windows 盘符、UNC、URL、`.`／`..` 越界、link／junction／reparse 或任何工作区／机密路径，都写 `none`。
+`resource` 只允许保存已经通过 containment 和 no-follow 检查的 Skill 相对路径：风格资产状态使用 `assets/styles/...`，规范模板状态使用 `references/generation-prompt-template.md`。路径安全前失败、绝对路径、Windows 盘符、UNC、URL、`.`／`..` 越界、link／junction／reparse 或任何工作区／机密路径，都写 `none`。
 
-恢复时的全局顺序固定为 `pending_interaction` > `visual_generation_blocker` > `visual_generation_transaction` > stage scan。只要 `pending_interaction` 存在，就不得创建或处理 style blocker，不得解析 style prompt，也不得启动 generator。已有 blocker 与当前目标为同一 slide 时，重新验证同一资源与快照并幂等刷新同一对象；若另一个 slide 已有 active blocker，必须先处理原 blocker，不创建并行 blocker。仍失败时 generator calls 与 SVG writes 都保持 0。
+恢复时的全局顺序固定为 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan`。前四类 durable control state 均不存在或已完成前不得扫描普通阶段。只要前序 owner 存在，就不得解析新页面、编译 generation prompt 或启动 generator。已有 blocker 与当前目标为同一 slide 时，重新验证同一资源与快照并幂等刷新；另一 slide 已有 active blocker 时必须先处理原 blocker。仍失败时 transaction writes、prompt writes、generator calls 与 SVG writes 都保持 0。
 
-如果 resolver 已恢复且 prompt 文件已经 durable，允许临时看到 `visual_generation_transaction.state: compiling` 与 active blocker 同时存在；这表示跨文件步骤已完成但 `run.json` 尚未提交。随后只能通过一次 `run.json` 原子替换同时把匹配 transaction 改为 `compiled` 并移除 blocker。crash 留下该中间态时，resume 必须复核 transaction ID、prompt path、`prompt_snapshot_id` 与 `compiled_prompt_sha256`，匹配则补做这一次替换，不匹配则重编或重新阻断。
+canonical blocker 必须在 preflight 已失败、且没有为本次尝试创建 transaction 或 prompt 后独立写入；blocker 与同一尝试的 `compiling` transaction 不得共存。历史 crash 若留下旧协议的 prompt／`compiling`／blocker 组合，只能把 prompt 当作不可信派生产物：保留 previous final，清理或隔离 orphan candidate，重新从步骤 1 执行无副作用 preflight；不得用旧 prompt 直接补提交 `compiled`。
 
 ### `visual_generation_transaction` 生成边界
 
-首次生成与 `recompose` 在编译 prompt 前先创建 `visual_generation_transaction`；`transaction_id == prompt_snapshot_id`，`prompt_path` 为 `generation-prompts/<slide-id>.md`，候选为 deterministic `slides/.candidates/<slide-id>-<64hex>.svg`，final 为 `slides/<slide-id>.svg`。fresh generator 只在 transaction 已从 `compiled` 原子进入 `generating` 后启动；generator output 先作为 untrusted text 提取单个 fenced XML，再写 deterministic candidate path。`candidate_sha256` 只在候选写入、关闭并复读后提交；`generating` crash 留下的 orphan candidate 必须 delete/isolate，never adopted。
+首次生成与 `recompose` 先在内存完成编译输入验证、恰好两个规范替换、compiled bytes 验证和全部 hash 计算；只有 preflight 成功后才原子创建 `visual_generation_transaction.state: compiling`。`transaction_id == prompt_snapshot_id`，transaction 内部 `prompt_path` 为 `generation-prompts/<slide-id>.md`，明确相对于 `.ppt-pilot/`；其拥有的外部文件是 `.ppt-pilot/generation-prompts/<slide-id>.md`。候选为 deterministic `slides/.candidates/<slide-id>-<64hex>.svg`，final 为 `slides/<slide-id>.svg`。创建 transaction 后以同目录 temp file + rename 原子写 prompt，关闭、复读、hash 匹配才原子提交 `compiled`。fresh generator 只在 transaction 已从 `compiled` 原子进入 `generating` 后启动；generator output 先作为 untrusted text 提取单个 fenced XML，再写 deterministic candidate path。`candidate_sha256` 只在候选写入、关闭并复读后提交；`generating` crash 留下的 orphan candidate 必须 delete/isolate，never adopted。
+
+prompt 持久化、复读或 hash 验证失败必须原子记录 `failure_reason: prompt_write_failed` 并走 `compiling -> failed`；此时 generator calls、candidate writes 与 SVG writes 均为 0。显式 resume 时，若 authoritative inputs、template/body bytes 与 snapshots unchanged，则保留同一 transaction identity，原子 `failed -> compiling`，隔离／删除 orphan temp 后重新执行 temp+rename、复读与 hash 验证，再提交 `compiled`；若任一 authoritative input changed，则保留 failed audit，以新的 `compiling` transaction 替换，绝不在旧 transaction 内继续。
 
 transport 和候选写入失败 reason（`generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch`）只能由显式 resume 消费为同一 transaction 的 `failed -> generating`，并使用 `generation_attempt + 1`；每次宿主调用最多 generator 1 次。SVG／内容／视觉 QA 失败（`svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed`）先持久化 defect，再 patch 或 new deterministic fallback compiling transaction。promotion／state conflict（`final_promotion_conflict`、`transaction_state_conflict`）持久化 production `blocker`，保留 previous final SVG 和 failed transaction；用户解决后 unchanged valid candidate 走 `failed -> validated` promotion retry，authoritative inputs changed 走 failed transaction -> new compiling transaction。No arbitrary delete/cancel。
 
@@ -172,6 +173,10 @@ transport 和候选写入失败 reason（`generator_unavailable`、`generator_re
 ### Generation prompt golden layout, byte grammar, hash domains, and stale semantics
 
 本节收敛为单一权威文件：完整定义见 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md)（generation prompt byte grammar 与 byte contract 的全部 11 条规则）。该文件对本文件同等具有约束力；编译、校验或恢复前必须完整阅读。
+## 最终 Prompt 正文模板
+
+新运行的 `.ppt-pilot/generation-prompts/<slide-id>.md` 中 `## Compiled Prompt` 必须由 [generation-prompt-template.md](generation-prompt-template.md) 的 repository bytes 唯一派生。compiler 只能进行恰好两个 whole-line replacement：用 canonical narrative bullets（叙事+素材）替换 `[[CANONICAL_NARRATIVE_BULLETS]]`，用软风格基线 bytes 替换 `[[STYLE_BASELINE]]`；其余模板字节不得改动，不得加入第三 fragment。完整 byte grammar 与 hash domain 见 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md)。
+
 ## 独立执行
 
 1. 启动一个 **fresh、独立** 的生成上下文；

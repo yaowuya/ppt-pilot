@@ -31,28 +31,12 @@ class StylePackTests(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)))
         for style in styles:
             self.assertTrue((self.style_root / style["entrypoint"]).is_file())
+            self.assertNotIn("redesign_prompt", style)
         canway = next(style for style in styles if style["id"] == "canway-midyear-review")
         self.assertEqual(canway["display_name"], "嘉为年中总结风格")
         self.assertEqual(canway["kind"], "style_pack")
-        self.assertNotIn("redesign_prompt", canway)
 
-    def test_legacy_registry_declares_redesign_prompts(self):
-        styles = json.loads(read_text(self.registry_path))["styles"]
-        actual = {
-            item["id"]: item.get("redesign_prompt")
-            for item in styles
-            if item["kind"] == "legacy_seed"
-        }
-        self.assertEqual(
-            actual,
-            {
-                "minimal-business": "minimal-business.redesign.md",
-                "tech-dark": "tech-dark.redesign.md",
-                "bold-editorial": "bold-editorial.redesign.md",
-            },
-        )
-
-    def test_canway_manifest_owns_redesign_prompt(self):
+    def test_manifest_declares_only_tokens_and_guidance_as_active_style_assets(self):
         manifest = json.loads(read_text(self.manifest_path))
         self.assertEqual(manifest["version"], "1.3.0")
         self.assertEqual(
@@ -60,11 +44,31 @@ class StylePackTests(unittest.TestCase):
             {
                 "tokens": "tokens.json",
                 "guidance": "STYLE.md",
-                "redesign_prompt": "REDESIGN.md",
             },
         )
+        for path in manifest["files"].values():
+            self.assertTrue((self.pack_root / path).is_file())
 
-    def test_manifest_references_complete_style_owned_pack(self):
+    def test_historical_complete_prompts_are_inert_and_not_required_assets(self):
+        historical_prompts = (
+            self.style_root / "minimal-business.redesign.md",
+            self.style_root / "tech-dark.redesign.md",
+            self.style_root / "bold-editorial.redesign.md",
+            self.pack_root / "REDESIGN.md",
+        )
+        self.assertTrue(all(path.is_file() for path in historical_prompts))
+        registry = json.loads(read_text(self.registry_path))
+        manifest = json.loads(read_text(self.manifest_path))
+        active_declarations = json.dumps(
+            {"registry": registry, "manifest": manifest},
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        self.assertNotIn("redesign_prompt", active_declarations)
+        self.assertNotIn("REDESIGN.md", active_declarations)
+        self.assertNotIn(".redesign.md", active_declarations)
+
+    def test_manifest_references_complete_style_identity_pack(self):
         manifest = json.loads(read_text(self.manifest_path))
         self.assertEqual(manifest["schema_version"], 1)
         self.assertEqual(manifest["id"], "canway-midyear-review")
@@ -72,32 +76,9 @@ class StylePackTests(unittest.TestCase):
         self.assertEqual(manifest["kind"], "style_pack")
         self.assertEqual(manifest["version"], "1.3.0")
         self.assertIn("嘉为年中总结风格", manifest["selection_aliases"])
-        self.assertEqual(
-            manifest["files"],
-            {
-                "tokens": "tokens.json",
-                "guidance": "STYLE.md",
-                "redesign_prompt": "REDESIGN.md",
-            },
-        )
-        for path in manifest["files"].values():
-            self.assertTrue((self.pack_root / path).is_file())
+        self.assertEqual(set(manifest["files"]), {"tokens", "guidance"})
         self.assertTrue(manifest["compatibility"]["office_safe_svg"])
         self.assertFalse(manifest["default"])
-
-    def test_registered_redesign_prompt_files_exist(self):
-        registry = json.loads(read_text(self.registry_path))
-        for style in registry["styles"]:
-            with self.subTest(style=style["id"]):
-                if style["kind"] == "legacy_seed":
-                    relative = style["redesign_prompt"]
-                    root = self.style_root
-                else:
-                    manifest_path = self.style_root / style["entrypoint"]
-                    manifest = json.loads(read_text(manifest_path))
-                    relative = manifest["files"]["redesign_prompt"]
-                    root = manifest_path.parent
-                self.assertTrue((root / relative).is_file())
 
     def test_tokens_encode_approved_canway_style(self):
         tokens = json.loads(read_text(self.tokens_path))
@@ -140,8 +121,12 @@ class StylePackTests(unittest.TestCase):
             "渐变",
             "等权卡片墙",
             "根据内容选择",
+            "tokens.json",
+            "身份、令牌与指导",
         ):
             self.assertIn(token, rules)
+        for forbidden in ("REDESIGN.md", "完整生成 prompt", "完整 prompt", "可执行 prompt"):
+            self.assertNotIn(forbidden, rules)
 
     def test_style_pack_has_no_rendered_slide_exemplar(self):
         self.assertEqual(list(self.pack_root.rglob("*.svg")), [])

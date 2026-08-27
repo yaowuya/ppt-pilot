@@ -1,0 +1,1057 @@
+{
+  "schema_version": 1,
+  "stable_resolver_reasons": [
+    "registry_missing",
+    "registry_path_unsafe",
+    "registry_target_invalid",
+    "registry_unreadable",
+    "registry_malformed",
+    "registry_schema_unsupported",
+    "registry_duplicate_style",
+    "style_not_registered",
+    "style_kind_invalid",
+    "entrypoint_missing",
+    "entrypoint_path_unsafe",
+    "entrypoint_target_invalid",
+    "entrypoint_unreadable",
+    "legacy_entrypoint_malformed",
+    "legacy_identity_mismatch",
+    "manifest_malformed",
+    "manifest_schema_unsupported",
+    "manifest_identity_mismatch",
+    "manifest_version_invalid",
+    "style_asset_field_missing",
+    "style_asset_path_unsafe",
+    "style_asset_target_invalid",
+    "style_asset_unreadable",
+    "style_asset_malformed",
+    "style_asset_schema_unsupported",
+    "prompt_snapshot_conflict"
+  ],
+  "canonical_blocker_cases": [
+    {
+      "id": "canonical-template-unreadable",
+      "canonical_failure": {
+        "phase": "read",
+        "reason": "prompt_template_invalid",
+        "resource": "references/generation-prompt-template.md"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "visual_generation_blocker": {
+          "state": "generation_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_template_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "references/generation-prompt-template.md",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "reason": "prompt_template_invalid",
+        "resource": "references/generation-prompt-template.md",
+        "stop": true,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "style_fallback_calls": 0,
+        "alternate_style_selection_calls": 0,
+        "transaction_writes": 0
+      }
+    },
+    {
+      "id": "canonical-template-shape-invalid",
+      "canonical_failure": {
+        "phase": "shape",
+        "reason": "prompt_template_invalid",
+        "resource": "references/generation-prompt-template.md"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "visual_generation_blocker": {
+          "state": "generation_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_template_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "references/generation-prompt-template.md",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "reason": "prompt_template_invalid",
+        "resource": "references/generation-prompt-template.md",
+        "stop": true,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "style_fallback_calls": 0,
+        "alternate_style_selection_calls": 0,
+        "transaction_writes": 0
+      }
+    },
+    {
+      "id": "canonical-preflight-invalid",
+      "canonical_failure": {
+        "phase": "preflight",
+        "reason": "prompt_preflight_invalid",
+        "resource": "references/generation-prompt-template.md"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "visual_generation_blocker": {
+          "state": "generation_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_preflight_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "references/generation-prompt-template.md",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "reason": "prompt_preflight_invalid",
+        "resource": "references/generation-prompt-template.md",
+        "stop": true,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "style_fallback_calls": 0,
+        "alternate_style_selection_calls": 0,
+        "transaction_writes": 0
+      }
+    },
+    {
+      "id": "canonical-template-path-unsafe",
+      "canonical_failure": {
+        "phase": "path_safety",
+        "reason": "prompt_snapshot_conflict",
+        "resource": "none"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "visual_generation_blocker": {
+          "state": "generation_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_snapshot_conflict",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "none",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "reason": "prompt_snapshot_conflict",
+        "resource": "none",
+        "stop": true,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "style_fallback_calls": 0,
+        "alternate_style_selection_calls": 0,
+        "transaction_writes": 0
+      }
+    }
+  ],
+  "blocker_cases": [
+    {
+      "id": "create-blocker-on-missing-style-asset",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        }
+      },
+      "resolver": {
+        "result": "failure",
+        "reason": "style_asset_target_invalid",
+        "resource": "assets/styles/canway-midyear-review/tokens.json"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "slide_id": "S07",
+        "first_action": "persist_blocker",
+        "reason": "style_asset_target_invalid",
+        "active_blocker": true,
+        "stop": true,
+        "resolver_calls": 1,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "stage_scan_calls": 0,
+        "style_fallback_calls": 0,
+        "patch_downgrade_calls": 0
+      }
+    },
+    {
+      "id": "sanitize-unsafe-resource-to-none",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        }
+      },
+      "resolver": {
+        "result": "failure",
+        "reason": "style_asset_path_unsafe",
+        "resource": "none"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_path_unsafe",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "none",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "slide_id": "S07",
+        "first_action": "persist_blocker",
+        "reason": "style_asset_path_unsafe",
+        "active_blocker": true,
+        "stop": true,
+        "resolver_calls": 1,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "stage_scan_calls": 0,
+        "style_fallback_calls": 0,
+        "patch_downgrade_calls": 0
+      }
+    },
+    {
+      "id": "refresh-same-slide-blocker",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "resolver": {
+        "result": "failure",
+        "reason": "style_asset_unreadable",
+        "resource": "assets/styles/canway-midyear-review/tokens.json"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_unreadable",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "slide_id": "S07",
+        "first_action": "refresh_same_slide_blocker",
+        "reason": "style_asset_unreadable",
+        "active_blocker": true,
+        "stop": true,
+        "resolver_calls": 1,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "stage_scan_calls": 0,
+        "style_fallback_calls": 0,
+        "patch_downgrade_calls": 0
+      }
+    },
+    {
+      "id": "serialize-other-slide-blocker-first",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S03"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S03",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "resolver": {
+        "result": "not_called_existing_blocker_first"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S03"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S03",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "slide_id": "S03",
+        "first_action": "process_existing_blocker",
+        "reason": "style_asset_target_invalid",
+        "active_blocker": true,
+        "stop": true,
+        "resolver_calls": 0,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "stage_scan_calls": 0,
+        "style_fallback_calls": 0,
+        "patch_downgrade_calls": 0
+      },
+      "attempted_operation": {
+        "requested_slide_id": "S07",
+        "kind": "create_style_assets_blocker",
+        "selected_style_id": "canway-midyear-review"
+      }
+    },
+    {
+      "id": "still-failing-skips-generator-and-svg",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "resolver": {
+        "result": "failure",
+        "reason": "style_asset_target_invalid",
+        "resource": "assets/styles/canway-midyear-review/tokens.json"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "slide_id": "S07",
+        "first_action": "refresh_active_blocker",
+        "reason": "style_asset_target_invalid",
+        "active_blocker": true,
+        "stop": true,
+        "resolver_calls": 1,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "stage_scan_calls": 0,
+        "style_fallback_calls": 0,
+        "patch_downgrade_calls": 0
+      }
+    },
+    {
+      "id": "durable-generation-prompt-keeps-compiling-blocker-before-commit",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "slide_id": "S07",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "state": "compiling",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-3",
+          "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
+          "final_path": "slides/S07.svg",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "durable_prompt": {
+        "path": "generation-prompts/S07.md",
+        "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "slide_id": "S07",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "state": "compiled",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-3",
+          "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
+          "final_path": "slides/S07.svg",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "slide_id": "S07",
+        "first_action": "durable_prompt_before_run_json_commit",
+        "reason": "style_asset_target_invalid",
+        "active_blocker": false,
+        "stop": false,
+        "resolver_calls": 0,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "stage_scan_calls": 0,
+        "style_fallback_calls": 0,
+        "patch_downgrade_calls": 0,
+        "atomic_run_replacements": [
+          {
+            "single_run_json_replacement": true,
+            "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "from_state": "compiling",
+            "to_state": "compiled",
+            "remove_blocker_slide_id": "S07"
+          }
+        ]
+      }
+    },
+    {
+      "id": "compiling-crash-recovers-by-compiled-and-clears-blocker",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "slide_id": "S07",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "state": "compiling",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-3",
+          "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
+          "final_path": "slides/S07.svg",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "durable_prompt": {
+        "path": "generation-prompts/S07.md",
+        "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "slide_id": "S07",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "state": "compiled",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-3",
+          "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
+          "final_path": "slides/S07.svg",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected": {
+        "slide_id": "S07",
+        "first_action": "resume_compiling_crash",
+        "reason": "style_asset_target_invalid",
+        "active_blocker": false,
+        "stop": false,
+        "resolver_calls": 0,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "stage_scan_calls": 0,
+        "style_fallback_calls": 0,
+        "patch_downgrade_calls": 0,
+        "atomic_run_replacements": [
+          {
+            "single_run_json_replacement": true,
+            "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "from_state": "compiling",
+            "to_state": "compiled",
+            "remove_blocker_slide_id": "S07"
+          }
+        ]
+      }
+    },
+    {
+      "id": "precedence-unselected-pack-root-before-selected-guidance",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "resolver_defects": [
+          "unselected_pack_root_invalid",
+          "selected_guidance_invalid"
+        ]
+      },
+      "resolver": {
+        "result": "failure",
+        "reason": "entrypoint_path_unsafe",
+        "resource": "none"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "entrypoint_path_unsafe",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "none",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "slide_id": "S07",
+        "first_action": "persist_blocker_from_first_resolver_reason",
+        "reason": "entrypoint_path_unsafe",
+        "active_blocker": true,
+        "stop": true,
+        "resolver_calls": 1,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "stage_scan_calls": 0,
+        "style_fallback_calls": 0,
+        "patch_downgrade_calls": 0
+      }
+    },
+    {
+      "id": "precedence-selected-tokens-before-guidance",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "resolver_defects": [
+          "selected_tokens_target_invalid",
+          "selected_guidance_invalid"
+        ]
+      },
+      "resolver": {
+        "result": "failure",
+        "reason": "style_asset_target_invalid",
+        "resource": "assets/styles/canway-midyear-review/tokens.json"
+      },
+      "after_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        }
+      },
+      "expected": {
+        "slide_id": "S07",
+        "first_action": "persist_blocker_from_first_resolver_reason",
+        "reason": "style_asset_target_invalid",
+        "active_blocker": true,
+        "stop": true,
+        "resolver_calls": 1,
+        "generator_calls": 0,
+        "svg_writes": 0,
+        "stage_scan_calls": 0,
+        "style_fallback_calls": 0,
+        "patch_downgrade_calls": 0
+      }
+    }
+  ],
+  "recovery_order_cases": [
+    {
+      "id": "pending-interaction-first",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "pending_interaction": {
+          "id": "anchor-approval",
+          "stage": "production",
+          "kind": "approval",
+          "question": "Approve?",
+          "status": "answered"
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "slide_id": "S07",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "state": "compiled",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-3",
+          "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
+          "final_path": "slides/S07.svg",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected_first_action": "pending_interaction",
+      "stop": true,
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 0,
+        "stage_scan": 0
+      }
+    },
+    {
+      "id": "manuscript-pending-round-before-visual-controls",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "slide_id": "S07",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "state": "compiled",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-3",
+          "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
+          "final_path": "slides/S07.svg",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        },
+        "manuscript_review": {
+          "required": true,
+          "cycle": 1,
+          "round": 0,
+          "mode": "inline_fallback",
+          "state": "pending",
+          "status": "PENDING",
+          "latest_report": "文稿审查.md",
+          "open_blocking_findings": [],
+          "review_history": [],
+          "pending_round": {
+            "cycle": 1,
+            "round": 1,
+            "mode": "inline_fallback",
+            "reviewed_file_snapshot": {
+              "snapshot_id": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+              "files": [
+                "简报.md",
+                "研究.md",
+                "来源.md",
+                "大纲.md",
+                "故事板.md"
+              ]
+            },
+            "fallback_evidence": {
+              "delegation_attempted": true,
+              "reason": "delegation_capability_unavailable",
+              "host_detail": "subagents disabled"
+            },
+            "status": "in_progress"
+          }
+        }
+      },
+      "expected_first_action": "manuscript_review.pending_round",
+      "stop": true,
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 0,
+        "stage_scan": 0
+      }
+    },
+    {
+      "id": "blocker-before-transaction",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_blocker": {
+          "state": "style_assets_unavailable",
+          "slide_id": "S07",
+          "reason": "style_asset_target_invalid",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/tokens.json",
+          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "slide_id": "S07",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "state": "compiled",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-3",
+          "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
+          "final_path": "slides/S07.svg",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected_first_action": "visual_generation_blocker",
+      "stop": true,
+      "expected_calls": {
+        "resolver": 1,
+        "generator": 0,
+        "stage_scan": 0
+      }
+    },
+    {
+      "id": "transaction-before-stage-scan",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "visual_generation_transaction": {
+          "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "slide_id": "S07",
+          "prompt_path": "generation-prompts/S07.md",
+          "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "state": "compiled",
+          "generation_intent": "user_recompose",
+          "generation_trigger_id": "interaction:visual-revision-3",
+          "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
+          "final_path": "slides/S07.svg",
+          "generation_attempt": 0,
+          "candidate_sha256": null,
+          "failure_reason": null
+        }
+      },
+      "expected_first_action": "visual_generation_transaction",
+      "stop": true,
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 1,
+        "stage_scan": 0
+      }
+    },
+    {
+      "id": "stage-scan-after-durable-controls",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        }
+      },
+      "expected_first_action": "stage scan",
+      "stop": false,
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 0,
+        "stage_scan": 1
+      }
+    }
+  ]
+}

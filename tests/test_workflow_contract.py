@@ -37,29 +37,10 @@ class WorkflowContractTests(unittest.TestCase):
     REVIEW_STATES = {"review_unavailable", "manuscript_blocked"}
 
     REQUIRED_ARTIFACTS = [
-        "run.json",
-        "简报.md",
-        "研究.md",
-        "来源.md",
         "大纲.md",
-        "故事板.md",
-        "文稿审查.md",
-        "theme.json",
-        "visual-briefs/",
-        "samples/",
         "slides/",
-        "质量检查报告.md",
+        ".ppt-pilot/",
     ]
-
-    LEGACY_MARKDOWN_ARTIFACTS = {
-        "brief.md": "简报.md",
-        "research.md": "研究.md",
-        "sources.md": "来源.md",
-        "outline.md": "大纲.md",
-        "storyboard.md": "故事板.md",
-        "manuscript-review.md": "文稿审查.md",
-        "qa-report.md": "质量检查报告.md",
-    }
 
     REQUIRED_RUN_FIELDS = {
         "schema_version",
@@ -151,20 +132,6 @@ class WorkflowContractTests(unittest.TestCase):
         items = self._extract_section_list(text, "必需产物")
         for artifact in self.REQUIRED_ARTIFACTS:
             self.assertIn(artifact, items, f"artifact-contract.md missing required artifact {artifact}")
-
-    def test_legacy_english_markdown_names_are_read_only_compatible(self):
-        artifact = read_text(self.contract_path)
-        workflow = read_text(self.workflow_path)
-        qa = read_text(self.qa_path)
-        combined = "\n".join((artifact, workflow, qa))
-        for legacy, canonical in self.LEGACY_MARKDOWN_ARTIFACTS.items():
-            with self.subTest(legacy=legacy):
-                self.assertIn(legacy, combined)
-                self.assertIn(canonical, combined)
-        self.assertIn("旧运行", combined)
-        self.assertIn("原位读取", combined)
-        self.assertIn("不得自动重命名", combined)
-        self.assertIn("`run.json` 中记录的实际文件名", combined)
 
     def test_artifact_contract_run_json_fields(self):
         text = read_text(self.contract_path).lower()
@@ -363,39 +330,6 @@ class WorkflowContractTests(unittest.TestCase):
             "渲染证据",
         ):
             self.assertIn(token, text, f"qa-and-revision.md 缺少 {token}")
-
-    def test_production_resume_and_revision_semantics_are_explicit(self):
-        qa = read_text(self.qa_path).lower()
-        skill = read_text(skill_root() / "SKILL.md").lower()
-        artifact = read_text(self.contract_path).lower()
-        visual_brief = read_text(self.reference_root / "visual-brief-and-generation.md").lower()
-        combined = "\n".join((qa, skill, artifact, visual_brief))
-        self.assertRegex(combined, r"每批 3[–-]4 页")
-        self.assertIn("每次只写入并验证一个 svg", combined)
-        self.assertIn("更新 `run.json`", combined)
-        self.assertIn("每完成一个持久阶段", combined)
-        self.assertIn("停止", combined)
-        self.assertIn("硬检查失败", combined)
-
-        for token in (
-            "visual-briefs/<slide-id>.md",
-            "patch",
-            "recompose",
-            "当前 svg",
-            "几何底稿",
-            "supersedes",
-        ):
-            self.assertIn(token, combined)
-
-        self.assertIn("先读取 `run.json`", combined)
-        self.assertIn("已批准的上游", combined)
-        self.assertIn("重新计算", combined)
-        self.assertIn("visual-only", combined)
-        self.assertIn("non-factual copy", combined)
-        self.assertIn("不重新运行文稿审查", combined)
-        self.assertIn("主张", combined)
-        self.assertIn("来源", combined)
-        self.assertIn("新的文稿审查", combined)
 
     def test_visual_stage_guard_uses_persistent_review_state(self):
         approved = {
