@@ -112,6 +112,25 @@ class TemplateCreativeReformTest(unittest.TestCase):
         self.assertNotIn("reading_order", qa)
         self.assertIn("视觉层级", qa)
 
+    def test_design_system_refers_to_soft_baseline(self):
+        ds = read_text(skill_root() / "references" / "design-system.md")
+        self.assertIn("软参考", ds)
+        self.assertNotIn("组装锚点页面 brief", ds)
+
+    def test_workflow_uses_direct_compile_steps(self):
+        wf = read_text(skill_root() / "references" / "workflow.md")
+        self.assertTrue("直接编译" in wf or "storyboard" in wf)
+
+    def test_skill_workflow_step5_direct_compile(self):
+        skill = read_text(skill_root() / "SKILL.md")
+        self.assertNotIn("组装并验证对应", skill)
+        self.assertIn("生成任何视觉页面前", skill)
+        self.assertIn("generation-prompts/<slide-id>.md", skill)
+
+    def test_layout_catalog_is_soft_reference(self):
+        lc = read_text(skill_root() / "references" / "layout-catalog.md")
+        self.assertTrue("软参考" in lc or "自主" in lc)
+
 
 CANONICAL_REPLACEMENT_MARKER_RE = re.compile(rb"\[\[[^\[\]\r\n]+\]\]")
 

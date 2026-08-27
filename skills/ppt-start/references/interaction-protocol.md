@@ -117,7 +117,7 @@
 
 ## 直接视觉修订与优先级
 
-用户在任何视觉阶段直接提出可执行的品牌、主题、构图或页面修订时，即使该指令不来自 guided 批准问题，也必须先分类并持久化，再修改 brief 或 SVG。按[产物契约](artifact-contract.md)创建下一单调 `visual-revision-<N>`，记录 `kind: visual_revision`、原始 `answer`、`normalized_changes`、`affected_scope`、`supersedes`、`status: applied` 和 `artifact_owner`。整套决定镜像到 `theme.json.user_revision_notes`，锚点决定镜像到主题修订记录和受影响锚点 brief，页面决定镜像到 `visual-briefs/<slide-id>.md`；所有镜像都能从权威历史重建。
+用户在任何视觉阶段直接提出可执行的品牌、主题、构图或页面修订时，即使该指令不来自 guided 批准问题，也必须先分类并持久化，再修改 brief 或 SVG。按[产物契约](artifact-contract.md)创建下一单调 `visual-revision-<N>`，记录 `kind: visual_revision`、原始 `answer`、`normalized_changes`、`affected_scope`、`supersedes`、`status: applied` 和 `artifact_owner`。整套决定镜像到 `theme.json.user_revision_notes`，锚点决定镜像到主题修订记录和受影响锚点页编译输入，页面决定镜像到该页编译输入（叙事/素材/风格基线表述）；所有镜像都能从权威历史重建。
 
 当前有效视觉契约按以下固定优先级归并：
 
