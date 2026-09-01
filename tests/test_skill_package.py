@@ -1,6 +1,7 @@
 import re
 import sys
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -79,8 +80,9 @@ class SkillPackageTests(unittest.TestCase):
         ):
             self.assertIn(token, lower, f"README.md 缺少 {token}")
         for token in (
-            "visual-briefs/",
-            "逐页视觉 brief",
+            "active_visual_generation_batch",
+            "visual-generation-transactions/",
+            "prompt_by_value",
             "patch",
             "recompose",
             "嘉为年中总结风格",
@@ -144,36 +146,46 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("受支持的 PowerPoint", text)
         self.assertIn("浏览器", text)
 
-    def test_style_owned_prompt_architecture_and_evidence_boundaries(self):
+    def test_direct_compile_schema_v2_architecture_and_evidence_boundaries(self):
         readme = read_text(self.readme)
         design = read_text(self.design)
         acceptance = read_text(self.acceptance)
 
         for text in (readme, design):
             for token in (
-                "effective visual brief",
-                "generation-prompts/<slide-id>.md",
+                "故事板 + `theme.json` 直接编译",
+                "[[CANONICAL_NARRATIVE_BULLETS]]",
+                "[[STYLE_BASELINE]]",
+                "creative-brief-v1",
+                "active_visual_generation_batch",
+                "visual-generation-transactions/",
+                "visual-generation-batches/",
+                "prompt_by_value",
+                "batch_width",
+                "ordered_slide_ids",
                 "1.3.0",
-                "generation_trigger_id",
-                "visual_generation_blocker",
-                "visual_generation_transaction",
             ):
                 self.assertIn(token, text)
-            self.assertIn(
-                "pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan",
-                text,
-            )
-            self.assertIn("fresh generator", text)
-            self.assertNotIn("可独立交给 fresh generator", text)
+            for stale in (
+                "render-ready effective visual brief",
+                "[[EFFECTIVE_PAGE_SPECIFICATION]]",
+                "visual_brief_snapshot_id",
+                "visual-brief assembler",
+                "单个 `visual_generation_transaction`",
+            ):
+                self.assertNotIn(stale, text)
 
-        self.assertIn("完全 render-ready 的 effective visual brief", readme)
-        self.assertIn("fresh generator 只接收复读 hash 一致的 durable prompt", readme)
-        self.assertIn("不注入 style-owned prompt body 或第三 revision fragment", readme)
-        self.assertIn("唯一 repository template", readme)
-        self.assertNotIn("可独立交给 fresh generator", readme)
-        self.assertIn("effective visual brief", design)
-        self.assertIn("fresh generator 的唯一执行输入", design)
-        self.assertIn("运行时永远不读取、不验证、不哈希", design)
+        for token in (
+            "pointer-last",
+            "并发",
+            "width 1",
+            "非 Git",
+            "coordinator",
+            "fact_source_mismatch",
+            "telemetry_diagnostic_failed",
+            "内部 `SRC-<digits>`",
+        ):
+            self.assertIn(token, readme + "\n" + design)
 
         focused = "python -m unittest tests.test_skill_package tests.test_redesign_prompt_contract -v"
         full = "python -m unittest discover -s tests -v"
@@ -193,8 +205,8 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("测试中的 resolver／hash oracle 不是运行时代码", acceptance)
 
         for row in (
-            "| 风格 prompt fresh generator 隔离 | Claude Code | — | — | PENDING | — |",
-            "| 风格 prompt fresh generator 隔离 | Codex | — | — | PENDING | — |",
+            "| schema-v2 isolated generation | Claude Code | — | — | PENDING | — |",
+            "| schema-v2 isolated generation | Codex | — | — | PENDING | — |",
             "| 仅主题 guided | Claude Code | — | — | PENDING | — |",
             "| 仅主题 guided | Codex | — | — | PENDING | — |",
             "| 完整生成演示文稿 SVG 渲染 | 浏览器 | — | — | PENDING | — |",
@@ -256,6 +268,81 @@ class SkillPackageTests(unittest.TestCase):
                     80,
                     f"{path.relative_to(repo_root())} 缺少足量中文正文",
                 )
+
+    def test_active_acceptance_matches_direct_compile_schema_v2_and_current_canway_version(self):
+        acceptance = read_text(self.acceptance)
+        for token in (
+            "故事板 + `theme.json` 直接编译",
+            "唯一仓库 `generation-prompt-template.md`",
+            "schema-v2 per-slide transaction/batch manifest",
+            "`active_visual_generation_batch`",
+            "Canway manifest 版本为 `1.3.0`",
+            "内部 `SRC-<digits>` 不得成为可见文字",
+        ):
+            self.assertIn(token, acceptance)
+        for stale in (
+            "Canway `1.2.0`",
+            "当前四个 style-owned full prompts",
+            "四份完整 prompt",
+            "render-ready effective visual brief",
+            "单个 `visual_generation_transaction`",
+            "[[EFFECTIVE_PAGE_SPECIFICATION]]",
+        ):
+            self.assertNotIn(stale, acceptance)
+
+    def test_package_wide_active_authorities_are_direct_compile_schema_v2_only(self):
+        active_paths = (
+            skill_root() / "SKILL.md",
+            *sorted((skill_root() / "references").glob("*.md")),
+            skill_root() / "assets" / "styles" / "canway-midyear-review" / "STYLE.md",
+            self.readme,
+            self.design,
+            self.acceptance,
+        )
+        texts = {path: read_text(path) for path in active_paths}
+        combined = "\n".join(texts.values())
+        for forbidden in (
+            "[[EFFECTIVE_PAGE_SPECIFICATION]]",
+            "有效页面规格（唯一动态内容）",
+            "visual_brief_snapshot_id",
+            "visual-brief assembler",
+            "当前 visual brief",
+            "current-context generator fallback",
+        ):
+            with self.subTest(token=forbidden):
+                self.assertNotIn(forbidden, combined)
+        for path, text in texts.items():
+            for line in text.splitlines():
+                if "visual_generation_transaction" not in line:
+                    continue
+                with self.subTest(path=path, line=line[:80]):
+                    self.assertRegex(line, r"(?i)(?:schema-v1|\bv1\b|迁移|legacy)")
+        for required in (
+            "[[CANONICAL_NARRATIVE_BULLETS]]",
+            "[[STYLE_BASELINE]]",
+            "creative-brief-v1",
+            "active_visual_generation_batch",
+            "visual-generation-transactions/",
+            "visual-generation-batches/",
+            "prompt_by_value",
+            "fact_source_mismatch",
+            "telemetry_diagnostic_failed",
+        ):
+            self.assertIn(required, combined)
+
+        visible_internal = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
+        examples = sorted((skill_root() / "assets" / "examples").glob("*.svg"))
+        self.assertTrue(examples)
+        for path in examples:
+            root = ET.fromstring(path.read_bytes())
+            visible = " ".join(
+                "".join(element.itertext())
+                for element in root.iter()
+                if isinstance(element.tag, str)
+                and element.tag.rsplit("}", 1)[-1] == "text"
+            )
+            with self.subTest(path=path):
+                self.assertNotRegex(visible, visible_internal)
 
     def test_style_prompt_supersession_is_unambiguous(self):
         current = "2026-08-21-ppt-start-style-owned-redesign-prompts-design.md"

@@ -110,7 +110,8 @@ class StyleAssetTests(unittest.TestCase):
         self.assertIn("相邻页面", layouts)
         self.assertIn("密度", layouts)
         for hierarchy_rule in (
-            "visual-briefs/<slide-id>.md",
+            "visual_intent",
+            "theme.json",
             "唯一焦点",
             "第一至第三阅读位置",
             "等权卡片墙",
@@ -118,6 +119,7 @@ class StyleAssetTests(unittest.TestCase):
             "recompose",
         ):
             self.assertIn(hierarchy_rule, layouts)
+        self.assertNotIn("visual-briefs/<slide-id>.md", layouts)
 
 
 if __name__ == "__main__":

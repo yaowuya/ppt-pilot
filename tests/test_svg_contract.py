@@ -172,11 +172,21 @@ class SvgContractTests(unittest.TestCase):
 
         source_nodes = [
             element
-            for element in text_nodes
-            if element.attrib.get("data-role") == "footnote"
+            for element in root.iter()
+            if element.attrib.get("data-source-id")
         ]
         self.assertTrue(source_nodes)
-        self.assertTrue(all(element.attrib.get("data-source-id") for element in source_nodes))
+        self.assertTrue(
+            all(
+                re.fullmatch(r"SRC-[0-9]+", element.attrib["data-source-id"], re.IGNORECASE)
+                for element in source_nodes
+            )
+        )
+        visible_text = " ".join("".join(element.itertext()) for element in text_nodes)
+        self.assertNotRegex(
+            visible_text,
+            re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE),
+        )
 
 
 if __name__ == "__main__":

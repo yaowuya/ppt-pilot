@@ -1,9 +1,11 @@
+import base64
 import copy
 import hashlib
 import json
 import re
 import sys
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
@@ -21,6 +23,7 @@ HISTORICAL_STYLE_PROMPTS = (
 CANONICAL_GENERATION_TEMPLATE_PATH = "skills/ppt-start/references/generation-prompt-template.md"
 CANONICAL_NARRATIVE_BULLETS_TOKEN = b"[[CANONICAL_NARRATIVE_BULLETS]]\n"
 EFFECTIVE_PAGE_SPECIFICATION_TOKEN = b"[[EFFECTIVE_PAGE_SPECIFICATION]]\n"
+VISIBLE_INTERNAL_SOURCE_ID = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
 DEFAULT_CANONICAL_NARRATIVE_BULLETS = (
     "- **金字塔原理**: 严格遵循已批准的核心主标题与关键分论点。\n"
     "- **精确表达**: 保留显示文案、事实、数字、单位、限定词与来源。\n"
@@ -72,6 +75,11 @@ class TemplateCreativeReformTest(unittest.TestCase):
         self.assertNotIn("[[EFFECTIVE_PAGE_SPECIFICATION]]", grammar)
         self.assertNotIn("Exactly two replacement domains", grammar)
 
+    def test_byte_grammar_rule_count_wording_cannot_drift(self):
+        grammar = read_text(skill_root() / "references" / "generation-prompt-byte-grammar.md")
+        self.assertIn("all rules below", grammar)
+        self.assertNotRegex(grammar, r"\ball \d+ rules\b")
+
     def test_byte_grammar_new_payload_keys(self):
         grammar = read_text(skill_root() / "references" / "generation-prompt-byte-grammar.md")
         self.assertIn("style_baseline_snapshot_id", grammar)
@@ -94,6 +102,155 @@ class TemplateCreativeReformTest(unittest.TestCase):
         self.assertIn("theme.json", path_doc)
         self.assertNotIn("必须先持久化", path_doc)
         self.assertNotIn("有效页面规格", path_doc)
+
+    def test_visual_projection_authority_is_direct_compile_only(self):
+        runtime_files = (
+            skill_root() / "references" / "visual-brief-and-generation.md",
+        )
+        forbidden = (
+            "[[EFFECTIVE_PAGE_SPECIFICATION]]",
+            "有效页面规格（唯一动态内容）",
+            "visual_brief_snapshot_id",
+            "visual-brief assembler",
+            "fully render-ready effective page specification",
+        )
+        for path in runtime_files:
+            with self.subTest(path=path):
+                text = read_text(path)
+                for token in (
+                    "唯一投影权威",
+                    "已批准故事板",
+                    "theme.json",
+                    "visual_revision-<N>",
+                    "[[CANONICAL_NARRATIVE_BULLETS]]",
+                    "[[STYLE_BASELINE]]",
+                    "generation-prompts/<slide-id>.md",
+                ):
+                    self.assertIn(token, text)
+                for token in forbidden:
+                    self.assertNotIn(token, text)
+
+    def test_active_runtime_authorities_have_no_effective_or_visual_brief_pipeline(self):
+        active_paths = (
+            skill_root() / "SKILL.md",
+            skill_root() / "references" / "artifact-contract.md",
+            skill_root() / "references" / "design-system.md",
+            skill_root() / "references" / "generation-prompt-byte-grammar.md",
+            skill_root() / "references" / "layout-catalog.md",
+            skill_root() / "references" / "qa-and-revision.md",
+            skill_root() / "references" / "redesign-prompt.md",
+            skill_root() / "references" / "visual-brief-and-generation.md",
+            skill_root() / "references" / "workflow.md",
+        )
+        forbidden = (
+            "[[EFFECTIVE_PAGE_SPECIFICATION]]",
+            "有效页面规格（唯一动态内容）",
+            "visual_brief_snapshot_id",
+            "visual-brief assembler",
+            "visual brief owner",
+            "每份后续 visual brief",
+            "visual brief provenance",
+            "visual brief／QA owner",
+            "已更新 brief",
+            "全部 visual brief",
+            "theme、visual briefs",
+            "逐页视觉 brief 与生成",
+            "theme.json` 与 visual brief",
+            "每份 brief 完全一致",
+            "重建 theme 和受影响 visual briefs",
+        )
+        texts = {path: read_text(path) for path in active_paths}
+        combined = "\n".join(texts.values())
+        for token in forbidden:
+            with self.subTest(token=token):
+                self.assertNotIn(token, combined)
+        self.assertEqual(combined.count(".ppt-pilot/visual-briefs/"), 1)
+        for path, text in texts.items():
+            for paragraph in re.split(r"\n\s*\n", text):
+                if ".ppt-pilot/visual-briefs/" not in paragraph:
+                    continue
+                with self.subTest(path=path):
+                    for token in (
+                        "创建",
+                        "更新",
+                        "重建",
+                        "读取输入",
+                        "校验快照",
+                        "owner",
+                        "assembler",
+                    ):
+                        self.assertNotIn(token, paragraph)
+
+    def test_internal_source_ids_are_machine_only_across_generation_contract(self):
+        for visible_text in (
+            "来源：SRC-001 · SRC-002",
+            "Source: SRC-003",
+            "SRC-005",
+        ):
+            self.assertRegex(visible_text, VISIBLE_INTERNAL_SOURCE_ID)
+
+        documents = (
+            skill_root() / "references" / "generation-prompt-template.md",
+            skill_root() / "references" / "generation-prompt-byte-grammar.md",
+            skill_root() / "references" / "qa-and-revision.md",
+            skill_root() / "references" / "svg-contract.md",
+        )
+        combined = "\n".join(read_text(path) for path in documents)
+        for path in documents:
+            text = read_text(path)
+            with self.subTest(path=path):
+                self.assertIn("SRC-<digits>", text)
+                self.assertIn("data-source-id", text)
+        self.assertIn("明确请求", combined)
+        self.assertIn("人类可读", combined)
+        self.assertNotIn(
+            "页脚来源行必须存在",
+            read_text(documents[0]),
+        )
+
+        example_path = skill_root() / "assets" / "examples" / "office-safe-slide.svg"
+        example_root = ET.fromstring(example_path.read_bytes())
+        visible = " ".join(
+            "".join(element.itertext())
+            for element in example_root.iter()
+            if isinstance(element.tag, str)
+            and element.tag.rsplit("}", 1)[-1] == "text"
+        )
+        self.assertNotRegex(visible, VISIBLE_INTERNAL_SOURCE_ID)
+        self.assertTrue(
+            any(
+                element.attrib.get("data-source-id") == "SRC-001"
+                for element in example_root.iter()
+            )
+        )
+
+    def test_old_visual_briefs_are_one_inert_history_sentence(self):
+        runtime_files = (
+            skill_root() / "references" / "visual-brief-and-generation.md",
+        )
+        for path in runtime_files:
+            with self.subTest(path=path):
+                text = read_text(path)
+                self.assertEqual(text.count(".ppt-pilot/visual-briefs/"), 1)
+                paragraphs = [
+                    paragraph
+                    for paragraph in re.split(r"\n\s*\n", text)
+                    if ".ppt-pilot/visual-briefs/" in paragraph
+                ]
+                self.assertEqual(len(paragraphs), 1)
+                paragraph = paragraphs[0]
+                for token in ("惰性", "只读", "不参与"):
+                    self.assertIn(token, paragraph)
+                for token in (
+                    "创建",
+                    "更新",
+                    "重建",
+                    "读取输入",
+                    "校验快照",
+                    "owner",
+                    "assembler",
+                ):
+                    self.assertNotIn(token, paragraph)
 
     def test_artifact_contract_no_new_brief_requirement(self):
         contract = read_text(skill_root() / "references" / "artifact-contract.md")
@@ -202,7 +359,7 @@ FALLBACK_IDENTITIES = {
 
 REQUIRED_IDENTITY_CASE_IDS = (
     "valid-complete-style-pack-identity",
-    "missing-brief-id-rebuilds",
+    "missing-prompt-id-rebuilds",
     "missing-theme-id-rebuilds",
     "missing-both-ids-conflicts-without-owner",
     "missing-both-ids-rebuilds-from-persisted-owner",
@@ -210,8 +367,8 @@ REQUIRED_IDENTITY_CASE_IDS = (
     "missing-non-id-fields-rebuilds-with-backfill",
     "stale-display-name-is-ordinary-stale",
     "stale-version-is-ordinary-stale",
-    "brief-theme-display-name-conflict",
-    "brief-theme-manifest-version-conflict",
+    "prompt-theme-display-name-conflict",
+    "prompt-theme-manifest-version-conflict",
     "direct-style-id-conflict",
     "legacy-version-non-none-conflicts",
     "fallback-minimal-business-valid",
@@ -250,9 +407,9 @@ REQUIRED_IDENTITY_CASE_IDS = (
 OPERATION_MATRIX = {
     "initial_generation": {
         "mode": "recompose",
-        "trigger": "initial:<slide-id>:<visual_brief_snapshot_id>",
-        "reason": "initial generation from approved visual brief",
-        "user_page_request": "initial generation from approved visual brief",
+        "trigger": "initial:<slide-id>:<storyboard_snapshot_id>",
+        "reason": "initial generation from approved storyboard and theme",
+        "user_page_request": "none (initial generation)",
         "prior_candidate": "none",
         "compile_full_prompt": True,
     },
@@ -502,6 +659,17 @@ METADATA_FIELD_ORDER = (
     "format",
 )
 
+COMPILED_PROMPT_SEPARATOR = b"## Compiled Prompt\n\n"
+
+
+def split_generation_prompt_envelope(envelope: bytes) -> tuple[bytes, bytes]:
+    if envelope.count(COMPILED_PROMPT_SEPARATOR) != 1:
+        raise ValueError("prompt_preflight_invalid")
+    prefix, body = envelope.split(COMPILED_PROMPT_SEPARATOR, 1)
+    if not body.startswith(b"# Role") or not body.endswith(b"\n") or body.endswith(b"\n\n"):
+        raise ValueError("prompt_preflight_invalid")
+    return prefix, body
+
 
 def _provenance_value_text(value):
     if isinstance(value, list):
@@ -520,11 +688,17 @@ def render_generation_prompt(metadata: dict, body: bytes, slide_id=None) -> byte
         if "\n" in serialized or "\r" in serialized:
             raise ValueError("prompt_snapshot_conflict")
     validate_compiled_prompt_body(body)
-    body_bytes = body if body.endswith(b"\n") else body + b"\n"
-    lines = ["# " + slide_id + " 页面生成 Prompt", "", "## Snapshot metadata"]
-    lines.extend(f"- **{field}**：{_provenance_value_text(metadata[field])}" for field in METADATA_FIELD_ORDER)
-    lines.extend(["", "## Compiled Prompt", ""])
-    return ("\n".join(lines).encode("utf-8") + body_bytes)
+    metadata_lines = ["# " + slide_id + " 页面生成 Prompt", "", "## Snapshot metadata"]
+    metadata_lines.extend(
+        f"- **{field}**：{_provenance_value_text(metadata[field])}"
+        for field in METADATA_FIELD_ORDER
+    )
+    prefix = ("\n".join(metadata_lines) + "\n\n").encode("utf-8")
+    envelope = prefix + COMPILED_PROMPT_SEPARATOR + body
+    _, persisted_body = split_generation_prompt_envelope(envelope)
+    if sha256_id(persisted_body) != sha256_id(body):
+        raise ValueError("prompt_snapshot_conflict")
+    return envelope
 
 def _revision_edge_sort_key(edge: str) -> tuple[int, str]:
     earlier_id, field = edge.split(":", 1)
@@ -621,9 +795,9 @@ def project_active_visual_revisions(payload: dict) -> tuple[list[str], bytes]:
 def derive_style_identity_backfill(case: dict):
     owner = _merged_case_section(case, "persisted_operation_owner")
     default_identity = _merged_case_section(case, "identity") or {}
-    brief = copy.deepcopy(case.get("brief_identity", default_identity))
+    prompt = copy.deepcopy(case.get("prompt_identity", default_identity))
     theme = copy.deepcopy(case.get("theme_identity", default_identity))
-    ids = [value for value in (brief.get("selected_style_id"), theme.get("selected_style_id")) if value]
+    ids = [value for value in (prompt.get("selected_style_id"), theme.get("selected_style_id")) if value]
     if len(set(ids)) > 1:
         return None
     if ids:
@@ -670,9 +844,9 @@ def _operation_owner_is_valid(case: dict, owner) -> bool:
 
     if intent == "initial_generation":
         return (
-            re.fullmatch(r"initial:[^:]+:sha256:[^:]+", trigger) is not None
-            and owner.get("reason") == "initial generation from approved visual brief"
-            and owner.get("user_page_request") == "initial generation from approved visual brief"
+            re.fullmatch(r"initial:S[0-9]+:sha256:[0-9a-f]{64}", trigger) is not None
+            and owner.get("reason") == "initial generation from approved storyboard and theme"
+            and owner.get("user_page_request") == "none (initial generation)"
             and owner.get("prior_candidate") == "none"
         )
 
@@ -718,7 +892,7 @@ def evaluate_style_identity_case(case: dict) -> str:
     if owner.get("stored_body_hash_64hex") and owner.get("current_body_hash_64hex") and owner["stored_body_hash_64hex"] != owner["current_body_hash_64hex"]:
         return "prompt_snapshot_conflict"
     default_identity = _merged_case_section(case, "identity") or {}
-    brief = copy.deepcopy(case.get("brief_identity", default_identity))
+    prompt = copy.deepcopy(case.get("prompt_identity", default_identity))
     theme = copy.deepcopy(case.get("theme_identity", default_identity))
     for field in (
         "selected_style_id",
@@ -726,24 +900,24 @@ def evaluate_style_identity_case(case: dict) -> str:
         "style_kind",
         "style_manifest_version",
     ):
-        brief_value = brief.get(field)
+        prompt_value = prompt.get(field)
         theme_value = theme.get(field)
-        if brief_value is not None and theme_value is not None and brief_value != theme_value:
+        if prompt_value is not None and theme_value is not None and prompt_value != theme_value:
             return "prompt_snapshot_conflict"
-    brief_id = brief.get("selected_style_id")
+    prompt_id = prompt.get("selected_style_id")
     theme_id = theme.get("selected_style_id")
-    if not brief_id and not theme_id:
+    if not prompt_id and not theme_id:
         return "rebuild" if derive_style_identity_backfill(case) else "prompt_snapshot_conflict"
-    if brief_id and theme_id and brief_id != theme_id:
+    if prompt_id and theme_id and prompt_id != theme_id:
         return "prompt_snapshot_conflict"
-    style_id = brief_id or theme_id
+    style_id = prompt_id or theme_id
     canonical = _canonical_identity_for_style(case, style_id)
     if canonical is None:
         return "rebuild"
 
-    rebuild = not brief_id or not theme_id
+    rebuild = not prompt_id or not theme_id
     stale = False
-    for side in (brief, theme):
+    for side in (prompt, theme):
         for key, value in canonical.items():
             existing = side.get(key)
             if existing is None:
@@ -1358,6 +1532,53 @@ class RedesignPromptContractTests(unittest.TestCase):
             self.assertNotIn(raw_history_json, surface)
             self.assertNotIn("USER_WORDING", surface)
 
+    def test_compiled_prompt_separator_is_exactly_two_lf(self):
+        payload = self._load_generation_prompt_snapshot_payload()
+        rendered = self._render_generation_prompt_fixture(payload)
+        self.assertEqual(rendered["envelope"].count(COMPILED_PROMPT_SEPARATOR), 1)
+        prefix, body = split_generation_prompt_envelope(rendered["envelope"])
+        self.assertTrue(prefix.endswith(b"\n"))
+        self.assertTrue(body.startswith(b"# Role"))
+        self.assertEqual(rendered["compiled_prompt_sha256"], sha256_id(body))
+
+    def test_compiled_prompt_separator_rejects_fused_single_and_triple_lf(self):
+        payload = self._load_generation_prompt_snapshot_payload()
+        envelope = self._render_generation_prompt_fixture(payload)["envelope"]
+        invalid = (
+            envelope.replace(COMPILED_PROMPT_SEPARATOR, b"## Compiled Prompt"),
+            envelope.replace(COMPILED_PROMPT_SEPARATOR, b"## Compiled Prompt\n"),
+            envelope.replace(COMPILED_PROMPT_SEPARATOR, b"## Compiled Prompt\n\n\n"),
+            envelope.replace(COMPILED_PROMPT_SEPARATOR, COMPILED_PROMPT_SEPARATOR * 2),
+        )
+        for candidate in invalid:
+            with self.subTest(candidate=candidate[:80]):
+                with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
+                    split_generation_prompt_envelope(candidate)
+
+    def test_compiled_prompt_separator_rejects_invalid_body_boundaries(self):
+        prefix = b"# S05 page generation Prompt\n\n"
+        invalid_bodies = (
+            b"Role without hash\n",
+            b"# Not Role\n",
+            b"# Role without terminal LF",
+            b"# Role with two terminal LF\n\n",
+        )
+        for body in invalid_bodies:
+            with self.subTest(body=body):
+                with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
+                    split_generation_prompt_envelope(prefix + COMPILED_PROMPT_SEPARATOR + body)
+
+    def test_generation_prompt_fixture_is_a_full_byte_oracle(self):
+        payload = self._load_generation_prompt_snapshot_payload()
+        rendered = self._render_generation_prompt_fixture(payload)
+        expected = payload["expected"]
+        self.assertEqual(base64.b64decode(expected["body_base64"]), rendered["body"])
+        self.assertEqual(base64.b64decode(expected["envelope_base64"]), rendered["envelope"])
+        self.assertEqual(expected["body_utf8"].encode("utf-8"), rendered["body"])
+        self.assertEqual(expected["envelope_utf8"].encode("utf-8"), rendered["envelope"])
+        self.assertEqual(expected["body_sha256"], sha256_id(rendered["body"]))
+        self.assertEqual(expected["full_file_sha256"], sha256_id(rendered["envelope"]))
+
     def test_generation_prompt_snapshot_matches_golden_fixture(self):
         payload = self._load_generation_prompt_snapshot_payload()
         rendered = self._render_generation_prompt_fixture(payload)
@@ -1430,7 +1651,9 @@ class RedesignPromptContractTests(unittest.TestCase):
     def test_template_snapshot_mutation_invalidates_prompt_and_transaction(self):
         payload = self._load_generation_prompt_snapshot_payload()
         baseline = self._render_generation_prompt_fixture(payload)
-        mutated_template = b"\n" + _canonical_template_bytes()
+        mutated_template = _canonical_template_bytes().replace(
+            b"# Role:", b"# Role: changed ", 1
+        )
         with mock.patch.object(
             sys.modules[__name__],
             "_canonical_template_bytes",
@@ -1529,8 +1752,8 @@ class RedesignPromptContractTests(unittest.TestCase):
             "missing-non-id-fields-rebuilds-with-backfill": "rebuild",
             "stale-display-name-is-ordinary-stale": "ordinary_stale",
             "stale-version-is-ordinary-stale": "ordinary_stale",
-            "brief-theme-display-name-conflict": "prompt_snapshot_conflict",
-            "brief-theme-manifest-version-conflict": "prompt_snapshot_conflict",
+            "prompt-theme-display-name-conflict": "prompt_snapshot_conflict",
+            "prompt-theme-manifest-version-conflict": "prompt_snapshot_conflict",
             "direct-style-id-conflict": "prompt_snapshot_conflict",
             "legacy-version-non-none-conflicts": "prompt_snapshot_conflict",
             "stored-body-mismatch-conflicts": "prompt_snapshot_conflict",
@@ -1747,7 +1970,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             "repository bytes 唯一派生",
             "prompt_snapshot_conflict",
             "Transaction 创建前的无副作用 preflight",
-            "确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入",
+            "确定性 preflight 或 capability 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入",
         ):
             with self.subTest(reference="artifact", token=token):
                 self.assertIn(token, artifact)
@@ -1945,9 +2168,10 @@ class RedesignPromptContractTests(unittest.TestCase):
         )
         for token in (
             "首次生成",
-            "所有页面",
+            "已批准故事板",
+            "theme.json",
             "generation-prompts/<slide-id>.md",
-            "不得由 visual brief 直接生成",
+            "只授予编译后的 Prompt",
             "fresh",
             "独立",
         ):
@@ -1962,14 +2186,16 @@ class RedesignPromptContractTests(unittest.TestCase):
         self.assertTrue(self.prompt_fixture.exists())
         text = read_text(self.prompt_fixture)
         for token in (
+            "storyboard",
+            "theme",
             "generation-prompts/S07.md",
-            "visual-briefs/S07.md",
             "recompose",
             "path + A",
             "only fenced SVG",
             "slides/S07.svg",
         ):
             self.assertIn(token, text)
+        self.assertNotIn("visual-briefs/S07.md", text)
 
     def test_active_style_contract_has_no_style_owned_prompt_authority(self):
         combined = "\n".join(

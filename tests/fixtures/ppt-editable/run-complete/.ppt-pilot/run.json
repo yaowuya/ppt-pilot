@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "deck_id": "fixture-deck",
+  "stage": "complete",
+  "anchor_generation": {
+    "anchors": ["S01"],
+    "records": [
+      {"slide_id": "S01", "output": "samples/S01.svg"}
+    ]
+  }
+}

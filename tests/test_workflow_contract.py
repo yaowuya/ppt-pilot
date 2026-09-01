@@ -428,6 +428,29 @@ class WorkflowContractTests(unittest.TestCase):
             "inline fallback",
         ):
             self.assertIn(token, revise)
+    def test_production_resume_and_revision_use_batch_pointer_per_slide_state(self):
+        workflow = read_text(self.workflow_path)
+        artifact = read_text(self.contract_path)
+        qa = read_text(self.qa_path)
+        combined = "\n".join((workflow, artifact, qa))
+        for token in (
+            "active_visual_generation_batch",
+            ".ppt-pilot/visual-generation-transactions/<slide-id>-<tx64>.json",
+            ".ppt-pilot/visual-generation-batches/<batch-id>.json",
+            "candidate_written",
+            "ordered_slide_ids",
+            "fact_source_mismatch",
+            "previous final",
+            "pointer-only",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, combined)
+        self.assertIn("patch` 必须读取", qa)
+        self.assertIn("当前 SVG", qa)
+        self.assertIn("旧 SVG 不得提供给 `recompose`", qa)
+        self.assertIn("事实、主张、来源", qa)
+        self.assertIn("文稿批准失效", qa)
+        self.assertIn("schema-v1 singular transaction 先零模型调用迁移", qa)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {"id": "production-wins", "expected": "production"},
+    {"id": "approved-anchor-fallback", "expected": "approved_anchor"},
+    {"id": "unapproved-sample", "reason": "slide_set_invalid"},
+    {"id": "missing-page", "reason": "slide_set_invalid"},
+    {"id": "extra-page", "reason": "slide_set_invalid"},
+    {"id": "ambiguous-run", "reason": "run_ambiguous"},
+    {"id": "unsafe-source", "reason": "source_path_unsafe"}
+  ]
+}

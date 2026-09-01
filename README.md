@@ -1,46 +1,57 @@
 # PPT Pilot
 
-PPT Pilot 是一个可同时用于 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植、纯指令 Agent Skill。它通过工作区中的持久产物开发有证据支撑的 16:9 演示文稿，并把每页幻灯片交付为独立 SVG 文件。
+PPT Pilot 是一个可同时用于 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植 Agent Skill 包：`ppt-start` 生成有证据支撑的 16:9 独立 SVG 演示；`ppt-editable` 把完成运行转换为递归分组、原生可编辑文本/形状的 PowerPoint，并在 Microsoft PowerPoint 能力可用时完成 Office/视觉验证，否则明确交付 `GENERATED_UNVERIFIED` 结果。
 
-MVP 不强制依赖 MCP 服务、SDK、Hook、后台服务、运行时软件包或外部审稿服务。Python 只用于本仓库的一致性测试；安装后的 Skill 直接使用宿主已有的文件、研究、委派与检查能力。仓库另提供可选伴随工具（`tools/`，见[可选伴随工具与交付组装](#可选伴随工具与交付组装)），它们随仓库分发，不属于安装后的 Skill。
+`ppt-start` 不强制依赖 MCP、SDK、Hook、后台服务或运行时软件包；`ppt-editable` 随 Skill 打包 Python/PowerShell 转换与验证脚本，检查依赖但不自动安装。仓库另提供可选伴随工具（`tools/`，见[可选伴随工具与交付组装](#可选伴随工具与交付组装)）。
+
+## Skill inventory
+
+| Skill | 输入 | 主要交付 | 显式调用 |
+|---|---|---|---|
+| [`ppt-start`](skills/ppt-start/) | 主题、资料或既有 PPT Pilot 运行 | 独立 Office-safe SVG 演示 | Claude `/ppt-start` · Codex `$ppt-start` · DeepSeek `ppt-start` |
+| [`ppt-editable`](skills/ppt-editable/) | 一个已完成的 PPT Pilot SVG 运行 | 原生可编辑、递归分组且有验证证据的 PPTX | Claude `/ppt-editable` · Codex `$ppt-editable` · DeepSeek `ppt-editable` |
 
 ## 能做什么
 
-统一工作流如下：
+`ppt-start` 的统一生成工作流如下：
 
 1. 规范化需求简报，并按需研究；
 2. 编写结论先行的大纲与逐页故事板；
 3. 优先在全新子 Agent／上下文中执行文稿审查；委派失败时由当前步骤执行正式降级审查；
-4. 确定 deck-scoped 主题，并为每页把批准 outline/storyboard/theme 与视觉修订组装成完全 render-ready 的 effective visual brief；
-5. 在内存验证 effective brief 与修订投影，从唯一 repository template 恰好编译两个 canonical replacements 并完成无副作用 preflight；
-6. preflight 成功后创建 transaction、持久化并复读 generation prompt，再由 fresh generator 逐页生成 Office-safe SVG 候选；
-7. 执行候选 hash、单页与整套演示文稿 QA，验证后安全提升；
+4. 确定 deck-scoped 主题，把批准故事板拥有的叙事／素材／事实／来源与 `theme.json` 的软风格基线直接投影为两个 canonical replacement；
+5. 从唯一 repository `generation-prompt-template.md` 编译 byte-exact `creative-brief-v1` Prompt，并完成无副作用 preflight 与宿主能力协商；
+6. 能力通过后以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 与 `active_visual_generation_batch`；使用 `prompt_by_value` 向 fresh isolated generator 派发，默认 `batch_width: 4`；
+7. generator 与每页 validation 可并发，coordinator 按 `ordered_slide_ids` 串行提交 candidate/final、visible blocker 和 pointer；
 8. 从文件化状态恢复运行或进行局部修订。
+
+活动视觉路径是：**故事板 + `theme.json` 直接编译** → 两个 replacement → `creative-brief-v1` Prompt → schema-v2 batch → isolated generation/validation → ordered serial publication。旧 visual briefs 只属于迁移历史，不是新运行产物或 owner。
 
 `BLOCKER` 或 `HIGH` 级问题只有在后续正式审查 round 提供冻结证据并标记为 `RESOLVED` 后才可放行；`OPEN` 与阻断级 `ACCEPTED_RISK` 都继续阻断。每轮先尝试具有真实宿主证据的独立子 Agent；启动或结果归因失败时，不空等，而是在当前步骤持久化 `inline_fallback` 并执行同一严格审查。inline PASS 可以进入 `manuscript_approved`，但报告必须声明“当前上下文降级审查，不具备独立上下文隔离”，不能冒充独立审查。subagent 与 inline 轮次共同受每 cycle 三轮上限约束；被阻断周期不能借模式切换或“新周期”绕过上限。
 
-## 安装同一份标准 Skill
+## 安装两份标准 Skills
 
-技能启动标识：`ppt-start`
+技能启动标识：`ppt-start`、`ppt-editable`
 
-请复制或创建符号链接来安装完整的 [`skills/ppt-start`](skills/ppt-start/) 目录，不要拆分其中的 `SKILL.md`、`references/` 与 `assets/`。
+推荐使用 `tools/update-hosts.ps1` 同时安装完整的 [`skills/ppt-start`](skills/ppt-start/) 与 [`skills/ppt-editable`](skills/ppt-editable/)；不要拆分任一 Skill 的 `SKILL.md`、`references/`、`assets/` 或 `scripts/`。
 
 ### Claude Code
 
-- 用户级安装：`~/.claude/skills/ppt-start/`
-- 项目级安装：`.claude/skills/ppt-start/`
-- 显式启动命令：`/ppt-start`
+- 用户级安装：`~/.claude/skills/ppt-start/`、`~/.claude/skills/ppt-editable/`
+- 项目级安装：`.claude/skills/ppt-start/`、`.claude/skills/ppt-editable/`
+- 显式启动命令：`/ppt-start`、`/ppt-editable`
 
 用户级复制示例：
 
 ```bash
 cp -R skills/ppt-start ~/.claude/skills/ppt-start
+cp -R skills/ppt-editable ~/.claude/skills/ppt-editable
 ```
 
 项目级符号链接示例：
 
 ```bash
 ln -s ../../skills/ppt-start .claude/skills/ppt-start
+ln -s ../../skills/ppt-editable .claude/skills/ppt-editable
 ```
 
 调用示例：
@@ -48,24 +59,29 @@ ln -s ../../skills/ppt-start .claude/skills/ppt-start
 ```text
 /ppt-start
 请根据 inputs/ 中的资料制作一份 10 页中文策略演示文稿，使用 guided 模式。
+
+/ppt-editable
+请把 ppt-output/example-deck/ 的完成运行转换为原生可编辑 PowerPoint。
 ```
 
 ### OpenAI Codex
 
-- 用户级安装：`$HOME/.agents/skills/ppt-start/`
-- 项目级安装：`.agents/skills/ppt-start/`
-- 显式启动命令：`$ppt-start`
+- 用户级安装：`$HOME/.agents/skills/ppt-start/`、`$HOME/.agents/skills/ppt-editable/`
+- 项目级安装：`.agents/skills/ppt-start/`、`.agents/skills/ppt-editable/`
+- 显式启动命令：`$ppt-start`、`$ppt-editable`
 
 用户级复制示例：
 
 ```bash
 cp -R skills/ppt-start "$HOME/.agents/skills/ppt-start"
+cp -R skills/ppt-editable "$HOME/.agents/skills/ppt-editable"
 ```
 
 项目级符号链接示例：
 
 ```bash
 ln -s ../../skills/ppt-start .agents/skills/ppt-start
+ln -s ../../skills/ppt-editable .agents/skills/ppt-editable
 ```
 
 调用示例：
@@ -73,6 +89,9 @@ ln -s ../../skills/ppt-start .agents/skills/ppt-start
 ```text
 $ppt-start
 请从 ppt-output/example-deck/ 恢复运行并继续生成 SVG。
+
+$ppt-editable
+请将该完成运行转换为可编辑 PPTX，并保留递归分组和备注。
 ```
 
 ### DeepSeek Harness
@@ -83,14 +102,15 @@ $ppt-start
 powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1 -ProjectClaude -ProjectCodex
 ```
 
-脚本按 harness 插件约定安装到 `$HOME/.agents/plugins/plugins/ppt-pilot/`（含 `.codex-plugin/plugin.json` 与完整 `skills/ppt-start/`），并同步更新 Claude Code（`$HOME/.claude/skills/ppt-start/`）与 Codex（`$HOME/.agents/skills/ppt-start/`）；旧版自动备份，可重复运行升级。仅需单独更新 DeepSeek 时可用 `tools/install-deepseek-plugin.ps1`。
+脚本按 harness 插件约定安装到 `$HOME/.agents/plugins/plugins/ppt-pilot/`（一个插件、完整 `skills/ppt-start/` 与 `skills/ppt-editable/`），并同步更新 Claude Code 与 Codex 的两个 Skill；旧版按 Skill ID 备份到扫描根之外并各保留最近一份。仅需单独更新 DeepSeek 时可用 `tools/install-deepseek-plugin.ps1`。
 
-手动安装则遵循 agents 标准布局：用户级 `$HOME/.agents/skills/ppt-start/`，项目级 `.agents/skills/ppt-start/`；若所用 harness 版本不扫描这些目录，则把 `SKILL.md` 全文粘贴进其 `AGENTS.md`／系统提示层，并把 `references/` 与 `assets/` 复制到同一工作区可访问位置。
+手动安装时，用户级/项目级 agents 根下分别复制 `skills/ppt-start/` 与完整的 `skills/ppt-editable/`。若 harness 不扫描这些目录，两个 Skill 的 `SKILL.md`、`references/`、`assets/` 与 `scripts/` 都必须保持相对结构并置于工作区可访问位置；不能只粘贴 ppt-start 或漏掉 ppt-editable 脚本。
 
 用户级复制示例：
 
 ```bash
 cp -R skills/ppt-start "$HOME/.agents/skills/ppt-start"
+cp -R skills/ppt-editable "$HOME/.agents/skills/ppt-editable"
 ```
 
 调用示例（DeepSeek harness 无统一斜杠命令约定，使用显式启动词）：
@@ -98,6 +118,9 @@ cp -R skills/ppt-start "$HOME/.agents/skills/ppt-start"
 ```text
 ppt-start
 请根据 inputs/ 中的资料制作一份 10 页中文策略演示文稿，使用 auto 模式。
+
+ppt-editable
+请把 ppt-output/example-deck/ 转换为经验证的原生可编辑 PowerPoint。
 ```
 
 说明：
@@ -105,7 +128,7 @@ ppt-start
 - 若 harness 提供子代理／委派原语，文稿审查按契约优先独立 subagent；未提供时自动走已定义的 `inline_fallback` 正式降级审查，报告会声明“当前上下文降级审查”；
 - 技能发现与启动语法的最终行为以真实宿主验证为准，见[验收文档](docs/acceptance.md)的 DeepSeek Harness 行（当前全部 `PENDING`）。
 
-符号链接是否可用取决于操作系统和宿主沙箱；无法使用时请改为复制，并始终把本仓库的 `skills/ppt-start/` 视为标准源。
+符号链接是否可用取决于操作系统和宿主沙箱；无法使用时请改为复制，并始终把本仓库的 `skills/ppt-start/` 与 `skills/ppt-editable/` 视为标准源。
 
 ## 使用方式
 
@@ -119,7 +142,7 @@ Skill 可接收主题、完整简报、资料集合、既有运行目录或定�
 入口动作：
 
 - **new**：创建新运行并把所选执行策略写入 `run.json.mode`；
-- **resume**：先读取 `run.json`，按 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan` 恢复；保留既有 `run.json.mode`；
+- **resume**：先读取 `run.json`，按 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > schema-v1 visual_generation_transaction migration > active_visual_generation_batch > stage scan` 恢复；保留既有 `run.json.mode`；
 - **revise**：保留既有 `run.json.mode`，先完成同一 durable control chain，再使受影响产物失效；事实、来源、主张、大纲或故事板变化必须重新进行正式文稿审查。
 
 `run.json.mode` 只保存 `guided` 或 `auto`，不保存 `new`、`resume` 或 `revise`。
@@ -153,21 +176,15 @@ Skill 先检查请求和工作区，已有答案不得重复询问。剩余重�
 
 `auto` 只跳过可选偏好和批准，不能自行获得网络传输、机密披露或其他用户权限。没有安全默认值的业务决策仍会产生一个阻塞问题。
 
-### 逐页视觉 brief 与修订
+### 页面直接编译、schema-v2 并发与修订
 
-主题确认后，PPT Pilot 为每个待生成或待修订页面创建 `.ppt-pilot/visual-briefs/<slide-id>.md`。effective visual brief 是已经完全解析、可直接渲染的页面规格和 prompt compiler 输入：它机械锁定批准 storyboard blocks，并最终确定信息层级、block-to-region 映射、布局/卡片/连接关系、颜色值、字体、间距、形状、容量、输出与 QA。它不得把任何决定留给 generator，也不得直接交给 generator。首次生成、`recompose` 和确定性回退必须先从唯一 repository `generation-prompt-template.md` 在内存恰好替换 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[EFFECTIVE_PAGE_SPECIFICATION]]`；完成全部确定性 preflight 后才创建 transaction 并写 `.ppt-pilot/generation-prompts/<slide-id>.md`。fresh generator 只接收复读 hash 一致的 durable prompt。SVG 是派生结果，不是设计状态。
+主题确认后，每个页面直接从故事板拥有的 narrative/material/facts/claims/source mappings 与 `theme.json` 拥有的 style identity/soft baseline 编译。唯一 repository `generation-prompt-template.md` 只允许 whole-line `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]` 两个 replacement；持久 envelope 的 `format` 精确为 `creative-brief-v1`。内部 `SRC-<digits>` 只保留在 `data-source-id`／trace 机器元数据，禁止成为可见文字；只有明确请求的人类可读来源名称／URL 可显示且必须省略内部 ID。
 
-局部碰撞、越界、令牌或对齐错误使用 `patch`；焦点、层级、布局、卡片密度、字体、语义色、品牌方向或视觉参考变化使用 `recompose`。`patch` 读取 complete effective brief、当前 SVG 和一个精确 defect；`recompose` 由 visual-brief assembler 从批准 outline/storyboard、deck theme 和权威 revisions 重新组装完全物化 brief，把修订 projection 恰好应用一次，再从空白构图。compiler 只重新推导并核对 projection/hash/effective fields，不重复应用修订；旧 SVG 不作为几何底稿。事实和来源变化仍必须重新进行正式文稿审查：优先 subagent，委派失败时 inline fallback。
+确定性 preflight 与宿主能力协商都在任何 durable 生产写入前完成。能力通过后，coordinator 以 pointer-last 顺序写 `.ppt-pilot/visual-generation-transactions/<slide-id>-<tx64>.json`、`.ppt-pilot/visual-generation-batches/<batch-id>.json`，最后发布 `run.json.active_visual_generation_batch`。默认 `batch_width: 4`，可配置 3；并发或 durable lookup 缺失时降为 width 1，非 Git 工作区不降级。隔离任务只接收完整 `prompt_by_value`，fresh history、filesystem none、tools none、text-only；没有 fresh isolation 时以 `generator_unavailable` 零 prompt/transaction/candidate 写入停止。
 
-已应用视觉决定以单调 `visual-revision-<N>` 保存在 `run.json.interaction_history`，后来的同字段规则显式标记 `supersedes`。visual-brief assembler 按 ID 顺序确定 active normalized projection，计算 deterministic hash，并把结果恰好一次写入最终 `effective_*` 字段；generation prompt 只保留 revision IDs/hash 与最终页面规格，绝不包含 raw answer 或 history JSON。`theme.json` 只拥有 deck theme/style；它不拥有 slide ID、generation intent/trigger、revision projection hash、prompt snapshot 或 transaction。
+generator 与 per-slide validation 可以并发，coordinator 独占 candidate/transaction/final 写入，并按 `ordered_slide_ids` 串行提交 promotion、最低 visible blocker 与 pointer。`patch` 只接收完整 direct-compile inputs、当前 SVG 与一个精确 defect；`recompose` 不接收旧 SVG，先把修订投影回故事板或 `theme.json` 再从空白构图。事实／来源变化使文稿批准失效。visible internal ID 在 validation commit 前以 `fact_source_mismatch` 阻断，previous final 与 sibling 保持。
 
-### 可选风格
-
-新安装从 `assets/styles/registry.json` 发现可选风格。三个既有扁平种子继续兼容；内置 rich style pack `canway-midyear-review` 的中文显示名为“嘉为年中总结风格”，当前内容版本为 `1.3.0`（纯白画布，品牌主蓝 `#156BFF` 为唯一强调蓝）。只有用户明确选择或主题阶段按既有 guided／auto 规则安全选中时使用，不是新的默认主题。
-
-风格资产只提供 deck-level identity、tokens 与 guidance，不拥有页面生成正文。所有内置风格都使用同一 repository `skills/ppt-start/references/generation-prompt-template.md`；风格包中的历史完整模板若仍存在，也永远不读取、不验证、不哈希，不参与 provenance、snapshot、stale 或 blocker。resolver 只验证 selected style、registry／manifest／路径与 token/guidance 资产，最终风格值由 assembler 写入 effective visual brief。
-
-`theme.json` 与每份 `.ppt-pilot/visual-briefs/<slide-id>.md` 的四个 style identity 字段必须一致；除此之外 `theme.json` 保持 deck-scoped。逐页 `generation_intent`、`generation_trigger_id`、revision projection hash、prompt snapshot 与 transaction 分别由 visual brief／generation prompt／`run.json` owner 持有。compiler 只以 canonical outline bullets 与 fully render-ready effective page specification 做两个 replacement；不注入 style-owned prompt body 或第三 revision fragment。确定性 preflight 全部在内存成功后才允许创建 `compiling` transaction、写/复读 prompt、进入 `compiled` 和 `generating`。失败必须保持零 transaction/prompt/generator/SVG writes；previous final、orphan candidate、candidate hash、QA 与 promotion 安全仍由 transaction 契约保护。旧 `.ppt-pilot/redesign-prompts/` 永远 inert。
+performance span 区分 compile/model/render/qa/promotion，并以 DAG longest path 与 batch wall time解释并发收益；telemetry 是非权威诊断，`telemetry_diagnostic_failed` 不能改变 correctness 或授权 promotion。Canway `canway-midyear-review`（“嘉为年中总结风格”）的 manifest 当前版本为 `1.3.0`；style pack 从 `assets/styles/registry.json` 发现且只提供 identity/tokens/guidance，运行时永远不读取、不验证、不哈希历史 style-owned full prompt。
 
 示例需求：
 
@@ -186,8 +203,9 @@ ppt-output/<deck-id>/
     ├── 简报.md / 研究.md / 来源.md
     ├── 故事板.md / 文稿审查.md
     ├── theme.json / 质量检查报告.md
-    ├── visual-briefs/<slide-id>.md
     ├── generation-prompts/<slide-id>.md
+    ├── visual-generation-transactions/<slide-id>-<tx64>.json
+    ├── visual-generation-batches/<batch-id>.json
     └── samples/
 ```
 
@@ -226,7 +244,7 @@ PPTX 组装需要交互式桌面会话中的真实 PowerPoint（与[验收文档
 
 受支持的 PowerPoint 版本可以插入静态 SVG，但 PPT Pilot 不保证所有 Office 版本与平台都能一致导入，也不保证转换后每个元素都完全可编辑。浏览器渲染和代表性 PowerPoint 导入仍属于人工验收项。
 
-Skill 本体不生成 PPTX、不导入既有 PowerPoint 模板、不搜索图库图片、不生成位图、不制作动画，也不创建演讲者备注。最后一公里交付由可选伴随工具 `tools/deck-deliver.ps1` 以本机 PowerPoint COM 自动化补齐（含从故事板自动生成的演讲者备注与 preview.html 联系表），不改变 Skill 的纯指令边界。
+`ppt-start` 本体不生成 PPTX、不导入既有 PowerPoint 模板、不搜索图库图片、不生成位图、不制作动画，也不创建演讲者备注。普通图片式最后一公里交付仍可用 `tools/deck-deliver.ps1`；需要递归分组、原生可编辑文本/形状、备注与证据化 Office 验证时，改用独立 `ppt-editable` Skill。
 
 ## 开发验证
 

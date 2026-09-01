@@ -8,8 +8,10 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def skill_root() -> Path:
-    return repo_root() / "skills" / "ppt-start"
+def skill_root(name: str = "ppt-start") -> Path:
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
+        raise ValueError("invalid skill name")
+    return repo_root() / "skills" / name
 
 
 def read_text(path: Path) -> str:

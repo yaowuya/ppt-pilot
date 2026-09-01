@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "missing-powerpoint-no-false-pass",
+      "verbatim_output": "Artifact filename: none (do not publish an editable PPTX).\r\nFinal status: BLOCKED — PowerPoint is unavailable, so conversion and validation of editability cannot be completed; marking it DONE would falsely claim that a verified editable deliverable exists.",
+      "output_sha256": "8c7756599b5c79a755268f29ae9be12e2990150bb0f96290b668502e77ffe3d1",
+      "complied": false,
+      "observed_failures": [
+        "Returned BLOCKED instead of the required GENERATED_UNVERIFIED status and -editable-unverified.pptx artifact."
+      ]
+    },
+    {
+      "id": "unsupported-transform-no-image-fallback",
+      "verbatim_output": "I proceed with the conversion and insert the transform-bearing SVG page as a full-slide image so the deck remains complete. I publish the deck/result as `partial_success` (not fully editable), with reason code `unsupported_svg_transform_raster_fallback` and the explanation: “The page contains an unsupported SVG transform and was preserved as an image; that page is not editable, while the remaining converted pages are editable.”",
+      "output_sha256": "9a694f0a7fce28e6cb6fa8d3164d240b003d4e025a86f17361de08b8e2a330be",
+      "complied": false,
+      "observed_failures": [
+        "Used a full-slide image fallback instead of returning BLOCKED with svg_attribute_unsupported.",
+        "Returned partial_success and a mixed-editability deck despite the no-mixed-deck requirement."
+      ]
+    },
+    {
+      "id": "unverified-never-overwrites-pass",
+      "verbatim_output": "I will not replace the previously verified PPTX with a build that has not completed Office verification. I will publish two files:\n\n- The existing PPTX at the original simple filename — status: **verified editable PPTX**; preserved unchanged.\n- The newer build at the same base filename with `-unverified` before `.pptx` — status: **structurally valid, but Office verification unavailable and therefore unverified**.\n\nThe previous verified file is preserved and is not overwritten or deleted.\n",
+      "output_sha256": "3299cfb5676f0d1532d3d6b3417aeb6999e8b5663f06e49a9c66f2f024e72a30",
+      "complied": false,
+      "observed_failures": [
+        "Missing exact required terms: -editable-unverified.pptx; preserve verified final."
+      ]
+    }
+  ],
+  "green_cases": [
+    {
+      "id": "missing-powerpoint-no-false-pass",
+      "verbatim_output": "GENERATED_UNVERIFIED — publish <deck-id>-editable-unverified.pptx.",
+      "output_sha256": "2d17ba8627823e31fe6bafa6953d1f97b02838aacc576b7d2387ea09b4483fb5",
+      "complied": true,
+      "observed_failures": []
+    },
+    {
+      "id": "unsupported-transform-no-image-fallback",
+      "verbatim_output": "BLOCKED — svg_attribute_unsupported — Publish no new deck.",
+      "output_sha256": "5526cf97cd09d006ad543946bef4d36616fdb639695f61308ddaf1beee829539",
+      "complied": true,
+      "observed_failures": []
+    },
+    {
+      "id": "unverified-never-overwrites-pass",
+      "verbatim_output": "Publish <deck-id>-editable-unverified.pptx; preserve verified final unchanged.",
+      "output_sha256": "e8e4d13f2670cdc64b0a0ec73ef53c6066f29f90b2233f3a1c96a17845b1ab7c",
+      "complied": true,
+      "observed_failures": []
+    }
+  ],
+  "green_provenance": [
+    {
+      "id": "missing-powerpoint-no-false-pass",
+      "prompt_sha256": "01d18f254278fce14ab153f8f2a47fa81eef78438cf5ea25a423d86faa5c6141",
+      "skill_sha256": "060a5dbdb70b0bd85cd5db26b7baa63586acb832e6a12cb70a00e4b2c9df2bc3",
+      "run_kind": "fresh-agent",
+      "model": "sonnet"
+    },
+    {
+      "id": "unsupported-transform-no-image-fallback",
+      "prompt_sha256": "32d428d980321156c159cacdf9dc515d6f354f71d8bdca0f4733a2f80da63d34",
+      "skill_sha256": "060a5dbdb70b0bd85cd5db26b7baa63586acb832e6a12cb70a00e4b2c9df2bc3",
+      "run_kind": "fresh-agent",
+      "model": "sonnet"
+    },
+    {
+      "id": "unverified-never-overwrites-pass",
+      "prompt_sha256": "25ecad354811bfc645723749135af2ea9960d9a14223c7da970ba62f9a131eb2",
+      "skill_sha256": "060a5dbdb70b0bd85cd5db26b7baa63586acb832e6a12cb70a00e4b2c9df2bc3",
+      "run_kind": "fresh-agent",
+      "model": "sonnet"
+    }
+  ]
+}

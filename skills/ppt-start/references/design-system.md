@@ -26,7 +26,7 @@
 
 ### 身份握手、ordinary stale 与 blocker
 
-`theme.json` 与 visual brief 必须记录并核对 selected style ID、display name、kind、manifest version。四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）必须在 `theme.json` 与每份 brief 完全一致；权威定义见[产物契约 Task 6](artifact-contract.md)。style-pack 的持久值还必须与当前 registry／manifest 精确一致；registry-backed legacy 的 version 必须是字符串 `none`；fallback 使用下方 fallback identity table 并同时匹配 seed `name`。missing fields 只能从 registry／manifest／fallback identity table 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。brief 与 theme 彼此冲突、legacy version 非 `none`、或多个 owner 声明不同 style 时，返回 `prompt_snapshot_conflict` 并写 `style_assets_unavailable` blocker。brief 与 theme 一致但安装升级导致当前 registry display name 或 manifest version 改变时，属于 ordinary stale：按现有 theme 失效规则返回 `theme`，重建 theme 和受影响 visual briefs，不写 blocker。历史模板文件的存在、路径或字节变化永远不是 identity、ordinary stale 或 snapshot 输入。
+`theme.json` 必须记录并核对 selected style ID、display name、kind、manifest version。四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）由 `theme.json` 权威拥有，并原样投影到 canonical prompt snapshot payload 与每页 generation owner；权威定义见[产物契约 Task 6](artifact-contract.md)。style-pack 的持久值还必须与当前 registry／manifest 精确一致；registry-backed legacy 的 version 必须是字符串 `none`；fallback 使用下方 fallback identity table 并同时匹配 seed `name`。missing fields 只能从 registry／manifest／fallback identity table 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。prompt provenance 与 theme 冲突、legacy version 非 `none`、或多个 owner 声明不同 style 时，返回 `prompt_snapshot_conflict` 并写 `style_assets_unavailable` blocker。持久身份与 theme 一致但安装升级导致当前 registry display name 或 manifest version 改变时，属于 ordinary stale：按现有 theme 失效规则返回 `theme`，重建 theme 和受影响 generation prompts，不写 blocker。历史模板文件的存在、路径或字节变化永远不是 identity、ordinary stale 或 snapshot 输入。
 
 ### 缺 registry fallback identity table
 
@@ -52,7 +52,7 @@ Traversal 顺序固定为：registry target 状态；registry duplicate；regist
 
 `theme.json` 记录所选种子、最终颜色、字体、间距、形状令牌、语言和已批准覆盖项。不得包含远程 URL 或机器绝对路径。生成或重建该文件时，必须从 `run.json.interaction_history` 恢复 `artifact_owner: theme.json` 的阶段产物镜像到 `user_revision_notes`；不得把 `theme.json` 当作锚点修订记录的唯一权威，也不得因主题失效覆盖或丢失权威交互历史。
 
-主题阶段解析当前有效主题后，直接把软风格基线（色板角色、字体栈、间距节奏、禁止母题）纳入编译输入，用于编译锚点与生产页面的 generation prompt；不再组装逐页 visual brief。
+主题阶段解析当前有效主题后，直接把软风格基线（色板角色、字体栈、间距节奏、禁止母题）纳入编译输入，用于编译锚点与生产页面的 generation prompt；不再创建逐页中间规格产物。
 
 主题归并使用固定优先级：
 

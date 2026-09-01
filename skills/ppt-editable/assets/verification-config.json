@@ -1,0 +1,10 @@
+{
+  "bounds_tolerance_px": 1.0,
+  "full_page_grayscale_mad_max": 4.0,
+  "geometry_only_grayscale_mad_max": 1.5,
+  "geometry_tile_mad_max": 8.0,
+  "geometry_tile_size": 64,
+  "render_height": 720,
+  "render_width": 1280,
+  "schema_version": 1
+}

@@ -1,0 +1,503 @@
+{
+  "schema_version": 1,
+  "default_batch_width": 4,
+  "case_ids": [
+    "native-concurrent-durable-lookup-width-4",
+    "remote-concurrent-durable-lookup-width-3",
+    "native-isolated-no-concurrency-width-1",
+    "native-isolated-no-lookup-width-1",
+    "non-git-workspace-native-width-4",
+    "no-fresh-isolation-generator-unavailable",
+    "filesystem-required-rejected",
+    "tools-required-rejected",
+    "nested-cli-only-rejected",
+    "credential-dependent-only-rejected",
+    "current-context-only-rejected",
+    "missing-attribution-rejected",
+    "refused-result",
+    "timeout-result",
+    "unknown-durable-result"
+  ],
+  "cases": [
+    {
+      "id": "native-concurrent-durable-lookup-width-4",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": true,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": "native",
+        "selected_width": 4,
+        "error": null,
+        "lookup_permitted": true
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "remote-concurrent-durable-lookup-width-3",
+      "workspace_is_git": true,
+      "configured_width": 3,
+      "capability": {
+        "native_fresh_isolation": false,
+        "remote_fresh_isolation": true,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": "remote",
+        "selected_width": 3,
+        "error": null,
+        "lookup_permitted": true
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "native-isolated-no-concurrency-width-1",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": false,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": "native",
+        "selected_width": 1,
+        "error": null,
+        "lookup_permitted": true
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "native-isolated-no-lookup-width-1",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": false,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": "native",
+        "selected_width": 1,
+        "error": null,
+        "lookup_permitted": false
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "non-git-workspace-native-width-4",
+      "workspace_is_git": false,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": "native",
+        "selected_width": 4,
+        "error": null,
+        "lookup_permitted": true
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "no-fresh-isolation-generator-unavailable",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": false,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": null,
+        "selected_width": 0,
+        "error": "generator_unavailable",
+        "lookup_permitted": false
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "filesystem-required-rejected",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": false,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": null,
+        "selected_width": 0,
+        "error": "generator_unavailable",
+        "lookup_permitted": false
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "tools-required-rejected",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": false,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": null,
+        "selected_width": 0,
+        "error": "generator_unavailable",
+        "lookup_permitted": false
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "nested-cli-only-rejected",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": true,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": null,
+        "selected_width": 0,
+        "error": "generator_unavailable",
+        "lookup_permitted": false
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "credential-dependent-only-rejected",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": true,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": null,
+        "selected_width": 0,
+        "error": "generator_unavailable",
+        "lookup_permitted": false
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "current-context-only-rejected",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": true
+      },
+      "task_result": null,
+      "expected": {
+        "mode": null,
+        "selected_width": 0,
+        "error": "generator_unavailable",
+        "lookup_permitted": false
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "missing-attribution-rejected",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": false,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": null,
+      "expected": {
+        "mode": null,
+        "selected_width": 0,
+        "error": "generator_unavailable",
+        "lookup_permitted": false
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "refused-result",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": "refused",
+      "expected": {
+        "mode": "native",
+        "selected_width": 4,
+        "error": "generator_refused",
+        "lookup_permitted": true
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 1
+      }
+    },
+    {
+      "id": "timeout-result",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": "timeout",
+      "expected": {
+        "mode": "native",
+        "selected_width": 4,
+        "error": "generator_timeout",
+        "lookup_permitted": true
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 1
+      }
+    },
+    {
+      "id": "unknown-durable-result",
+      "workspace_is_git": true,
+      "configured_width": 4,
+      "capability": {
+        "native_fresh_isolation": true,
+        "remote_fresh_isolation": false,
+        "concurrent_tasks": true,
+        "durable_lookup": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "filesystem_none": true,
+        "tools_none": true,
+        "attribution": true,
+        "nested_cli_required": false,
+        "credential_probe_required": false,
+        "current_context_only": false
+      },
+      "task_result": "unknown",
+      "expected": {
+        "mode": "native",
+        "selected_width": 4,
+        "error": "generator_unavailable",
+        "lookup_permitted": true
+      },
+      "expected_side_effects": {
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
+        "generator_calls": 0
+      }
+    }
+  ]
+}
