@@ -52,7 +52,7 @@ Traversal 顺序固定为：registry target 状态；registry duplicate；regist
 
 `theme.json` 记录所选种子、最终颜色、字体、间距、形状令牌、语言和已批准覆盖项。不得包含远程 URL 或机器绝对路径。生成或重建该文件时，必须从 `run.json.interaction_history` 恢复 `artifact_owner: theme.json` 的阶段产物镜像到 `user_revision_notes`；不得把 `theme.json` 当作锚点修订记录的唯一权威，也不得因主题失效覆盖或丢失权威交互历史。
 
-主题阶段解析当前有效主题后，直接把软风格基线（色板角色、字体栈、间距节奏、禁止母题）纳入编译输入，用于编译锚点与生产页面的 generation prompt；不再创建逐页中间规格产物。
+主题阶段解析当前有效主题后，直接把软风格基线（色板角色、字体栈、间距节奏、形状语言、构图规则、禁止母题——来源均为所选中风格包 `tokens.json` 的 `prompt_baseline`，由 `StyleBaselineCompiler` 确定性投影）纳入编译输入，用于编译锚点与生产页面的 generation prompt；不再创建逐页中间规格产物。
 
 主题归并使用固定优先级：
 

@@ -2576,5 +2576,26 @@ class RedesignPromptContractTests(unittest.TestCase):
             self.assertNotIn(forbidden, text)
 
 
+class StyleBaselineProjectionContractTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.grammar = skill_root() / "references" / "generation-prompt-byte-grammar.md"
+        self.design = skill_root() / "references" / "design-system.md"
+        self.visual = skill_root() / "references" / "visual-brief-and-generation.md"
+
+    def test_grammar_names_prompt_baseline_as_deterministic_source(self):
+        text = read_text(self.grammar)
+        self.assertIn("tokens.json", text)
+        self.assertIn("prompt_baseline", text)
+        self.assertIn("StyleBaselineCompiler", text)
+
+    def test_design_system_soft_baseline_is_prompt_baseline(self):
+        text = read_text(self.design)
+        self.assertIn("prompt_baseline", text)
+
+    def test_visual_compile_domain_is_prompt_baseline(self):
+        text = read_text(self.visual)
+        self.assertIn("prompt_baseline", text)
+
+
 if __name__ == "__main__":
     unittest.main()
