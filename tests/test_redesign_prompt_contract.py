@@ -1599,6 +1599,14 @@ class RedesignPromptContractTests(unittest.TestCase):
         self.assertNotIn("candidate_path", expected["canonical_payload_json"])
         self.assertNotIn("output_path", expected["canonical_payload_json"])
 
+    def test_golden_style_baseline_is_structured_compiler_output(self):
+        payload = json.loads(read_text(self.generation_prompt_snapshot_fixture))
+        baseline = payload["style_baseline"]
+        self.assertIn("色板角色", baseline)
+        self.assertIn("字体栈", baseline)
+        self.assertIn("禁止", baseline)
+        self.assertNotIn("（来自 theme.json）", baseline)
+
     def test_repeat_compile_is_byte_identical(self):
         payload = self._load_generation_prompt_snapshot_payload()
         first = self._render_generation_prompt_fixture(payload)
