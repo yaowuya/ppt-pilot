@@ -1131,7 +1131,7 @@ def resolve_style_case(case: dict) -> dict:
         if field == "tokens":
             if asset.get("json", "valid") != "valid":
                 return _failure("style_asset_malformed")
-            if asset.get("schema_version", 1) != 1:
+            if asset.get("schema_version", 1) not in (1, 2):
                 return _failure("style_asset_schema_unsupported")
 
     return _resolved_style(case, f"assets/styles/{entrypoint}")
@@ -2034,6 +2034,11 @@ class RedesignPromptContractTests(unittest.TestCase):
         legacy_noise["snapshot"] = "prompt-hash-mismatch"
         self.assertEqual(resolve_style_case(legacy_noise), resolve_style_case(baseline))
 
+    def test_resolution_case_uses_schema_v2_tokens(self):
+        case = self._resolution_case_by_id("valid-style-pack")
+        assets = case["resources"]["assets"]["canway-midyear-review"]
+        self.assertEqual(assets["tokens"]["schema_version"], 2)
+
     def test_resolver_failure_reason_closure_is_contractually_complete(self):
         fixture = json.loads(read_text(repo_root() / "tests" / "fixtures" / "style-asset-blocker-cases.json"))
         self.assertEqual(tuple(fixture["stable_resolver_reasons"]), STABLE_STYLE_RESOLVER_REASONS)
@@ -2058,7 +2063,7 @@ class RedesignPromptContractTests(unittest.TestCase):
         cases.append(("style_asset_malformed", malformed))
 
         unsupported = copy.deepcopy(self._resolution_case_by_id("valid-style-pack"))
-        unsupported["resources"]["assets"]["canway-midyear-review"]["tokens"]["schema_version"] = 2
+        unsupported["resources"]["assets"]["canway-midyear-review"]["tokens"]["schema_version"] = 3
         cases.append(("style_asset_schema_unsupported", unsupported))
 
         for expected_reason, case in cases:
@@ -2429,7 +2434,7 @@ class RedesignPromptContractTests(unittest.TestCase):
         cases["style_asset_malformed"] = case
 
         case = pack_case()
-        case["resources"]["assets"]["canway-midyear-review"]["tokens"]["schema_version"] = 2
+        case["resources"]["assets"]["canway-midyear-review"]["tokens"]["schema_version"] = 3
         cases["style_asset_schema_unsupported"] = case
 
         case = pack_case()

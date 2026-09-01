@@ -81,7 +81,7 @@
             "target": "file",
             "readable": true,
             "json": "valid",
-            "schema_version": 1
+            "schema_version": 2
           },
           "guidance": {
             "target": "file",
