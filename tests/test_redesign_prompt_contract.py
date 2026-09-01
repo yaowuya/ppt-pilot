@@ -2552,9 +2552,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             "深色主卡",
             "白色事实卡",
             "浅蓝",
-            "40%–60%",
             "1.5",
-            "最多一处轻阴影",
         )
         canway = read_text(self.style_root / "canway-midyear-review" / "STYLE.md")
         shared = "\n".join(

@@ -82,7 +82,7 @@ class StylePackTests(unittest.TestCase):
 
     def test_tokens_encode_approved_canway_style(self):
         tokens = json.loads(read_text(self.tokens_path))
-        self.assertEqual(tokens["schema_version"], 1)
+        self.assertEqual(tokens["schema_version"], 2)
         self.assertEqual(tokens["id"], "canway-midyear-review")
         expected_colors = {
             "canvas": "#FFFFFF",
@@ -114,8 +114,6 @@ class StylePackTests(unittest.TestCase):
             "证据边界",
             "AI",
             "有界试点",
-            "40%–60%",
-            "最多一处轻阴影",
             "左侧长蓝条",
             "背景图片",
             "渐变",
@@ -139,6 +137,22 @@ class StylePackTests(unittest.TestCase):
             self.assertNotIn(forbidden, active_contract.lower())
         self.assertIn("不得包含单页成品示例、参考构图或固定区域图", active_contract)
         self.assertIn("不得从成品示例或既有 SVG 反推构图", active_contract)
+
+    def test_tokens_use_schema_v2_and_have_structured_baseline(self):
+        tokens = json.loads(read_text(self.tokens_path))
+        self.assertEqual(tokens["schema_version"], 2)
+        baseline = tokens["prompt_baseline"]
+        self.assertEqual(
+            list(baseline),
+            ["palette_roles", "font_stack", "spacing_rhythm", "shape_language", "composition_rules", "prohibited_motifs"],
+        )
+        palette_tokens = [role["token"] for role in baseline["palette_roles"]]
+        self.assertEqual(len(palette_tokens), len(set(palette_tokens)))
+        self.assertTrue(all(role["token"] in tokens["colors"] for role in baseline["palette_roles"]))
+        self.assertEqual(baseline["spacing_rhythm"]["outer_margin"], 64)
+        self.assertEqual(baseline["composition_rules"]["max_shadowed_objects"], 1)
+        self.assertTrue(baseline["prohibited_motifs"])
+        self.assertIn("40%-60%", baseline["composition_rules"]["card_coverage"])
 
 
 if __name__ == "__main__":
