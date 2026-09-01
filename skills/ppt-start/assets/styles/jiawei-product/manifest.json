@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "jiawei-product",
+  "display_name": "嘉为产品",
+  "version": "1.0.0",
+  "kind": "style_pack",
+  "default": false,
+  "summary": "面向产品经理视角的商务+科技+简约风格：蓝色科技、模块化、流程化、弱阴影、圆角卡片，适合产品能力/方案/平台介绍页。",
+  "recommended_for": [
+    "产品能力概览",
+    "解决方案介绍",
+    "平台架构/流程展示",
+    "产品路线与推进计划"
+  ],
+  "not_for": [
+    "营销海报",
+    "重数据大屏",
+    "活动发布"
+  ],
+  "selection_aliases": [
+    "jiawei-product",
+    "嘉为产品",
+    "嘉为产品风格"
+  ],
+  "files": {
+    "tokens": "tokens.json",
+    "guidance": "STYLE.md"
+  },
+  "compatibility": {
+    "office_safe_svg": true,
+    "canvas": "1280x720",
+    "languages": [
+      "zh-CN"
+    ]
+  }
+}

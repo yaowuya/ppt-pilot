@@ -154,6 +154,33 @@ class StylePackTests(unittest.TestCase):
         self.assertTrue(baseline["prohibited_motifs"])
         self.assertIn("40%-60%", baseline["composition_rules"]["card_coverage"])
 
+    def test_jiawei_product_tokens_expose_extended_visual_structure(self):
+        pack_root = self.style_root / "jiawei-product"
+        tokens = json.loads(read_text(pack_root / "tokens.json"))
+        self.assertEqual(tokens["schema_version"], 2)
+        self.assertEqual(tokens["id"], "jiawei-product")
+        baseline = tokens["prompt_baseline"]
+        self.assertIn("palette_roles", baseline)
+        self.assertIn("font_stack", baseline)
+        self.assertIn("spacing_rhythm", baseline)
+        self.assertIn("shape_language", baseline)
+        self.assertIn("composition_rules", baseline)
+        self.assertIn("prohibited_motifs", baseline)
+        # Extended optional visual/structure sections that a product-style pack may declare.
+        self.assertIn("layout_preferences", baseline)
+        self.assertIn("structure_rules", baseline)
+        self.assertIn("title_spec", baseline)
+        self.assertIn("tone_skew", baseline)
+        palette_tokens = [role["token"] for role in baseline["palette_roles"]]
+        self.assertEqual(len(palette_tokens), len(set(palette_tokens)))
+        self.assertTrue(all(role["token"] in tokens["colors"] for role in baseline["palette_roles"]))
+        self.assertTrue(baseline["prohibited_motifs"])
+        self.assertTrue(baseline["layout_preferences"])
+        self.assertTrue(baseline["structure_rules"])
+        self.assertIn("position", baseline["title_spec"])
+        self.assertIn("no_english", baseline["title_spec"])
+        self.assertTrue(baseline["tone_skew"])
+
 
 if __name__ == "__main__":
     unittest.main()

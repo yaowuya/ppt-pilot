@@ -24,6 +24,12 @@
       "display_name": "嘉为年中总结风格",
       "kind": "style_pack",
       "entrypoint": "canway-midyear-review/manifest.json"
+    },
+    {
+      "id": "jiawei-product",
+      "display_name": "嘉为产品",
+      "kind": "style_pack",
+      "entrypoint": "jiawei-product/manifest.json"
     }
   ]
 }

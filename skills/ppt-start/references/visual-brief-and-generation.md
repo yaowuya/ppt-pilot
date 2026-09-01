@@ -11,7 +11,7 @@
 每次首次生成或 `recompose` 页面的完整直接编译输入为：
 
 1. 已批准故事板（`故事板.md`，快照 `storyboard_snapshot_id`）中该页的记录。故事板拥有叙事、显示素材、事实、主张、限定词与来源映射，包括 `role`、`assertion_title`、`audience_takeaway`、`visual_intent`、`content_blocks`、`source_ids`、`previous_link`／`next_link`；
-2. 当前有效 `theme.json`。主题拥有风格标识与软风格基线（色板角色、字体栈、间距节奏、形状语言、构图规则与禁止母题，来源为所选中风格包 `tokens.json` 的 `prompt_baseline`，由 `StyleBaselineCompiler` 确定性投影）；
+2. 当前有效 `theme.json`。主题拥有风格标识与软风格基线（色板角色、字体栈、间距节奏、形状语言、构图规则与禁止母题，来源为所选中风格包 `tokens.json` 的 `prompt_baseline`，由 `StyleBaselineCompiler` 确定性投影；可选扩展小节如布局偏好、结构规则、标题规范与基调，供 style 自定义更完整的视觉/结构指令）；
 3. `run.json.interaction_history` 中该页适用的 `visual_revision-<N>` 记录。按 scope／supersedes 契约得到的已应用修订只回写或投影到前述故事板内容所有权或主题风格所有权，不形成第三个页面规格域，也不投影布局令牌。
 
 ## 编译步骤：两域投影
