@@ -26,7 +26,6 @@
 - **圆角卡片**: 仅使用 `<path>` 与 SVG 弧线命令 `A` 绘制圆角卡片；禁止为 `<rect>` 添加 `rx` 或 `ry`。
 - **文本**: 每个文本对象使用显式 `<text>`；每一行使用简单、非嵌套的 `<tspan>`，并保证文本不越界；文字保持为文字，不转轮廓。
 - **字号**: 正文 ≥20px，次级/来源 ≥14px；关键数字可用大字号或强调色突出，全页至多一个主强调焦点。
-- **来源**: Source-backed claims MUST retain internal IDs in `data-source-id` metadata. Internal `SRC-<digits>` identifiers MUST NOT appear in visible `<text>` or `<tspan>` content. A human-readable source name or URL MAY be visible only when explicitly requested and MUST omit internal IDs.
 - **Office-safe 子集**: 仅使用 `svg`、`g`、`path`、`rect`（仅直角）、`circle`、`line`、`polyline`、`polygon`、`text`、`tspan`、`title`、`desc`；禁止 `foreignObject`、脚本、远程资源、滤镜、渐变、动画、`defs`、`use`、`clipPath`、`mask`、`image`。
 - **根节点**: 包含 `<title>`（本页结论）与 `<desc>`（视觉关系）。
 

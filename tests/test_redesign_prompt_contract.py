@@ -196,13 +196,24 @@ class TemplateCreativeReformTest(unittest.TestCase):
             skill_root() / "references" / "svg-contract.md",
         )
         combined = "\n".join(read_text(path) for path in documents)
-        for path in documents:
-            text = read_text(path)
+        # Output-layer generation contracts must NOT reference source IDs / citation
+        # markup in the prompt body; evidence-layer contracts KEEP the machine trace
+        # metadata convention (data-source-id / internal SRC-<digits>).
+        output_layer = (
+            skill_root() / "references" / "generation-prompt-template.md",
+            skill_root() / "references" / "generation-prompt-byte-grammar.md",
+        )
+        evidence_layer = (
+            skill_root() / "references" / "qa-and-revision.md",
+            skill_root() / "references" / "svg-contract.md",
+        )
+        for path in output_layer:
             with self.subTest(path=path):
-                self.assertIn("SRC-<digits>", text)
-                self.assertIn("data-source-id", text)
-        self.assertIn("明确请求", combined)
-        self.assertIn("人类可读", combined)
+                self.assertNotIn("SRC-<digits>", read_text(path))
+                self.assertNotIn("data-source-id", read_text(path))
+        for path in evidence_layer:
+            with self.subTest(path=path):
+                self.assertIn("data-source-id", read_text(path))
         self.assertNotIn(
             "页脚来源行必须存在",
             read_text(documents[0]),
