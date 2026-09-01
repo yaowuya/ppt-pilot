@@ -1,3 +1,4 @@
+import json
 import re
 import sys
 import unittest
@@ -382,6 +383,19 @@ class SkillPackageTests(unittest.TestCase):
             with self.subTest(path=path.relative_to(repo_root())):
                 self.assertNotIn("skills/ppt-pilot", read_text(path))
         self.assertFalse((repo_root() / "skills" / "ppt-pilot").exists())
+
+    def test_style_pack_assets_exist_with_structured_baseline(self):
+        style_root = skill_root() / "assets" / "styles"
+        for rel in (
+            "canway-midyear-review/tokens.json",
+            "canway-midyear-review/STYLE.md",
+            "canway-midyear-review/manifest.json",
+        ):
+            with self.subTest(rel=rel):
+                self.assertTrue((style_root / rel).is_file())
+        tokens = json.loads(read_text(style_root / "canway-midyear-review/tokens.json"))
+        self.assertEqual(tokens["schema_version"], 2)
+        self.assertIn("prompt_baseline", tokens)
 
 
 if __name__ == "__main__":
