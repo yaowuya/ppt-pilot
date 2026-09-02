@@ -654,6 +654,10 @@ def compile_style_prompt(narrative_bullets: bytes, template_bytes: bytes) -> byt
     for legacy in (CANONICAL_NARRATIVE_BULLETS_TOKEN.rstrip(b"\n"),):
         if legacy in narrative:
             raise ValueError("prompt_preflight_invalid")
+    # source-annotation fields must not leak into a style-owned prompt: statement
+    # provenance stays in the review layer only, never in the generated prompt.
+    if b"source=" in narrative or b"[claim=" in narrative:
+        raise ValueError("prompt_preflight_invalid")
     body = normalize_lf(template.replace(STYLE_NARRATIVE_TOKEN, narrative))
     if not body.endswith(b"\n"):
         body += b"\n"
@@ -1240,6 +1244,13 @@ class RedesignPromptContractTests(unittest.TestCase):
         from_zero = valid.replace(STYLE_NARRATIVE_TOKEN, b"")
         with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
             compile_style_prompt(b"- sample\n", from_zero)
+
+    def test_style_owned_template_rejects_narrative_with_source_annotation(self):
+        template_path = skill_root() / "assets" / "styles" / "jiawei-product" / "prompt.md"
+        valid = normalize_lf(template_path.read_bytes())
+        with_source = '- 块 P1（core，1）：底座能力   [claim=B1 source=["SRC-002"]]\n'.encode("utf-8")
+        with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
+            compile_style_prompt(with_source, valid)
 
     def test_canonical_template_markers_must_be_exact_whole_lines(self):
         template = _canonical_template_bytes()
