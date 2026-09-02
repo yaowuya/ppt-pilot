@@ -651,9 +651,6 @@ def compile_style_prompt(narrative_bullets: bytes, template_bytes: bytes) -> byt
     template = normalize_lf(template_bytes)
     if template.count(STYLE_NARRATIVE_TOKEN) != 1:
         raise ValueError("prompt_template_invalid")
-    for legacy in (CANONICAL_NARRATIVE_BULLETS_TOKEN.rstrip(b"\n"),):
-        if legacy in narrative:
-            raise ValueError("prompt_preflight_invalid")
     # source-annotation fields must not leak into a style-owned prompt: statement
     # provenance stays in the review layer only, never in the generated prompt.
     if b"source=" in narrative or b"[claim=" in narrative:
