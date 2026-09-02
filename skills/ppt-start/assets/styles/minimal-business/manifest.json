@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "minimal-business",
+  "display_name": "极简商务",
+  "version": "1.0.0",
+  "kind": "style_pack",
+  "default": false,
+  "summary": "极简商务风格：白底、大留白、克制配色、清晰层级。",
+  "recommended_for": ["专业商务汇报", "简洁方案说明", "管理周报/月报"],
+  "not_for": ["营销海报", "重数据大屏"],
+  "selection_aliases": ["minimal-business", "极简商务"],
+  "files": {
+    "tokens": "tokens.json",
+    "guidance": "STYLE.md",
+    "prompt_template": "prompt.md"
+  },
+  "compatibility": {
+    "office_safe_svg": true,
+    "canvas": "1280x720",
+    "languages": ["zh-CN"]
+  }
+}

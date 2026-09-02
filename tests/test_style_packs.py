@@ -44,6 +44,7 @@ class StylePackTests(unittest.TestCase):
             {
                 "tokens": "tokens.json",
                 "guidance": "STYLE.md",
+                "prompt_template": "prompt.md",
             },
         )
         for path in manifest["files"].values():
@@ -76,7 +77,7 @@ class StylePackTests(unittest.TestCase):
         self.assertEqual(manifest["kind"], "style_pack")
         self.assertEqual(manifest["version"], "1.3.0")
         self.assertIn("嘉为年中总结风格", manifest["selection_aliases"])
-        self.assertEqual(set(manifest["files"]), {"tokens", "guidance"})
+        self.assertEqual(set(manifest["files"]), {"tokens", "guidance", "prompt_template"})
         self.assertTrue(manifest["compatibility"]["office_safe_svg"])
         self.assertFalse(manifest["default"])
 

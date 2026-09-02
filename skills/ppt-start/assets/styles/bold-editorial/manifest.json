@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "bold-editorial",
+  "display_name": "强调编辑",
+  "version": "1.0.0",
+  "kind": "style_pack",
+  "default": false,
+  "summary": "强调编辑风格：暖色编辑感、强烈标题、杂志式排版。",
+  "recommended_for": [
+    "观点叙事",
+    "战略解读",
+    "编辑式汇报"
+  ],
+  "not_for": [
+    "数据报表",
+    "产品说明书"
+  ],
+  "selection_aliases": [
+    "bold-editorial",
+    "强调编辑"
+  ],
+  "files": {
+    "tokens": "tokens.json",
+    "guidance": "STYLE.md",
+    "prompt_template": "prompt.md"
+  },
+  "compatibility": {
+    "office_safe_svg": true,
+    "canvas": "1280x720",
+    "languages": [
+      "zh-CN"
+    ]
+  }
+}
