@@ -532,8 +532,23 @@ def _canonical_template_bytes() -> bytes:
     return normalize_lf((repo_root() / CANONICAL_GENERATION_TEMPLATE_PATH).read_bytes())
 
 
+def style_template_path(style_id: str) -> str:
+    """Return the repo-relative path to the style pack's owned prompt template."""
+    manifest = json.loads(
+        (skill_root() / "assets" / "styles" / style_id / "manifest.json").read_text(encoding="utf-8")
+    )
+    template_rel = manifest["files"]["prompt_template"]
+    return f"assets/styles/{style_id}/{template_rel}"
+
+
+def _style_template_bytes(style_id: str) -> bytes:
+    return normalize_lf((skill_root() / style_template_path(style_id)).read_bytes())
+
+
 def _validate_canonical_template_path(snapshot_inputs: dict) -> None:
-    if snapshot_inputs.get("resolved_generation_prompt_template_path") != CANONICAL_GENERATION_TEMPLATE_PATH:
+    style_id = snapshot_inputs.get("selected_style_id")
+    expected = style_template_path(style_id) if style_id else CANONICAL_GENERATION_TEMPLATE_PATH
+    if snapshot_inputs.get("resolved_generation_prompt_template_path") != expected:
         raise ValueError("prompt_snapshot_conflict")
 
 
@@ -680,6 +695,28 @@ def validate_compiled_prompt_body(body: bytes) -> None:
         raise ValueError("prompt_preflight_invalid")
 
 
+def validate_style_compiled_body(body: bytes) -> None:
+    """Validate a style-owned prompt body (the style template with its single
+    {{NARRATIVE}} already replaced by the narrative). It must not carry legacy
+    two-marker text, a residual {{NARRATIVE}} token, or source-annotation fields."""
+    normalized = normalize_lf(body)
+    if normalized != body:
+        raise ValueError("prompt_preflight_invalid")
+    if not body.startswith(b"# Role") or not body.endswith(b"\n"):
+        raise ValueError("prompt_preflight_invalid")
+    for forbidden in (
+        b"[[STYLE_BASELINE]]",
+        b"[[CANONICAL_NARRATIVE_BULLETS]]",
+        b"{{NARRATIVE}}",
+        b"source=",
+        b"[claim=",
+        b"data-source-id",
+        b"SRC-",
+    ):
+        if forbidden in body:
+            raise ValueError("prompt_preflight_invalid")
+
+
 def sha256_id(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
@@ -724,7 +761,7 @@ def render_generation_prompt(metadata: dict, body: bytes, slide_id=None) -> byte
         serialized = _provenance_value_text(value)
         if "\n" in serialized or "\r" in serialized:
             raise ValueError("prompt_snapshot_conflict")
-    validate_compiled_prompt_body(body)
+    validate_style_compiled_body(body)
     metadata_lines = ["# " + slide_id + " 页面生成 Prompt", "", "## Snapshot metadata"]
     metadata_lines.extend(
         f"- **{field}**：{_provenance_value_text(metadata[field])}"
@@ -1278,13 +1315,22 @@ class RedesignPromptContractTests(unittest.TestCase):
                             b"- soft style baseline\n",
                         )
 
-    def test_noncanonical_resolved_template_path_is_rejected(self):
+    def test_resolved_template_path_is_derived_from_selected_style(self):
         payload = self._load_generation_prompt_snapshot_payload()
+        # a caller-supplied resolved path must not override the style-derived template path
         payload["snapshot_inputs"]["resolved_generation_prompt_template_path"] = (
             "skills/ppt-start/references/generation-prompt-template-v2.md"
         )
-        with self.assertRaisesRegex(ValueError, "^prompt_snapshot_conflict$"):
-            self._render_generation_prompt_fixture(payload)
+        rendered = self._render_generation_prompt_fixture(payload)
+        style_id = payload["snapshot_inputs"]["selected_style_id"]
+        self.assertEqual(
+            rendered["canonical_payload"]["resolved_generation_prompt_template_path"],
+            style_template_path(style_id),
+        )
+        self.assertEqual(
+            rendered["generation_prompt_template_snapshot_id"],
+            sha256_id(_style_template_bytes(style_id)),
+        )
 
     def test_effective_specification_cannot_form_setext_heading_at_static_boundary(self):
         compiled = compile_prompt_body(
@@ -1483,13 +1529,14 @@ class RedesignPromptContractTests(unittest.TestCase):
         payload = self._load_generation_prompt_snapshot_payload()
         rendered = self._render_generation_prompt_fixture(payload)
         canonical_payload = rendered["canonical_payload"]
+        style_id = payload["snapshot_inputs"]["selected_style_id"]
         self.assertEqual(
             canonical_payload["resolved_generation_prompt_template_path"],
-            "skills/ppt-start/references/generation-prompt-template.md",
+            style_template_path(style_id),
         )
         self.assertEqual(
             canonical_payload["generation_prompt_template_snapshot_id"],
-            sha256_id(normalize_lf(self.generation_prompt_template.read_bytes())),
+            sha256_id(_style_template_bytes(style_id)),
         )
         self.assertIn("outline_snapshot_id", canonical_payload)
         self.assertNotIn("style_prompt_snapshot_id", canonical_payload)
@@ -1544,14 +1591,14 @@ class RedesignPromptContractTests(unittest.TestCase):
         return payload
 
     def _render_generation_prompt_fixture(self, payload: dict):
-        _validate_canonical_template_path(payload["snapshot_inputs"])
-        template_bytes = _canonical_template_bytes()
+        style_id = payload["snapshot_inputs"]["selected_style_id"]
+        template_bytes = _style_template_bytes(style_id)
         narrative_bullets = normalize_lf(payload["narrative_bullets"].encode("utf-8"))
-        style_baseline = normalize_lf(payload["style_baseline"].encode("utf-8"))
-        body = compile_prompt_body(narrative_bullets, style_baseline)
+        body = compile_style_prompt(narrative_bullets, template_bytes)
         template_snapshot_id = sha256_id(template_bytes)
         compiled_prompt_sha256 = sha256_id(body)
         canonical_payload = copy.deepcopy(payload["snapshot_inputs"])
+        canonical_payload["resolved_generation_prompt_template_path"] = style_template_path(style_id)
         canonical_payload["generation_prompt_template_snapshot_id"] = template_snapshot_id
         canonical_payload["compiled_prompt_sha256"] = compiled_prompt_sha256
         prompt_snapshot_id = sha256_id(canonical_json_bytes(canonical_payload))
@@ -1697,7 +1744,6 @@ class RedesignPromptContractTests(unittest.TestCase):
             mutation_ids,
             {
                 "narrative-bullets",
-                "style-baseline",
                 "outline-snapshot",
                 "storyboard-snapshot",
                 "theme-snapshot",
@@ -1728,12 +1774,13 @@ class RedesignPromptContractTests(unittest.TestCase):
     def test_template_snapshot_mutation_invalidates_prompt_and_transaction(self):
         payload = self._load_generation_prompt_snapshot_payload()
         baseline = self._render_generation_prompt_fixture(payload)
-        mutated_template = _canonical_template_bytes().replace(
+        style_id = payload["snapshot_inputs"]["selected_style_id"]
+        mutated_template = _style_template_bytes(style_id).replace(
             b"# Role:", b"# Role: changed ", 1
         )
         with mock.patch.object(
             sys.modules[__name__],
-            "_canonical_template_bytes",
+            "_style_template_bytes",
             return_value=mutated_template,
         ):
             changed = self._render_generation_prompt_fixture(copy.deepcopy(payload))
@@ -1754,9 +1801,10 @@ class RedesignPromptContractTests(unittest.TestCase):
     def test_template_snapshot_hashes_normalized_repository_bytes(self):
         payload = self._load_generation_prompt_snapshot_payload()
         rendered = self._render_generation_prompt_fixture(payload)
+        style_id = payload["snapshot_inputs"]["selected_style_id"]
         self.assertEqual(
             rendered["generation_prompt_template_snapshot_id"],
-            sha256_id(normalize_lf(self.generation_prompt_template.read_bytes())),
+            sha256_id(_style_template_bytes(style_id)),
         )
         self.assertNotEqual(
             rendered["generation_prompt_template_snapshot_id"],
@@ -2223,25 +2271,38 @@ class RedesignPromptContractTests(unittest.TestCase):
             self.assertNotIn(variant["resource"]["path"], generator_input)
             self.assertNotIn(variant["resource"]["bytes"], generator_input)
 
-    def test_style_identity_changes_provenance_but_not_canonical_body_source(self):
+    def test_style_identity_and_selection_changes_provenance_and_template(self):
         payload = self._load_generation_prompt_snapshot_payload()
         baseline = self._render_generation_prompt_fixture(payload)
-        mutated = copy.deepcopy(payload)
-        mutated["snapshot_inputs"].update(
+        # identity-only fields (kind/version) change provenance but not the compiled body/template
+        identity_only = copy.deepcopy(payload)
+        identity_only["snapshot_inputs"].update(
             {
-                "selected_style_id": "minimal-business",
-                "selected_style_display_name": "极简商务",
-                "style_kind": "legacy_seed",
-                "style_manifest_version": "none",
+                "style_kind": "style_pack",
+                "style_manifest_version": "2.0.0",
             }
         )
-        changed = self._render_generation_prompt_fixture(mutated)
+        changed = self._render_generation_prompt_fixture(identity_only)
         self.assertEqual(changed["body"], baseline["body"])
         self.assertEqual(
             changed["generation_prompt_template_snapshot_id"],
             baseline["generation_prompt_template_snapshot_id"],
         )
         self.assertNotEqual(changed["prompt_snapshot_id"], baseline["prompt_snapshot_id"])
+        # switching selected style swaps the owned template, hence changes the body and snapshot id
+        reselected = copy.deepcopy(payload)
+        reselected["snapshot_inputs"].update(
+            {
+                "selected_style_id": "minimal-business",
+                "selected_style_display_name": "极简商务",
+            }
+        )
+        switched = self._render_generation_prompt_fixture(reselected)
+        self.assertNotEqual(switched["body"], baseline["body"])
+        self.assertNotEqual(
+            switched["generation_prompt_template_snapshot_id"],
+            baseline["generation_prompt_template_snapshot_id"],
+        )
 
     def test_initial_generation_uses_the_same_dedicated_prompt(self):
         combined = "\n".join(
