@@ -66,3 +66,11 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 ## 完成条件
 
 只有文稿质量门通过、全部 SVG 硬检查通过、整套 QA 已写入 `.ppt-pilot/质量检查报告.md`，并且 `run.json` 的阶段为 `complete`，本次运行才算完成。
+
+## 完成后的下一步：转可编辑 PowerPoint
+
+每次运行达到 `complete` 后，向用户明确提示下一步可把本次运行的 SVG 交付为**可编辑 PowerPoint**：调用 `ppt-editable` 技能，把 `slides/<slide-id>.svg` 转成带原生可编辑形状/文本的 `delivery/editable/<deck-id>-editable.pptx`。
+
+只在用户明确需要 PowerPoint（或原生可编辑形状、可编辑文本、保留 SVG 分组、Office 渲染验证）时调用 `ppt-editable`；若用户只要 SVG，不要强行转。
+
+`ppt-editable` 负责其自身的门禁与结果状态（`PASS` / `GENERATED_UNVERIFIED` / `BLOCKED` / `FAILED_VERIFICATION`），本技能不越过 `ppt-editable` 的契约，只在完成时引导用户。
