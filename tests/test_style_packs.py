@@ -181,6 +181,16 @@ class StylePackTests(unittest.TestCase):
         self.assertIn("no_english", baseline["title_spec"])
         self.assertTrue(baseline["tone_skew"])
 
+    def test_jiawei_product_manifest_declares_prompt_template(self):
+        manifest = json.loads(read_text(self.style_root / "jiawei-product" / "manifest.json"))
+        self.assertIn("prompt_template", manifest["files"])
+        prompt_path = self.style_root / "jiawei-product" / manifest["files"]["prompt_template"]
+        self.assertTrue(prompt_path.is_file())
+        prompt = read_text(prompt_path)
+        self.assertIn("{{NARRATIVE}}", prompt)
+        self.assertNotIn("[[STYLE_BASELINE]]", prompt)
+        self.assertNotIn("source=", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
