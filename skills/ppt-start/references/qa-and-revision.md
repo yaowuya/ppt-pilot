@@ -205,6 +205,14 @@ QA 报告统一写入 `.ppt-pilot/质量检查报告.md`，记录：
 
 只有不存在未解决硬失败的结果，才能把 `run.json.stage` 推进到 `complete`。
 
+## 生成完毕后的下一步：转可编辑 PowerPoint
+
+整套演示 QA 通过、`run.json.stage` 达到 `complete` 后，必须向用户提示下一步可把本次运行交付为**可编辑 PowerPoint**：
+
+- 引导调用 `ppt-editable` 技能，把 `slides/<slide-id>.svg` 转成带原生可编辑形状／可编辑文本／保留 SVG 分组的 `delivery/editable/<deck-id>-editable.pptx`；
+- 只在用户明确需要 PowerPoint（可编辑原生形状、可编辑文本、保留 SVG 分组、Office 渲染验证）时调用；用户只要 SVG 时不强行转换；
+- 不越过 `ppt-editable` 自身的门禁与结果状态（`PASS`／`GENERATED_UNVERIFIED`／`BLOCKED`／`FAILED_VERIFICATION`），本阶段只在完成时引导用户。
+
 ## 生产阻断
 
 正常生产批次不提出问题。每页两次修复和 single-column／two-column 确定性回退都失败后，如果继续需要删除已批准内容、改变主张、牺牲来源可读性或选择不同交付兼容策略，先写入一个 `kind: blocker` 的 `pending_interaction` 并提出一个生产阻断问题。问题必须说明不能继续的具体硬失败和推荐的安全路径。
