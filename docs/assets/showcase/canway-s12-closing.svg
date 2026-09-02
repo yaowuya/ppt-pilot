@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" font-family="'Microsoft YaHei', 'PingFang SC', Arial, sans-serif">
+  <title>夯实基础，加速升级：H1 复盘收官，感谢团队付出，恳请批准下半年计划与资源投入</title>
+  <desc>收束页。深色主卡居中呈现核心命题“夯实基础，加速升级”，为全页唯一视觉焦点；下方左侧白色卡片向团队致谢并认可成果，右侧浅蓝卡片以“待批准”状态提出动作请求：审议并批准下半年计划与资源投入。</desc>
+  <rect x="0" y="0" width="1280" height="720" fill="#F4F7FB" />
+  <text x="64" y="100" font-size="18" fill="#5A6B85"><tspan>年中复盘 · H1 收官</tspan></text>
+  <g>
+    <path d="M 84 136 H 1196 A 20 20 0 0 1 1216 156 V 392 A 20 20 0 0 1 1196 412 H 84 A 20 20 0 0 1 64 392 V 156 A 20 20 0 0 1 84 136 Z" fill="#10233F" />
+    <text x="640" y="243" text-anchor="middle" font-size="40" font-weight="700" fill="#FFFFFF"><tspan>夯实基础，加速升级</tspan></text>
+    <line x1="520" y1="286" x2="760" y2="286" stroke="#156BFF" stroke-width="6" />
+    <text x="640" y="329" text-anchor="middle" font-size="20" fill="#C9D6EA"><tspan>上半年复盘至此收官，成果属于每一位同事；下半年，从批准这份计划开始。</tspan></text>
+  </g>
+  <g>
+    <path d="M 78 436 H 578 A 14 14 0 0 1 592 450 V 618 A 14 14 0 0 1 578 632 H 78 A 14 14 0 0 1 64 618 V 450 A 14 14 0 0 1 78 436 Z" fill="#FFFFFF" stroke="#D9E4F2" stroke-width="1.2" />
+    <circle cx="106" cy="490" r="14" fill="#EAF3FE" />
+    <path d="M 99 490 L 104 495 L 113 484" fill="none" stroke="#156BFF" stroke-width="2.5" />
+    <text x="134" y="498" font-size="24" font-weight="700" fill="#10233F"><tspan>感谢聆听</tspan></text>
+    <text x="88" y="544" font-size="20" fill="#44546B"><tspan>感谢团队在上半年的每一份投入与协作，</tspan></text><text x="88" y="576" font-size="20" fill="#44546B"><tspan>所有成果都源于大家共同的坚持。</tspan></text>
+  </g>
+  <g>
+    <path d="M 630 436 H 1202 A 14 14 0 0 1 1216 450 V 618 A 14 14 0 0 1 1202 632 H 630 A 14 14 0 0 1 616 618 V 450 A 14 14 0 0 1 630 436 Z" fill="#EAF3FE" stroke="#B9D6F7" stroke-width="1.2" />
+    <circle cx="658" cy="490" r="14" fill="#156BFF" />
+    <path d="M 651 490 H 664 M 658 484 L 664 490 L 658 496" fill="none" stroke="#FFFFFF" stroke-width="2.5" />
+    <text x="686" y="498" font-size="24" font-weight="700" fill="#10233F"><tspan>请求批准下半年计划与资源投入</tspan></text>
+    <path d="M 1110 476 H 1166 A 14 14 0 0 1 1180 490 A 14 14 0 0 1 1166 504 H 1110 A 14 14 0 0 1 1096 490 A 14 14 0 0 1 1110 476 Z" fill="#FFFFFF" stroke="#156BFF" stroke-width="1.2" />
+    <text x="1138" y="495" text-anchor="middle" font-size="14" font-weight="700" fill="#156BFF"><tspan>待批准</tspan></text>
+    <text x="640" y="544" font-size="20" fill="#44546B"><tspan>这不仅是对计划的认可，</tspan></text><text x="640" y="576" font-size="20" fill="#44546B"><tspan>更是团队加速升级最需要的支持。</tspan></text>
+  </g>
+</svg>

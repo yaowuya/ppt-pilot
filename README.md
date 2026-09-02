@@ -1,204 +1,77 @@
 # PPT Pilot
 
-PPT Pilot 是一个可同时用于 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植 Agent Skill 包：`ppt-start` 生成有证据支撑的 16:9 独立 SVG 演示；`ppt-editable` 把完成运行转换为递归分组、原生可编辑文本/形状的 PowerPoint，并在 Microsoft PowerPoint 能力可用时完成 Office/视觉验证，否则明确交付 `GENERATED_UNVERIFIED` 结果。
+PPT Pilot 是一个可同时用于 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植 Agent Skill 包：`ppt-start` 生成有证据支撑的 16:9 独立 SVG 演示；`ppt-editable` 把完成运行转换为递归分组、原生可编辑文本/形状的 PowerPoint。Skill 本体纯指令，不强制依赖 MCP、SDK、Hook、后台服务或运行时软件包；可选网络研究默认不启用，机密内容默认不出网。PPT Pilot 不保证所有 Office 版本都能一致导入，也不保证转换后每个元素都完全可编辑；能力不足时如实披露，不冒充验证通过。
 
-`ppt-start` 不强制依赖 MCP、SDK、Hook、后台服务或运行时软件包；`ppt-editable` 随 Skill 打包 Python/PowerShell 转换与验证脚本，检查依赖但不自动安装。仓库另提供可选伴随工具（`tools/`，见[可选伴随工具与交付组装](#可选伴随工具与交付组装)）。
+## 效果示例
 
-## Skill inventory
+同一套已批准故事板，由两个内置风格包直接编译生成（示例来自真实运行，含客户名称与人名的页面未收录）：
 
-| Skill | 输入 | 主要交付 | 显式调用 |
-|---|---|---|---|
-| [`ppt-start`](skills/ppt-start/) | 主题、资料或既有 PPT Pilot 运行 | 独立 Office-safe SVG 演示 | Claude `/ppt-start` · Codex `$ppt-start` · DeepSeek `ppt-start` |
-| [`ppt-editable`](skills/ppt-editable/) | 一个已完成的 PPT Pilot SVG 运行 | 原生可编辑、递归分组且有验证证据的 PPTX | Claude `/ppt-editable` · Codex `$ppt-editable` · DeepSeek `ppt-editable` |
+**嘉为产品风格 `jiawei-product`**
 
-## 能做什么
+<p align="center">
+  <img src="docs/assets/showcase/jiawei-s01-cover.svg" alt="嘉为产品风格 · 封面" width="32%">
+  <img src="docs/assets/showcase/jiawei-s09-content.svg" alt="嘉为产品风格 · 内容页" width="32%">
+  <img src="docs/assets/showcase/jiawei-s12-closing.svg" alt="嘉为产品风格 · 收尾页" width="32%">
+</p>
 
-`ppt-start` 的统一生成工作流如下：
+**嘉为年中总结风格 `canway-midyear-review`**
 
-1. 规范化需求简报，并按需研究；
-2. 编写结论先行的大纲与逐页故事板；
-3. 优先在全新子 Agent／上下文中执行文稿审查；委派失败时由当前步骤执行正式降级审查；
-4. 确定 deck-scoped 主题，把批准故事板拥有的叙事／素材／事实／来源与 `theme.json` 的软风格基线直接投影为两个 canonical replacement；
-5. 从唯一 repository `generation-prompt-template.md` 编译 byte-exact `creative-brief-v1` Prompt，并完成无副作用 preflight 与宿主能力协商；
-6. 能力通过后以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 与 `active_visual_generation_batch`；使用 `prompt_by_value` 向 fresh isolated generator 派发，默认 `batch_width: 4`；
-7. generator 与每页 validation 可并发，coordinator 按 `ordered_slide_ids` 串行提交 candidate/final、visible blocker 和 pointer；
-8. 从文件化状态恢复运行或进行局部修订。
+<p align="center">
+  <img src="docs/assets/showcase/canway-s01-cover.svg" alt="嘉为年中总结风格 · 封面" width="32%">
+  <img src="docs/assets/showcase/canway-s09-content.svg" alt="嘉为年中总结风格 · 内容页" width="32%">
+  <img src="docs/assets/showcase/canway-s12-closing.svg" alt="嘉为年中总结风格 · 收尾页" width="32%">
+</p>
 
-活动视觉路径是：**故事板 + `theme.json` 直接编译** → 两个 replacement → `creative-brief-v1` Prompt → schema-v2 batch → isolated generation/validation → ordered serial publication。旧 visual briefs 只属于迁移历史，不是新运行产物或 owner。
-
-`BLOCKER` 或 `HIGH` 级问题只有在后续正式审查 round 提供冻结证据并标记为 `RESOLVED` 后才可放行；`OPEN` 与阻断级 `ACCEPTED_RISK` 都继续阻断。每轮先尝试具有真实宿主证据的独立子 Agent；启动或结果归因失败时，不空等，而是在当前步骤持久化 `inline_fallback` 并执行同一严格审查。inline PASS 可以进入 `manuscript_approved`，但报告必须声明“当前上下文降级审查，不具备独立上下文隔离”，不能冒充独立审查。subagent 与 inline 轮次共同受每 cycle 三轮上限约束；被阻断周期不能借模式切换或“新周期”绕过上限。
-
-## 安装两份标准 Skills
+## 快速开始
 
 技能启动标识：`ppt-start`、`ppt-editable`
 
-推荐使用 `tools/update-hosts.ps1` 同时安装完整的 [`skills/ppt-start`](skills/ppt-start/) 与 [`skills/ppt-editable`](skills/ppt-editable/)；不要拆分任一 Skill 的 `SKILL.md`、`references/`、`assets/` 或 `scripts/`。
+| 宿主 | 用户级安装 | 项目级安装 | 启动命令 |
+|---|---|---|---|
+| Claude Code | `~/.claude/skills/ppt-start/` | `.claude/skills/ppt-start/` | `/ppt-start` |
+| Codex | `$HOME/.agents/skills/ppt-start/` | `.agents/skills/ppt-start/` | `$ppt-start` |
+| DeepSeek Harness | `$HOME/.agents/plugins/plugins/ppt-pilot/` | — | `ppt-start` |
 
-### Claude Code
-
-- 用户级安装：`~/.claude/skills/ppt-start/`、`~/.claude/skills/ppt-editable/`
-- 项目级安装：`.claude/skills/ppt-start/`、`.claude/skills/ppt-editable/`
-- 显式启动命令：`/ppt-start`、`/ppt-editable`
-
-用户级复制示例：
+一键安装/更新三宿主（旧版按 Skill ID 自动备份）：
 
 ```bash
-cp -R skills/ppt-start ~/.claude/skills/ppt-start
-cp -R skills/ppt-editable ~/.claude/skills/ppt-editable
+powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 ```
 
-项目级符号链接示例：
+手动安装时用复制或符号链接把完整的 `skills/ppt-start/` 与 `skills/ppt-editable/` 放入上表路径；不要拆分任一 Skill 的 `SKILL.md`、`references/`、`assets/` 或 `scripts/`。仅需单独更新 DeepSeek 时运行 `tools/install-deepseek-plugin.ps1`；逐宿主命令与插件细节见[安装指南](docs/INSTALL.md)。
 
-```bash
-ln -s ../../skills/ppt-start .claude/skills/ppt-start
-ln -s ../../skills/ppt-editable .claude/skills/ppt-editable
-```
-
-调用示例：
+一条典型请求：
 
 ```text
 /ppt-start
 请根据 inputs/ 中的资料制作一份 10 页中文策略演示文稿，使用 guided 模式。
-
-/ppt-editable
-请把 ppt-output/example-deck/ 的完成运行转换为原生可编辑 PowerPoint。
 ```
 
-### OpenAI Codex
+执行策略：新运行未显式指定策略时默认 `guided`，在简报、大纲和锚点页逐步征求批准；`auto` 只有显式指定才使用，跳过可选问题但保留全部硬质量门。已完成运行支持 `resume` 续跑与 `revise` 定向修订；`resume` 先按 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > active_visual_generation_batch > stage scan` 顺序恢复 durable 状态，读取 `run.json`（含 `run.json.manuscript_review.latest_report`）并保留既有执行策略，不重算已批准上游。交互协议：技能先检查请求与工作区、已有答案不重复问，剩余决策按依赖顺序一次只提出一个实质性问题，有限选择给出 2–4 个互斥选项与推荐理由；推荐不是确认，回答前不推进下游。完整上手流程（含拿到可编辑 PPT 的最后一步）见 **[用户使用手册](docs/USER-GUIDE.md)**。
 
-- 用户级安装：`$HOME/.agents/skills/ppt-start/`、`$HOME/.agents/skills/ppt-editable/`
-- 项目级安装：`.agents/skills/ppt-start/`、`.agents/skills/ppt-editable/`
-- 显式启动命令：`$ppt-start`、`$ppt-editable`
-
-用户级复制示例：
-
-```bash
-cp -R skills/ppt-start "$HOME/.agents/skills/ppt-start"
-cp -R skills/ppt-editable "$HOME/.agents/skills/ppt-editable"
-```
-
-项目级符号链接示例：
-
-```bash
-ln -s ../../skills/ppt-start .agents/skills/ppt-start
-ln -s ../../skills/ppt-editable .agents/skills/ppt-editable
-```
-
-调用示例：
+## 工作流一览
 
 ```text
-$ppt-start
-请从 ppt-output/example-deck/ 恢复运行并继续生成 SVG。
-
-$ppt-editable
-请将该完成运行转换为可编辑 PPTX，并保留递归分组和备注。
+简报/研究 → 大纲+故事板 → 文稿审查（硬质量门）→ 主题/风格包选择
+  → 逐页编译生成（schema-v2 并发批次）→ 单页 QA + 整套 QA → complete
+  → （可选）ppt-editable 转原生可编辑 PPTX ／ deck-deliver 组装预览与交付
 ```
 
-### DeepSeek Harness
+活动视觉路径是**故事板 + `theme.json` 直接编译**：读取所选风格包自带的完整生成模板（`assets/styles/<style-id>/<files.prompt_template>`；未声明时兜底仓库模板），把已批准叙事注入其单一 `{{NARRATIVE}}` whole-line 注点，编译 byte-exact `creative-brief-v1` Prompt，完成无副作用 preflight 与宿主能力协商；早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃为迁移历史。能力通过后以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 与 `run.json.active_visual_generation_batch`，以 `prompt_by_value` 向 fresh isolated generator 派发，默认 `batch_width: 4`（缺并发或 durable lookup 时 width 1，非 Git 不降级）；generator 与每页 validation 可并发，coordinator 按 `ordered_slide_ids` 串行提交 candidate/final、visible blocker 与 pointer。
 
-三宿主一键更新（推荐，在仓库根目录的本机终端运行）：
+风格经 `assets/styles/registry.json` 发现，当前内置五个 style pack：`canway-midyear-review`（嘉为年中总结风格，manifest `1.3.0`）、`jiawei-product`、`minimal-business`、`tech-dark`、`bold-editorial`。
 
-```bash
-powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1 -ProjectClaude -ProjectCodex
-```
+内部 `SRC-<digits>` 只保留在 `data-source-id`／trace 机器元数据，可见文字出现即以 `fact_source_mismatch` 硬失败；telemetry 仅作诊断，`telemetry_diagnostic_failed` 不改变任何 correctness 结论。
 
-脚本按 harness 插件约定安装到 `$HOME/.agents/plugins/plugins/ppt-pilot/`（一个插件、完整 `skills/ppt-start/` 与 `skills/ppt-editable/`），并同步更新 Claude Code 与 Codex 的两个 Skill；旧版按 Skill ID 备份到扫描根之外并各保留最近一份。仅需单独更新 DeepSeek 时可用 `tools/install-deepseek-plugin.ps1`。
+## 运行目录与产物
 
-手动安装时，用户级/项目级 agents 根下分别复制 `skills/ppt-start/` 与完整的 `skills/ppt-editable/`。若 harness 不扫描这些目录，两个 Skill 的 `SKILL.md`、`references/`、`assets/` 与 `scripts/` 都必须保持相对结构并置于工作区可访问位置；不能只粘贴 ppt-start 或漏掉 ppt-editable 脚本。
-
-用户级复制示例：
-
-```bash
-cp -R skills/ppt-start "$HOME/.agents/skills/ppt-start"
-cp -R skills/ppt-editable "$HOME/.agents/skills/ppt-editable"
-```
-
-调用示例（DeepSeek harness 无统一斜杠命令约定，使用显式启动词）：
-
-```text
-ppt-start
-请根据 inputs/ 中的资料制作一份 10 页中文策略演示文稿，使用 auto 模式。
-
-ppt-editable
-请把 ppt-output/example-deck/ 转换为经验证的原生可编辑 PowerPoint。
-```
-
-说明：
-
-- 若 harness 提供子代理／委派原语，文稿审查按契约优先独立 subagent；未提供时自动走已定义的 `inline_fallback` 正式降级审查，报告会声明“当前上下文降级审查”；
-- 技能发现与启动语法的最终行为以真实宿主验证为准，见[验收文档](docs/acceptance.md)的 DeepSeek Harness 行（当前全部 `PENDING`）。
-
-符号链接是否可用取决于操作系统和宿主沙箱；无法使用时请改为复制，并始终把本仓库的 `skills/ppt-start/` 与 `skills/ppt-editable/` 视为标准源。
-
-## 使用方式
-
-Skill 可接收主题、完整简报、资料集合、既有运行目录或定向修订请求。自然语言请求可以触发它；当自动发现不明确时，建议使用上面的显式启动命令。
-
-持久执行策略：
-
-- **guided**：新运行未显式指定策略时默认 `guided`；在简报、大纲和锚点页提出直接问题并等待明确批准；
-- **auto**：只有显式指定时才使用；采用安全默认值并跳过可选问题，但仍创建全部产物、通过所有硬质量门，并在用户权限或无安全默认值时询问。
-
-入口动作：
-
-- **new**：创建新运行并把所选执行策略写入 `run.json.mode`；
-- **resume**：先读取 `run.json`，按 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > schema-v1 visual_generation_transaction migration > active_visual_generation_batch > stage scan` 恢复；保留既有 `run.json.mode`；
-- **revise**：保留既有 `run.json.mode`，先完成同一 durable control chain，再使受影响产物失效；事实、来源、主张、大纲或故事板变化必须重新进行正式文稿审查。
-
-`run.json.mode` 只保存 `guided` 或 `auto`，不保存 `new`、`resume` 或 `revise`。
-
-### 工作区偏好档案（可选）
-
-`ppt-output/pilot-preferences.json` 可跨运行复用品牌方向与交付偏好，减少重复提问：
-
-```json
-{
-  "schema_version": 1,
-  "brand": { "colors": ["#156BFF"], "font_stack": "Microsoft YaHei, Arial, sans-serif", "notes": "强调色只用于关键比较" },
-  "style": { "preferred_style_id": "canway-midyear-review" },
-  "audience": { "name": "运营管理层", "desired_action": "确认 H2 资源取舍" },
-  "language": "zh-CN",
-  "confidentiality_restriction": "内部资料不得外发到网络"
-}
-```
-
-优先级固定为：当前请求明确答案 > 本运行已批准产物 > 偏好档案 > 安全默认值。档案只能记录限制型保密策略；跨运行有效的网络或披露授权必须由用户显式给出并记录为 standing 授权。格式错误时披露原因并整体忽略，不影响运行。完整规则见[用户交互与确认协议](skills/ppt-start/references/interaction-protocol.md)与[产物契约](skills/ppt-start/references/artifact-contract.md)。
-
-### 问答与可恢复等待
-
-Skill 先检查请求和工作区，已有答案不得重复询问。剩余重要决策按依赖顺序处理，一次只提出一个实质性问题；有限选择给出 2–4 个互斥选项并把推荐项放在第一位。推荐不是确认，收到明确回答前不会推进被该问题阻塞的下游阶段。
-
-运行目录已经建立时，当前问题保存在 `run.json.pending_interaction`。有限选择还保存逐项效果、推荐理由以及回答后的规范化决定，使另一个宿主能够原样重放并无需重新解释自然语言。恢复运行会先重发同一个 `pending` 问题，或幂等处理已经保存为 `answered` 的答案，再以原子状态提交避免阶段与问题错位；它不会重新计算有效上游工作。完成的答案保存在可选 `run.json.interaction_history`，阶段产物中的记录只是可重建镜像，因此主题或页面失效不会抹掉批准／修订轨迹。这些字段是 `schema_version: 1` 的可选扩展。
-
-当 `resume`／`revise` 有多个候选运行且目标无法唯一确定时，选择问题先保存在工作区级 `ppt-output/run-selection.json`；该文件同时保存入口动作和原始操作载荷，不会写入任何候选运行。选定目标并让该运行到达下一个持久状态后才删除该路由文件，崩溃恢复不会重复询问或丢失修订请求。
-
-同一 guided 检查点修订后再次批准会使用单调的 `approval_attempt`：首次 ID 保持 `<checkpoint>-approval`，后续使用 `<checkpoint>-approval-2`、`-3` 等。每次答案在 `interaction_history` 中占独立键，后来的批准不会覆盖早先的修订事件。
-
-`auto` 只跳过可选偏好和批准，不能自行获得网络传输、机密披露或其他用户权限。没有安全默认值的业务决策仍会产生一个阻塞问题。
-
-### 页面直接编译、schema-v2 并发与修订
-
-主题确认后，每个页面直接从故事板拥有的 narrative/material/facts/claims/source mappings 与 `theme.json` 拥有的 style identity/soft baseline 编译。唯一 repository `generation-prompt-template.md` 只允许 whole-line `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]` 两个 replacement；持久 envelope 的 `format` 精确为 `creative-brief-v1`。内部 `SRC-<digits>` 只保留在 `data-source-id`／trace 机器元数据，禁止成为可见文字；只有明确请求的人类可读来源名称／URL 可显示且必须省略内部 ID。
-
-确定性 preflight 与宿主能力协商都在任何 durable 生产写入前完成。能力通过后，coordinator 以 pointer-last 顺序写 `.ppt-pilot/visual-generation-transactions/<slide-id>-<tx64>.json`、`.ppt-pilot/visual-generation-batches/<batch-id>.json`，最后发布 `run.json.active_visual_generation_batch`。默认 `batch_width: 4`，可配置 3；并发或 durable lookup 缺失时降为 width 1，非 Git 工作区不降级。隔离任务只接收完整 `prompt_by_value`，fresh history、filesystem none、tools none、text-only；没有 fresh isolation 时以 `generator_unavailable` 零 prompt/transaction/candidate 写入停止。
-
-generator 与 per-slide validation 可以并发，coordinator 独占 candidate/transaction/final 写入，并按 `ordered_slide_ids` 串行提交 promotion、最低 visible blocker 与 pointer。`patch` 只接收完整 direct-compile inputs、当前 SVG 与一个精确 defect；`recompose` 不接收旧 SVG，先把修订投影回故事板或 `theme.json` 再从空白构图。事实／来源变化使文稿批准失效。visible internal ID 在 validation commit 前以 `fact_source_mismatch` 阻断，previous final 与 sibling 保持。
-
-performance span 区分 compile/model/render/qa/promotion，并以 DAG longest path 与 batch wall time解释并发收益；telemetry 是非权威诊断，`telemetry_diagnostic_failed` 不能改变 correctness 或授权 promotion。Canway `canway-midyear-review`（“嘉为年中总结风格”）的 manifest 当前版本为 `1.3.0`；style pack 从 `assets/styles/registry.json` 发现且只提供 identity/tokens/guidance，运行时永远不读取、不验证、不哈希历史 style-owned full prompt。
-
-示例需求：
-
-```text
-为运营管理层制作一份 10 页中文策略演示文稿。使用给定报告，保留不确定性，并交付独立 SVG 页面。
-```
-
-所有运行产物都写入当前工作区的 `ppt-output/<deck-id>/`：
+所有运行产物写入当前工作区 `ppt-output/<deck-id>/`：
 
 ```text
 ppt-output/<deck-id>/
-├── 大纲.md          # 用户唯一需要看的内容，含每页排版逻辑
-├── slides/          # 最终 SVG
-└── .ppt-pilot/      # 所有内部过程产物（用户无需查看）
+├── 大纲.md          # 用户唯一需要亲自查看的内容，含每页排版逻辑
+├── slides/          # 最终独立 SVG 页面
+└── .ppt-pilot/      # 内部过程产物（用户无需查看）
     ├── run.json
     ├── 简报.md / 研究.md / 来源.md
     ├── 故事板.md / 文稿审查.md
@@ -209,55 +82,41 @@ ppt-output/<deck-id>/
     └── samples/
 ```
 
-这些文件构成跨宿主交接接口：另一个受支持宿主无需原始对话即可恢复运行。内部状态以 `.ppt-pilot/run.json` 为准，其中记录 `run.json.manuscript_review.latest_report` 等字段。
+状态以 `.ppt-pilot/run.json` 为准。这些文件构成跨宿主交接接口：另一个受支持宿主无需对话历史即可 `resume` 运行。
 
-## 可选伴随工具与交付组装
+## 文稿审查是硬质量门
 
-Skill 本体保持纯指令；以下工具位于仓库 `tools/`，不进入 `skills/ppt-start/`，也不参与宿主 Skill 发现。
+`简报.md`、`研究.md`、`来源.md`、`大纲.md`、`故事板.md` 冻结后，优先委派全新独立子 Agent（独立子 agent 只读审查五文件）；启动或结果归因失败时，当前步骤执行正式 `inline_fallback`，报告必须声明"当前上下文降级审查，不具备独立上下文隔离"。inline PASS 与独立审查通过同一严格质量门，均可进入 `manuscript_approved`；任一 `BLOCKER`／`HIGH` 问题未 `RESOLVED` 都阻断（`OPEN` 与阻断级 `ACCEPTED_RISK` 亦然）；subagent 与 inline 轮次共同计入每 cycle 三轮上限，只有冻结输入不可读等极端情况才使用 legacy 兼容的 `review_unavailable`。修订请求先分类：`patch` 修一个可测量局部缺陷，`recompose` 整页重构，事实／来源／大纲／故事板变化必须重新进行文稿审查。
 
-### `deck-deliver.ps1`——预览、PPTX 与演讲者备注
+## 完成后的交付选择
 
-把一次运行的 `slides/*.svg` 组装为可交付成果：
+- **只要 SVG / 预览**：直接使用 `slides/`，或运行 `tools/deck-deliver.ps1` 生成 `preview.html` 联系表、可选 1280×720 PNG 与图片式 PPTX + 演讲者备注；
+- **要原生可编辑 PowerPoint**：运行完成时插件会主动提示——调用 `ppt-editable` 技能，得到 `delivery/editable/<deck-id>-editable.pptx`；它自带结构/Office/视觉验证与 `PASS`／`GENERATED_UNVERIFIED`／`BLOCKED`／`FAILED_VERIFICATION` 结果状态，已验证旧版永不被未验证构建覆盖。
 
-```bash
-powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1                # 自动探测唯一运行
-powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1 -RunDir ppt-output/fy26-h1-midyear-review -ExportPng
-```
+## 文档导航
 
-- 始终生成 `<run>/preview.html` 联系表：缩略图网格 + 单页查看器（方向键翻页、Esc 关闭），纯静态、无外部资源；
-- 从 `.ppt-pilot/故事板.md` 解析每页 `assertion_title`／`audience_takeaway`／`next_link`，自动写入 PPTX 演讲者备注；
-- 调用本机 PowerPoint（COM 自动化，与验收脚本同一模式）把每页 SVG 插入 16:9 PPTX 并复开校验；本机没有 PowerPoint 或指定 `-SkipPptx` 时跳过该步，preview.html 仍可用；
-- `-ExportPng` 额外导出每页 1280×720 PNG 作为渲染证据；结果清单写入 `<run>/delivery/delivery-result.json`；
-- 工具只新增 preview.html 与 `delivery/`，不修改任何 Skill 运行产物。
-
-PPTX 组装需要交互式桌面会话中的真实 PowerPoint（与[验收文档](docs/acceptance.md)的 real host 要求一致）；无头环境中 preview.html 始终可用。退出码：`0`=PPTX+preview 成功；`3`=仅 preview 成功；致命失败以异常终止。
-
-## 研究、隐私与能力降级
-
-可选网络研究不是运行时依赖。用户提供的资料和本地资料优先；默认不得把机密内容发送到网络。当实时研究或渲染不可用时，Skill 必须记录限制、限定未验证主张，并使用 `visual_qa: not_rendered`，不得虚构验证结果。
-
-文稿审查仍优先独立子 Agent，但委派不可用时使用 `inline_fallback`：当前步骤只依据冻结文稿和同一审查规范完成正式审查，并可按严格 findings 门放行。只有 inline 也无法执行时才使用 legacy-compatible `review_unavailable`。
-
-## SVG 与 PowerPoint 范围
-
-交付物是静态、独立 SVG：画布为 1280×720，使用系统字体回退、显式 `<tspan>` 换行、内联矢量几何，不包含远程资源或仅浏览器可用的效果。
-
-受支持的 PowerPoint 版本可以插入静态 SVG，但 PPT Pilot 不保证所有 Office 版本与平台都能一致导入，也不保证转换后每个元素都完全可编辑。浏览器渲染和代表性 PowerPoint 导入仍属于人工验收项。
-
-`ppt-start` 本体不生成 PPTX、不导入既有 PowerPoint 模板、不搜索图库图片、不生成位图、不制作动画，也不创建演讲者备注。普通图片式最后一公里交付仍可用 `tools/deck-deliver.ps1`；需要递归分组、原生可编辑文本/形状、备注与证据化 Office 验证时，改用独立 `ppt-editable` Skill。
+| 文档 | 内容 |
+|---|---|
+| [docs/USER-GUIDE.md](docs/USER-GUIDE.md) | 用户使用手册：从发起到拿到可编辑 PPT 的完整操作指引 |
+| [docs/INSTALL.md](docs/INSTALL.md) | 安装指南：逐宿主复制/符号链接、DeepSeek 插件、一键更新 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构与工作原理：编译范式、质量门、并发协议、修订模型 |
+| [docs/design.md](docs/design.md) | MVP 设计文档：产品原则、共享 Skill 架构、验收标准 |
+| [docs/acceptance.md](docs/acceptance.md) | 验收台账与证据分级 |
+| [skills/ppt-start/SKILL.md](skills/ppt-start/SKILL.md) | ppt-start 运行时契约入口 |
+| [skills/ppt-editable/SKILL.md](skills/ppt-editable/SKILL.md) | ppt-editable 转换契约入口 |
 
 ## 开发验证
 
-运行仓库一致性测试。Task 10 文档边界的聚焦命令是：
+聚焦命令：
 
 ```bash
 python -m unittest tests.test_skill_package tests.test_redesign_prompt_contract -v
 ```
 
-完整本地命令是：
+完整命令：
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-证据按类别记录：`static package` 只证明包结构、书面契约和 fixture oracle；`EVIDENCE_CLASS: DIAGNOSTIC` 只用于压力提示或诊断，不得当作 Claude Code、Codex、fresh generator、浏览器或 PowerPoint 验收；`deployment hash` 只证明同步后的安装文件集与仓库源一致；`real host` 才能证明带版本、transcript 和运行目录的真实宿主行为。架构说明见[设计文档](docs/design.md)，Claude Code、Codex 与跨宿主交接检查见[验收文档](docs/acceptance.md)。尚未执行的人工结果必须继续标记为 `PENDING`；自动化测试本身不能证明宿主行为、fresh 上下文、浏览器渲染或 PowerPoint 导入。
+自动化测试只证明包结构、书面契约与 fixture oracle，不能证明真实宿主行为、浏览器渲染或 PowerPoint 导入；证据分级与人工验收台账见[验收文档](docs/acceptance.md)。

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" font-family="Microsoft YaHei, PingFang SC, Source Han Sans SC, sans-serif">
+  <title>S01 封面｜2026年H1 自动化运维研发负责人工作述职</title>
+  <desc>嘉为产品风格商务科技简约封面：纯白底大留白、少量品牌蓝，黑蓝错位方块点缀标题左侧，突出述职标题、述职人身份与2026年上半年时间范围，底部呈现版本交付、客户项目、AI提效、组织建设四大汇报要点。</desc>
+  <rect x="64" y="64" width="1152" height="3" fill="#D8EEFF" />
+  <g><circle cx="1052" cy="290" r="148" fill="#EAF5FF" /><circle cx="1128" cy="424" r="86" fill="#D8EEFF" /><circle cx="984" cy="150" r="34" fill="none" stroke="#BFE3FF" stroke-width="2" /><circle cx="936" cy="196" r="8" fill="#27B3FF" /><circle cx="1192" cy="486" r="6" fill="#0B74E5" /><polyline points="906,508 964,508 996,476 1044,476" fill="none" stroke="#BFE3FF" stroke-width="2" /></g>
+  <g>
+    <rect x="64" y="218" width="20" height="20" fill="#111827" /><rect x="78" y="232" width="20" height="20" fill="#0B74E5" />
+    <text font-size="38" font-weight="700" fill="#0B74E5" x="116" y="248"><tspan>2026年H1</tspan></text>
+    <text font-size="38" font-weight="700" fill="#111827" x="64" y="304"><tspan>自动化运维研发负责人工作述职</tspan></text>
+    <line x1="64" y1="336" x2="600" y2="336" stroke="#BFE3FF" stroke-width="1" />
+    <text font-size="18" fill="#4B5563" x="64" y="378"><tspan>一份关于H1版本交付、客户项目、AI提效与组织建设的述职报告</tspan></text>
+  </g>
+  <g>
+    <rect x="64" y="420" width="26" height="4" fill="#0B74E5" /><text font-size="14" fill="#6B7280" x="64" y="452"><tspan>述职人</tspan></text><text font-size="18" font-weight="600" fill="#111827" x="64" y="482"><tspan>自动化运维研发负责人</tspan></text>
+    <rect x="352" y="420" width="26" height="4" fill="#27B3FF" /><text font-size="14" fill="#6B7280" x="352" y="452"><tspan>述职周期</tspan></text><text font-size="18" font-weight="600" fill="#111827" x="352" y="482"><tspan>2026年上半年</tspan></text>
+  </g>
+  <g>
+    <text font-size="14" fill="#6B7280" x="64" y="552"><tspan>汇报要点</tspan></text>
+    <path d="M 84 576 H 172 A 20 20 0 0 1 192 596 A 20 20 0 0 1 172 616 H 84 A 20 20 0 0 1 64 596 A 20 20 0 0 1 84 576 Z" fill="#EAF5FF" /><circle cx="88" cy="596" r="4" fill="#27B3FF" /><text font-size="16" fill="#0A5CC9" x="102" y="602"><tspan>版本交付</tspan></text>
+    <path d="M 236 576 H 324 A 20 20 0 0 1 344 596 A 20 20 0 0 1 324 616 H 236 A 20 20 0 0 1 216 596 A 20 20 0 0 1 236 576 Z" fill="#EAF5FF" /><circle cx="240" cy="596" r="4" fill="#27B3FF" /><text font-size="16" fill="#0A5CC9" x="254" y="602"><tspan>客户项目</tspan></text>
+    <path d="M 388 576 H 476 A 20 20 0 0 1 496 596 A 20 20 0 0 1 476 616 H 388 A 20 20 0 0 1 368 596 A 20 20 0 0 1 388 576 Z" fill="#EAF5FF" /><circle cx="392" cy="596" r="4" fill="#27B3FF" /><text font-size="16" fill="#0A5CC9" x="406" y="602"><tspan>AI提效</tspan></text>
+    <path d="M 540 576 H 628 A 20 20 0 0 1 648 596 A 20 20 0 0 1 628 616 H 540 A 20 20 0 0 1 520 596 A 20 20 0 0 1 540 576 Z" fill="#EAF5FF" /><circle cx="544" cy="596" r="4" fill="#27B3FF" /><text font-size="16" fill="#0A5CC9" x="558" y="602"><tspan>组织建设</tspan></text>
+  </g>
+</svg>

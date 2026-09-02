@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+  <title>封面：2026年H1 自动化运维研发负责人工作述职</title>
+  <desc>简洁品牌封面。深色主卡为唯一视觉焦点，自上而下承载品牌眉标、时间范围、述职标题与报告范围（H1版本交付、客户项目、AI提效、组织建设）；右侧蓝色环形徽标以循环轨道呼应自动化运维主题，紫色节点对应AI提效；下方两张白色信息卡分别标识述职人身份与汇报周期。</desc>
+
+  
+  <path d="M 84 64 H 1196 A 20 20 0 0 1 1216 84 V 508 A 20 20 0 0 1 1196 528 H 84 A 20 20 0 0 1 64 508 V 84 A 20 20 0 0 1 84 64 Z" fill="#10233F" />
+
+  
+  <g>
+    <circle cx="1010" cy="280" r="168" fill="none" stroke="#1E3A5F" stroke-width="1.5" />
+    <path d="M 1046.2 144.8 A 140 140 0 0 1 1080 401.2" fill="none" stroke="#156BFF" stroke-width="12" />
+    <path d="M 962.1 411.6 A 140 140 0 0 1 888.8 210" fill="none" stroke="#65B7F9" stroke-width="8" />
+    <circle cx="1022.2" cy="419.5" r="9" fill="#65B7F9" />
+    <circle cx="962.1" cy="148.4" r="9" fill="#8866FD" />
+    <circle cx="1010" cy="280" r="58" fill="#10233F" stroke="#156BFF" stroke-width="3" />
+    <circle cx="1010" cy="280" r="24" fill="#156BFF" />
+    <circle cx="1010" cy="280" r="8" fill="#FFFFFF" />
+  </g>
+
+  
+  <rect x="112" y="126" width="14" height="14" fill="#156BFF" />
+  <text font-size="22" fill="#65B7F9" font-weight="bold" x="140" y="141"><tspan>MID-YEAR REVIEW</tspan></text>
+  <text font-size="44" fill="#65B7F9" font-weight="bold" x="112" y="228"><tspan>2026年H1</tspan></text>
+  <text font-size="58" fill="#FFFFFF" font-weight="bold" x="112" y="304"><tspan>自动化运维研发负责人</tspan></text>
+  <text font-size="58" fill="#FFFFFF" font-weight="bold" x="112" y="380"><tspan>工作述职</tspan></text>
+  <rect x="112" y="404" width="76" height="6" fill="#156BFF" />
+  <text font-size="24" fill="#A9BBD4" x="112" y="458"><tspan>一份关于H1版本交付、客户项目、AI提效与组织建设的述职报告</tspan></text>
+
+  
+  <path d="M 78 552 H 706 A 14 14 0 0 1 720 566 V 642 A 14 14 0 0 1 706 656 H 78 A 14 14 0 0 1 64 642 V 566 A 14 14 0 0 1 78 552 Z" fill="#FFFFFF" stroke="#D7E3F4" stroke-width="1.2" />
+  <rect x="88" y="582" width="10" height="10" fill="#156BFF" />
+  <text font-size="16" fill="#5B6B80" x="106" y="594"><tspan>述职人</tspan></text>
+  <text font-size="26" fill="#10233F" font-weight="bold" x="88" y="632"><tspan>自动化运维研发负责人</tspan></text>
+
+  
+  <path d="M 758 552 H 1202 A 14 14 0 0 1 1216 566 V 642 A 14 14 0 0 1 1202 656 H 758 A 14 14 0 0 1 744 642 V 566 A 14 14 0 0 1 758 552 Z" fill="#FFFFFF" stroke="#D7E3F4" stroke-width="1.2" />
+  <rect x="768" y="582" width="10" height="10" fill="#156BFF" />
+  <text font-size="16" fill="#5B6B80" x="786" y="594"><tspan>汇报周期</tspan></text>
+  <text font-size="26" fill="#10233F" font-weight="bold" x="768" y="632"><tspan>2026年1月至6月</tspan></text>
+</svg>
