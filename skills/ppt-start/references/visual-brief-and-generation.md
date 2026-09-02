@@ -14,13 +14,12 @@
 2. 当前有效 `theme.json`。主题拥有风格标识与软风格基线（色板角色、字体栈、间距节奏、形状语言、构图规则与禁止母题，来源为所选中风格包 `tokens.json` 的 `prompt_baseline`，由 `StyleBaselineCompiler` 确定性投影；可选扩展小节如布局偏好、结构规则、标题规范与基调，供 style 自定义更完整的视觉/结构指令）；
 3. `run.json.interaction_history` 中该页适用的 `visual_revision-<N>` 记录。按 scope／supersedes 契约得到的已应用修订只回写或投影到前述故事板内容所有权或主题风格所有权，不形成第三个页面规格域，也不投影布局令牌。
 
-## 编译步骤：两域投影
+## 编译步骤：单注点注入
 
 1. 从已批准故事板及其已应用内容修订投影 canonical narrative bullets：叙事要点、显示素材以及数字、单位、期间、限定词、因果与来源映射组成的事实底线；
-2. 从 `theme.json` 及其已应用风格修订投影 style baseline（`StyleBaselineCompiler` 从所选中风格包 `tokens.json` 的 `prompt_baseline` 确定性投影所得）：用于整套 deck 一致性的软风格方向；
-3. 读取唯一规范模板 [generation-prompt-template.md](generation-prompt-template.md)，在内存中恰好替换 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]` 两个 whole-line marker；不得增加第三个动态替换域或持久化逐页中间规格；
-4. 按 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md) 完成规范化、预检、envelope 与哈希后，持久化 `generation-prompts/<slide-id>.md`（`format: creative-brief-v1`）；
-5. 首次生成与 `recompose` 都只通过该已持久化编译 Prompt 进入生成：启动 fresh、独立上下文，只授予编译后的 Prompt；生成上下文只返回一个 `xml` 代码围栏中的完整 SVG。
+2. 读取所选中风格包自身声明的完整 prompt 模板（`assets/styles/<style-id>/<files.prompt_template>`；若该风格未声明则读仓库 [generation-prompt-template.md](generation-prompt-template.md) 兜底），在内存中把该模板的**单一** `{{NARRATIVE}}` whole-line 注点替换为上述叙事要点；模板自身内嵌其角色、工作流与视觉约定（含 `tokens.json` 的颜色/字体/间距/形状/构图/禁用母题，由 `StyleBaselineCompiler` 投影供语义参考），不另设第二个注入域；不得增加第二个动态替换域或持久化逐页中间规格；
+3. 按 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md) 完成规范化、预检、envelope 与哈希后，持久化 `generation-prompts/<slide-id>.md`（`format: creative-brief-v1`）；
+4. 首次生成与 `recompose` 都只通过该已持久化编译 Prompt 进入生成：启动 fresh、独立上下文，只授予编译后的 Prompt；生成上下文只返回一个 `xml` 代码围栏中的完整 SVG。
 
 ## 事实底线与生成自由
 

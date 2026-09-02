@@ -8,7 +8,7 @@
 
 新安装先读取 `assets/styles/registry.json` 发现可选风格；缺 registry 时只允许下方完整 fallback 表中的三个 legacy seed。用户给出稳定 ID 或唯一显示名时可直接选择；未明确选择时仍按 guided／auto 规则决定，不得因新增风格包改变默认行为。根据主题、受众、品牌／风格约束和内容密度选择，不得只按主题关键词机械轮换。用户提供的品牌颜色可以覆盖 seed 或 style pack，但必须先检查对比度并记录最终值。
 
-风格解析是身份、令牌与指导的 package oracle 契约，不是运行时安全实现。主题阶段和生成阶段必须使用同一 traversal、同一 reason 词表与同一 no-follow ownership 规则；不得在两个文档中各自发明条件。宿主仍必须对真实文件系统执行 no-follow／`lstat`、普通文件、UTF-8 和 JSON 检查。风格资产不拥有可执行生成正文；该正文只来自 `references/generation-prompt-template.md` 的规范编译。
+风格解析是身份、令牌与指导的 package oracle 契约，不是运行时安全实现。主题阶段和生成阶段必须使用同一 traversal、同一 reason 词表与同一 no-follow ownership 规则；不得在两个文档中各自发明条件。宿主仍必须对真实文件系统执行 no-follow／`lstat`、普通文件、UTF-8 和 JSON 检查。风格资产不拥有可执行生成正文；该正文来自所选中风格包自身声明的完整 prompt 模板（`assets/styles/<style-id>/<files.prompt_template>`；未声明时兜底仓库 `references/generation-prompt-template.md`）的规范编译。
 
 ### registry 与 pack root
 

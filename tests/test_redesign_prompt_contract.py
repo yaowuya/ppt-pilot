@@ -110,6 +110,8 @@ class TemplateCreativeReformTest(unittest.TestCase):
         )
         forbidden = (
             "[[EFFECTIVE_PAGE_SPECIFICATION]]",
+            "[[CANONICAL_NARRATIVE_BULLETS]]",
+            "[[STYLE_BASELINE]]",
             "有效页面规格（唯一动态内容）",
             "visual_brief_snapshot_id",
             "visual-brief assembler",
@@ -123,8 +125,7 @@ class TemplateCreativeReformTest(unittest.TestCase):
                     "已批准故事板",
                     "theme.json",
                     "visual_revision-<N>",
-                    "[[CANONICAL_NARRATIVE_BULLETS]]",
-                    "[[STYLE_BASELINE]]",
+                    "{{NARRATIVE}}",
                     "generation-prompts/<slide-id>.md",
                 ):
                     self.assertIn(token, text)
