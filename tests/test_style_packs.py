@@ -44,6 +44,7 @@ class StylePackTests(unittest.TestCase):
             {
                 "tokens": "tokens.json",
                 "guidance": "STYLE.md",
+                "prompt_template": "prompt.md",
             },
         )
         for path in manifest["files"].values():
@@ -76,13 +77,13 @@ class StylePackTests(unittest.TestCase):
         self.assertEqual(manifest["kind"], "style_pack")
         self.assertEqual(manifest["version"], "1.3.0")
         self.assertIn("嘉为年中总结风格", manifest["selection_aliases"])
-        self.assertEqual(set(manifest["files"]), {"tokens", "guidance"})
+        self.assertEqual(set(manifest["files"]), {"tokens", "guidance", "prompt_template"})
         self.assertTrue(manifest["compatibility"]["office_safe_svg"])
         self.assertFalse(manifest["default"])
 
     def test_tokens_encode_approved_canway_style(self):
         tokens = json.loads(read_text(self.tokens_path))
-        self.assertEqual(tokens["schema_version"], 1)
+        self.assertEqual(tokens["schema_version"], 2)
         self.assertEqual(tokens["id"], "canway-midyear-review")
         expected_colors = {
             "canvas": "#FFFFFF",
@@ -114,8 +115,6 @@ class StylePackTests(unittest.TestCase):
             "证据边界",
             "AI",
             "有界试点",
-            "40%–60%",
-            "最多一处轻阴影",
             "左侧长蓝条",
             "背景图片",
             "渐变",
@@ -139,6 +138,59 @@ class StylePackTests(unittest.TestCase):
             self.assertNotIn(forbidden, active_contract.lower())
         self.assertIn("不得包含单页成品示例、参考构图或固定区域图", active_contract)
         self.assertIn("不得从成品示例或既有 SVG 反推构图", active_contract)
+
+    def test_tokens_use_schema_v2_and_have_structured_baseline(self):
+        tokens = json.loads(read_text(self.tokens_path))
+        self.assertEqual(tokens["schema_version"], 2)
+        baseline = tokens["prompt_baseline"]
+        self.assertEqual(
+            list(baseline),
+            ["palette_roles", "font_stack", "spacing_rhythm", "shape_language", "composition_rules", "prohibited_motifs"],
+        )
+        palette_tokens = [role["token"] for role in baseline["palette_roles"]]
+        self.assertEqual(len(palette_tokens), len(set(palette_tokens)))
+        self.assertTrue(all(role["token"] in tokens["colors"] for role in baseline["palette_roles"]))
+        self.assertEqual(baseline["spacing_rhythm"]["outer_margin"], 64)
+        self.assertEqual(baseline["composition_rules"]["max_shadowed_objects"], 1)
+        self.assertTrue(baseline["prohibited_motifs"])
+        self.assertIn("40%-60%", baseline["composition_rules"]["card_coverage"])
+
+    def test_jiawei_product_tokens_expose_extended_visual_structure(self):
+        pack_root = self.style_root / "jiawei-product"
+        tokens = json.loads(read_text(pack_root / "tokens.json"))
+        self.assertEqual(tokens["schema_version"], 2)
+        self.assertEqual(tokens["id"], "jiawei-product")
+        baseline = tokens["prompt_baseline"]
+        self.assertIn("palette_roles", baseline)
+        self.assertIn("font_stack", baseline)
+        self.assertIn("spacing_rhythm", baseline)
+        self.assertIn("shape_language", baseline)
+        self.assertIn("composition_rules", baseline)
+        self.assertIn("prohibited_motifs", baseline)
+        # Extended optional visual/structure sections that a product-style pack may declare.
+        self.assertIn("layout_preferences", baseline)
+        self.assertIn("structure_rules", baseline)
+        self.assertIn("title_spec", baseline)
+        self.assertIn("tone_skew", baseline)
+        palette_tokens = [role["token"] for role in baseline["palette_roles"]]
+        self.assertEqual(len(palette_tokens), len(set(palette_tokens)))
+        self.assertTrue(all(role["token"] in tokens["colors"] for role in baseline["palette_roles"]))
+        self.assertTrue(baseline["prohibited_motifs"])
+        self.assertTrue(baseline["layout_preferences"])
+        self.assertTrue(baseline["structure_rules"])
+        self.assertIn("position", baseline["title_spec"])
+        self.assertIn("no_english", baseline["title_spec"])
+        self.assertTrue(baseline["tone_skew"])
+
+    def test_jiawei_product_manifest_declares_prompt_template(self):
+        manifest = json.loads(read_text(self.style_root / "jiawei-product" / "manifest.json"))
+        self.assertIn("prompt_template", manifest["files"])
+        prompt_path = self.style_root / "jiawei-product" / manifest["files"]["prompt_template"]
+        self.assertTrue(prompt_path.is_file())
+        prompt = read_text(prompt_path)
+        self.assertIn("{{NARRATIVE}}", prompt)
+        self.assertNotIn("[[STYLE_BASELINE]]", prompt)
+        self.assertNotIn("source=", prompt)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "valid": [
+    {"id": "absolute-lines", "d": "M 10 20 L 30 40 H 50 V 60 Z"},
+    {"id": "relative-lines", "d": "m 10 20 l 20 20 h 20 v 20 z"},
+    {"id": "repeated-move", "d": "M 0 0 10 10 20 0"},
+    {"id": "multiple-subpaths", "d": "M0 0L10 0Z M20 20l5 5"},
+    {"id": "arc", "d": "M 0 0 A 20 10 0 0 1 40 0"}
+  ],
+  "invalid": [
+    {"id": "unknown-command", "d": "M0 0X1 1"},
+    {"id": "garbage", "d": "M0 0 @ L1 1"},
+    {"id": "trailing-number", "d": "M0 0L1"},
+    {"id": "bad-exponent", "d": "M0 0L1e 2"},
+    {"id": "bad-flag", "d": "M0 0A1 1 0 1.0 0 2 2"},
+    {"id": "negative-radius", "d": "M0 0A-1 1 0 0 0 2 2"},
+    {"id": "rotation", "d": "M0 0A1 2 45 0 1 2 2"}
+  ]
+}

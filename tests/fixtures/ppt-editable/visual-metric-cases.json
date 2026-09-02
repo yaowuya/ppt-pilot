@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {"id": "identical", "full_mad": 0.0, "geometry_mad": 0.0, "passed": true},
+    {"id": "full-threshold-equality", "full_mad": 4.0, "passed": true},
+    {"id": "full-over-threshold", "full_mad": 5.0, "passed": false},
+    {"id": "geometry-threshold-equality", "geometry_mad": 1.5, "passed": true},
+    {"id": "localized-tile-failure", "tile_mad": 9.0, "passed": false},
+    {"id": "partial-bottom-tile", "tile_width": 64, "tile_height": 16, "tile_mad": 9.0, "passed": false},
+    {"id": "wrong-dimensions", "passed": false},
+    {"id": "missing-render", "passed": false}
+  ]
+}

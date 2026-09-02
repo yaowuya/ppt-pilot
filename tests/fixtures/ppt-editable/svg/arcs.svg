@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <title>Arc fixture</title>
+  <desc>Four rounded corners and one corrected-radius arc</desc>
+  <path d="M 100 100 H 280 A 20 20 0 0 1 300 120 V 220 A 20 20 0 0 1 280 240 H 100 A 20 20 0 0 1 80 220 V 120 A 20 20 0 0 1 100 100 Z" fill="#112233"/>
+  <path d="M 400 200 A 10 10 0 0 1 500 200" fill="none" stroke="#445566" stroke-width="2"/>
+</svg>

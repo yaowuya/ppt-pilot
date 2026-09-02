@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "tech-dark",
+  "display_name": "深色科技",
+  "version": "1.0.0",
+  "kind": "style_pack",
+  "default": false,
+  "summary": "深色科技风格：高对比深底、冷色高亮、科技感。",
+  "recommended_for": [
+    "数据能力全景",
+    "平台架构展示",
+    "技术汇报"
+  ],
+  "not_for": [
+    "营销海报",
+    "重数据大屏"
+  ],
+  "selection_aliases": [
+    "tech-dark",
+    "深色科技"
+  ],
+  "files": {
+    "tokens": "tokens.json",
+    "guidance": "STYLE.md",
+    "prompt_template": "prompt.md"
+  },
+  "compatibility": {
+    "office_safe_svg": true,
+    "canvas": "1280x720",
+    "languages": [
+      "zh-CN"
+    ]
+  }
+}

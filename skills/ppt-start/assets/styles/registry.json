@@ -4,26 +4,32 @@
     {
       "id": "minimal-business",
       "display_name": "极简商务",
-      "kind": "legacy_seed",
-      "entrypoint": "minimal-business.json"
+      "kind": "style_pack",
+      "entrypoint": "minimal-business/manifest.json"
     },
     {
       "id": "tech-dark",
       "display_name": "深色科技",
-      "kind": "legacy_seed",
-      "entrypoint": "tech-dark.json"
+      "kind": "style_pack",
+      "entrypoint": "tech-dark/manifest.json"
     },
     {
       "id": "bold-editorial",
       "display_name": "强调编辑",
-      "kind": "legacy_seed",
-      "entrypoint": "bold-editorial.json"
+      "kind": "style_pack",
+      "entrypoint": "bold-editorial/manifest.json"
     },
     {
       "id": "canway-midyear-review",
       "display_name": "嘉为年中总结风格",
       "kind": "style_pack",
       "entrypoint": "canway-midyear-review/manifest.json"
+    },
+    {
+      "id": "jiawei-product",
+      "display_name": "嘉为产品",
+      "kind": "style_pack",
+      "entrypoint": "jiawei-product/manifest.json"
     }
   ]
 }

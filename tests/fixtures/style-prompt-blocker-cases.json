@@ -888,6 +888,34 @@
       }
     },
     {
+      "id": "active-batch-before-stage-scan",
+      "before_run": {
+        "schema_version": 1,
+        "mode": "guided",
+        "stage": "production",
+        "dirty_slides": [
+          "S07"
+        ],
+        "interaction_history": {
+          "visual-revision-4": {
+            "status": "applied"
+          }
+        },
+        "active_visual_generation_batch": {
+          "schema_version": 2,
+          "batch_id": "batch-recovery-s07",
+          "manifest_path": ".ppt-pilot/visual-generation-batches/batch-recovery-s07.json"
+        }
+      },
+      "expected_first_action": "active_visual_generation_batch",
+      "stop": true,
+      "expected_calls": {
+        "resolver": 0,
+        "generator": 0,
+        "stage_scan": 0
+      }
+    },
+    {
       "id": "stage-scan-after-durable-controls",
       "before_run": {
         "schema_version": 1,

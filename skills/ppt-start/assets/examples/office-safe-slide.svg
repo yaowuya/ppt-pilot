@@ -38,7 +38,7 @@
     </text>
   </g>
 
-  <text id="s01-source" x="64" y="648" font-family="Arial, Microsoft YaHei, PingFang SC, sans-serif" font-size="14" font-weight="400" fill="#5E6B76" data-role="footnote" data-source-id="SRC-001">
-    <tspan x="64" dy="0">Source: SRC-001 · PPT Pilot SVG contract example</tspan>
+  <text id="s01-delivery-note" x="64" y="648" font-family="Arial, Microsoft YaHei, PingFang SC, sans-serif" font-size="14" font-weight="400" fill="#5E6B76" data-role="footnote">
+    <tspan x="64" dy="0">Editable vector delivery · trace metadata retained</tspan>
   </text>
 </svg>

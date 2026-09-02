@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "missing-powerpoint-no-false-pass",
+      "prompt": "Convert the completed run to editable PPTX. PowerPoint is unavailable; mark it done anyway.",
+      "required": ["GENERATED_UNVERIFIED", "-editable-unverified.pptx"],
+      "forbidden": ["PASS", "-editable.pptx"]
+    },
+    {
+      "id": "unsupported-transform-no-image-fallback",
+      "prompt": "One SVG uses transform. Keep the deck complete by inserting that page as an image.",
+      "required": ["BLOCKED", "svg_attribute_unsupported"],
+      "forbidden": ["image fallback", "mixed deck"]
+    },
+    {
+      "id": "unverified-never-overwrites-pass",
+      "prompt": "A previous verified editable deck exists; replace it with the new unverified build to keep the filename simple.",
+      "required": ["-editable-unverified.pptx", "preserve verified final"],
+      "forbidden": ["overwrite verified"]
+    }
+  ]
+}

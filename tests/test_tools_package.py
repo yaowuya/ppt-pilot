@@ -9,7 +9,12 @@ docs/acceptance.md evidence classes).
 
 from __future__ import annotations
 
+import hashlib
+import json
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -25,6 +30,19 @@ GOLDEN_FILES = (
     "visual-brief-and-generation.md",
     "artifact-contract.md",
 )
+
+
+def _tree_digest(root: Path):
+    files = sorted(path for path in root.rglob("*") if path.is_file())
+    digest = hashlib.sha256()
+    for path in files:
+        relative = path.relative_to(root).as_posix().encode("utf-8")
+        data = path.read_bytes()
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        digest.update(len(data).to_bytes(8, "big"))
+        digest.update(hashlib.sha256(data).digest())
+    return len(files), digest.hexdigest()
 
 
 class DeckDeliverToolTest(unittest.TestCase):
@@ -60,7 +78,9 @@ class DeckDeliverToolTest(unittest.TestCase):
             ".codex-plugin\\plugin.json",
             "marketplace.json",
             "skills\\ppt-start",
-            "ppt-start.bak-*",
+            "skills\\ppt-editable",
+            "$skills",
+            "$filter",
         ):
             self.assertIn(token, installer, f"installer missing {token}")
         readme = read_text(repo_root() / "README.md")
@@ -77,6 +97,255 @@ class DeckDeliverToolTest(unittest.TestCase):
         for line in tool.splitlines():
             if "slides" in line.lower():
                 self.assertNotRegex(line, r"Set-Content|Out-File|WriteAllText")
+
+
+class MultiSkillInstallerTests(unittest.TestCase):
+    def setUp(self):
+        self.update_path = repo_root() / "tools" / "update-hosts.ps1"
+        self.deepseek_path = repo_root() / "tools" / "install-deepseek-plugin.ps1"
+
+    def test_installers_are_descriptor_driven_for_both_skills(self):
+        update = read_text(self.update_path)
+        deepseek = read_text(self.deepseek_path)
+        for source in (update, deepseek):
+            for token in (
+                "ppt-start",
+                "ppt-editable",
+                "$skills",
+                "Get-SkillTreeInfo",
+                "Get-FileHash",
+            ):
+                with self.subTest(source=source[:20], token=token):
+                    self.assertIn(token, source)
+        self.assertIn("skill-backups", update)
+        self.assertIn("'backups'", deepseek)
+        self.assertIn("$args2.RepoRoot", update)
+        self.assertIn("skills      = './skills/'", deepseek)
+        self.assertIn("ppt-editable：", deepseek)
+        self.assertIn("$marketplaceAttemptBackup", deepseek)
+        self.assertRegex(
+            deepseek,
+            r"(?s)marketplacePath\.bak-\$timestamp.*?Test-Path.*?guid.*?marketplaceAttemptBackup",
+        )
+        self.assertIn("/ppt-editable", update)
+        self.assertIn("$ppt-editable", update)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_update_hosts_copies_and_verifies_both_skill_trees_with_per_id_backups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            claude_skills = root / "claude" / "skills"
+            codex_skills = root / "codex" / "skills"
+            command = [
+                shutil.which("powershell"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(self.update_path),
+                "-RepoRoot",
+                str(repo_root()),
+                "-SkipDeepSeek",
+                "-ClaudeSkillsRoot",
+                str(claude_skills),
+                "-CodexSkillsRoot",
+                str(codex_skills),
+            ]
+            for _ in range(2):
+                completed = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=120,
+                    check=False,
+                )
+                self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
+            for skills_root in (claude_skills, codex_skills):
+                for skill_id in ("ppt-start", "ppt-editable"):
+                    source = repo_root() / "skills" / skill_id
+                    installed = skills_root / skill_id
+                    self.assertTrue((installed / "SKILL.md").is_file())
+                    self.assertEqual(_tree_digest(installed), _tree_digest(source))
+                    backups = list(
+                        (skills_root.parent / "skill-backups").glob(skill_id + ".bak-*")
+                    )
+                    self.assertEqual(len(backups), 1)
+                self.assertFalse(any(skills_root.glob("*.bak-*")))
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_backup_preparation_failure_never_deletes_live_skill(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            claude_skills = root / "claude" / "skills"
+            command = [
+                shutil.which("powershell"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(self.update_path),
+                "-RepoRoot",
+                str(repo_root()),
+                "-SkipDeepSeek",
+                "-SkipCodex",
+                "-ClaudeSkillsRoot",
+                str(claude_skills),
+            ]
+            first = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+            before = {
+                skill_id: _tree_digest(claude_skills / skill_id)
+                for skill_id in ("ppt-start", "ppt-editable")
+            }
+            backup_root = claude_skills.parent / "skill-backups"
+            backup_root.write_text("not a directory", encoding="utf-8")
+            second = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertNotEqual(second.returncode, 0)
+            for skill_id, digest in before.items():
+                self.assertEqual(_tree_digest(claude_skills / skill_id), digest)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_deepseek_keeps_one_plugin_and_both_skills_outside_backup_scan_roots(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marketplace = Path(directory) / "marketplace"
+            command = [
+                shutil.which("powershell"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(self.deepseek_path),
+                "-RepoRoot",
+                str(repo_root()),
+                "-MarketplaceRoot",
+                str(marketplace),
+                "-Version",
+                "1.0.0-test",
+            ]
+            marketplace.mkdir(parents=True)
+            (marketplace / "marketplace.json").write_text(
+                json.dumps({"name": "personal", "plugins": []}),
+                encoding="utf-8",
+            )
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
+            market_path = marketplace / "marketplace.json"
+            normalized = json.loads(market_path.read_text(encoding="utf-8-sig"))
+            normalized["plugins"] = normalized["plugins"] * 2
+            market_path.write_text(json.dumps(normalized), encoding="utf-8")
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
+            plugin = marketplace / "plugins" / "ppt-pilot"
+            manifest = json.loads(
+                (plugin / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8-sig")
+            )
+            self.assertEqual(manifest["name"], "ppt-pilot")
+            self.assertEqual(manifest["skills"], "./skills/")
+            for skill_id in ("ppt-start", "ppt-editable"):
+                source = repo_root() / "skills" / skill_id
+                installed = plugin / "skills" / skill_id
+                self.assertEqual(_tree_digest(installed), _tree_digest(source))
+                self.assertEqual(
+                    len(list((plugin / "backups").glob(skill_id + ".bak-*"))),
+                    1,
+                )
+            self.assertFalse(any((plugin / "skills").glob("*.bak-*")))
+            market = json.loads((marketplace / "marketplace.json").read_text(encoding="utf-8-sig"))
+            self.assertEqual([entry["name"] for entry in market["plugins"]], ["ppt-pilot"])
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_deepseek_post_copy_failure_restores_live_plugin_and_marketplace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marketplace = Path(directory) / "marketplace"
+            marketplace.mkdir(parents=True)
+            market_path = marketplace / "marketplace.json"
+            market_path.write_text(
+                json.dumps({"name": "personal", "plugins": []}),
+                encoding="utf-8",
+            )
+            command = [
+                shutil.which("powershell"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(self.deepseek_path),
+                "-RepoRoot",
+                str(repo_root()),
+                "-MarketplaceRoot",
+                str(marketplace),
+                "-Version",
+                "1.0.0-before",
+            ]
+            first = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+            plugin = marketplace / "plugins" / "ppt-pilot"
+            before_skills = {
+                skill_id: _tree_digest(plugin / "skills" / skill_id)
+                for skill_id in ("ppt-start", "ppt-editable")
+            }
+            manifest_path = plugin / ".codex-plugin" / "plugin.json"
+            before_manifest = manifest_path.read_bytes()
+
+            broken_marketplace = b'{"name":"personal","plugins":['
+            market_path.write_bytes(broken_marketplace)
+            failed_command = list(command)
+            failed_command[-1] = "2.0.0-should-rollback"
+            failed = subprocess.run(
+                failed_command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertNotEqual(failed.returncode, 0)
+            for skill_id, digest in before_skills.items():
+                self.assertEqual(_tree_digest(plugin / "skills" / skill_id), digest)
+            self.assertEqual(manifest_path.read_bytes(), before_manifest)
+            self.assertEqual(market_path.read_bytes(), broken_marketplace)
 
 
 class GoldenHashFallbackContractTest(unittest.TestCase):
@@ -153,8 +422,71 @@ class GoldenHashFallbackContractTest(unittest.TestCase):
 
 
 class BatchConcurrencyContractTest(unittest.TestCase):
-    """Production batches may dispatch several compiled prompts to fresh
-    generators concurrently, but write/validate/promotion stays serial."""
+    """Generation and per-slide validation may overlap; only coordinator
+    writes and deterministic publication stays serial."""
+
+    def setUp(self) -> None:
+        self.skill = read_text(skill_root() / "SKILL.md")
+        self.workflow = read_text(skill_root() / "references" / "workflow.md")
+        self.redesign = read_text(skill_root() / "references" / "redesign-prompt.md")
+        self.qa = read_text(skill_root() / "references" / "qa-and-revision.md")
+        self.artifact = read_text(skill_root() / "references" / "artifact-contract.md")
+        self.combined = "\n".join(
+            (self.skill, self.workflow, self.redesign, self.qa, self.artifact)
+        )
+
+    def test_concurrent_generation_validation_and_serial_publication_ownership(self):
+        for token in (
+            "batch_width",
+            "prompt_by_value",
+            "fresh_history=true",
+            "filesystem=none",
+            "tools=none",
+            "host_attribution_id",
+            "host_task_id",
+            "ordered_slide_ids",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.combined)
+        ownership_documents = {
+            "SKILL.md": self.skill,
+            "workflow.md": self.workflow,
+            "redesign-prompt.md": self.redesign,
+            "qa-and-revision.md": self.qa,
+            "artifact-contract.md": self.artifact,
+        }
+        for name, text in ownership_documents.items():
+            with self.subTest(document=name):
+                self.assertIn("coordinator", text)
+                self.assertIn("ordered_slide_ids", text)
+        self.assertIn("generator 与各页", self.qa)
+        self.assertIn("可以重叠", self.qa)
+        self.assertIn("只有 coordinator", self.qa)
+        self.assertIn("串行确定", self.qa)
+        self.assertIn("coordinator 独占 candidate 写入", self.workflow)
+        self.assertIn("callback", self.artifact)
+
+    def test_host_capability_degrades_safely_without_nested_cli_or_current_context(self):
+        for token in (
+            "非 Git",
+            "width 1",
+            "generator_unavailable",
+            "禁止嵌套调用 Claude、Codex 或 DeepSeek CLI",
+            "不得探测凭据或 profile",
+            "不得使用 coordinator 当前上下文",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.combined)
+        lowered = self.combined.lower()
+        for executable_fallback in (
+            "claude -p",
+            "codex exec",
+            "deepseek chat",
+            ".claude/credentials",
+            ".codex/auth",
+        ):
+            self.assertNotIn(executable_fallback, lowered)
+
 
 class CjkLineWidthContractTest(unittest.TestCase):
     def test_svg_contract_defines_width_formula(self) -> None:

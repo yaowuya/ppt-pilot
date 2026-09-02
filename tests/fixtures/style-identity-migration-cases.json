@@ -73,9 +73,9 @@
   "operation_matrix": {
     "initial_generation": {
       "mode": "recompose",
-      "trigger": "initial:<slide-id>:<visual_brief_snapshot_id>",
-      "reason": "initial generation from approved visual brief",
-      "user_page_request": "initial generation from approved visual brief",
+      "trigger": "initial:<slide-id>:<storyboard_snapshot_id>",
+      "reason": "initial generation from approved storyboard and theme",
+      "user_page_request": "none (initial generation)",
       "prior_candidate": "none",
       "compile_full_prompt": true
     },
@@ -106,8 +106,8 @@
       "expected": "valid"
     },
     {
-      "id": "missing-brief-id-rebuilds",
-      "brief_identity": {
+      "id": "missing-prompt-id-rebuilds",
+      "prompt_identity": {
         "selected_style_display_name": "嘉为年中总结风格",
         "style_kind": "style_pack",
         "style_manifest_version": "1.2.0"
@@ -137,14 +137,14 @@
     },
     {
       "id": "missing-both-ids-conflicts-without-owner",
-      "brief_identity": {},
+      "prompt_identity": {},
       "theme_identity": {},
       "persisted_operation_owner": null,
       "expected": "prompt_snapshot_conflict"
     },
     {
       "id": "missing-both-ids-rebuilds-from-persisted-owner",
-      "brief_identity": {},
+      "prompt_identity": {},
       "theme_identity": {},
       "persisted_operation_owner": {
         "generation_intent": "user_recompose",
@@ -171,7 +171,7 @@
     },
     {
       "id": "derives-non-id-fields-from-manifest",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "canway-midyear-review"
       },
       "theme_identity": {
@@ -187,7 +187,7 @@
     },
     {
       "id": "missing-non-id-fields-rebuilds-with-backfill",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "canway-midyear-review",
         "style_kind": "style_pack"
       },
@@ -205,7 +205,7 @@
     },
     {
       "id": "stale-display-name-is-ordinary-stale",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "canway-midyear-review",
         "selected_style_display_name": "旧嘉为风格名",
         "style_kind": "style_pack",
@@ -228,7 +228,7 @@
         "style_manifest_version": "1.1.0"
       },
       "expected": "ordinary_stale",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "canway-midyear-review",
         "selected_style_display_name": "嘉为年中总结风格",
         "style_kind": "style_pack",
@@ -247,7 +247,7 @@
     },
     {
       "id": "legacy-version-non-none-conflicts",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "minimal-business",
         "selected_style_display_name": "极简商务",
         "style_kind": "legacy_seed",
@@ -267,7 +267,7 @@
     },
     {
       "id": "fallback-minimal-business-valid",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "minimal-business",
         "selected_style_display_name": "极简商务",
         "style_kind": "legacy_seed",
@@ -287,7 +287,7 @@
     },
     {
       "id": "fallback-minimal-business-default-table-valid",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "minimal-business",
         "selected_style_display_name": "极简商务",
         "style_kind": "legacy_seed",
@@ -307,7 +307,7 @@
     },
     {
       "id": "fallback-tech-dark-default-table-valid",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "tech-dark",
         "selected_style_display_name": "深色科技",
         "style_kind": "legacy_seed",
@@ -327,7 +327,7 @@
     },
     {
       "id": "fallback-bold-editorial-default-table-valid",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "bold-editorial",
         "selected_style_display_name": "强调编辑",
         "style_kind": "legacy_seed",
@@ -496,7 +496,7 @@
     },
     {
       "id": "old-directory-only-is-inert",
-      "brief_identity": {},
+      "prompt_identity": {},
       "theme_identity": {},
       "registry": {
         "state": "missing"
@@ -530,7 +530,7 @@
         "new_directory_present": true
       },
       "expected": "ordinary_stale",
-      "brief_identity": {
+      "prompt_identity": {
         "selected_style_id": "canway-midyear-review",
         "selected_style_display_name": "嘉为年中总结风格",
         "style_kind": "style_pack",
@@ -587,11 +587,11 @@
       "id": "initial-generation-valid-owner",
       "persisted_operation_owner": {
         "generation_intent": "initial_generation",
-        "generation_trigger_id": "initial:S05:sha256:briefsnap",
+        "generation_trigger_id": "initial:S05:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
-        "reason": "initial generation from approved visual brief",
-        "user_page_request": "initial generation from approved visual brief",
+        "reason": "initial generation from approved storyboard and theme",
+        "user_page_request": "none (initial generation)",
         "prior_candidate": "none",
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -607,8 +607,8 @@
         "trigger_owner_count": 1,
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "reason": "initial generation from approved visual brief",
-        "user_page_request": "initial generation from approved visual brief",
+        "reason": "initial generation from approved storyboard and theme",
+        "user_page_request": "none (initial generation)",
         "prior_candidate": "none"
       },
       "expected": "prompt_snapshot_conflict"
@@ -617,13 +617,13 @@
       "id": "initial-generation-wrong-sentinel-conflicts",
       "persisted_operation_owner": {
         "generation_intent": "initial_generation",
-        "generation_trigger_id": "initial:S05:sha256:briefsnap",
+        "generation_trigger_id": "initial:S05:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "trigger_owner_state": "valid",
         "trigger_owner_count": 1,
         "stored_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "current_body_hash_64hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "reason": "initial generation from approved visual brief",
-        "user_page_request": "use user text",
+        "reason": "initial generation from approved storyboard and theme",
+        "user_page_request": "unexpected initial request",
         "prior_candidate": "none"
       },
       "expected": "prompt_snapshot_conflict"
@@ -714,7 +714,7 @@
     },
     {
       "id": "missing-both-ids-owner-unregistered-identity-conflicts",
-      "brief_identity": {},
+      "prompt_identity": {},
       "theme_identity": {},
       "persisted_operation_owner": {
         "generation_intent": "user_recompose",
@@ -735,7 +735,7 @@
     },
     {
       "id": "missing-both-ids-owner-stale-identity-conflicts",
-      "brief_identity": {},
+      "prompt_identity": {},
       "theme_identity": {},
       "persisted_operation_owner": {
         "generation_intent": "user_recompose",
@@ -756,7 +756,7 @@
     },
     {
       "id": "missing-both-ids-owner-inconsistent-identity-conflicts",
-      "brief_identity": {},
+      "prompt_identity": {},
       "theme_identity": {},
       "persisted_operation_owner": {
         "generation_intent": "user_recompose",
@@ -776,8 +776,8 @@
       "expected": "prompt_snapshot_conflict"
     },
     {
-      "id": "brief-theme-display-name-conflict",
-      "brief_identity": {
+      "id": "prompt-theme-display-name-conflict",
+      "prompt_identity": {
         "selected_style_id": "canway-midyear-review",
         "selected_style_display_name": "旧嘉为风格名",
         "style_kind": "style_pack",
@@ -786,7 +786,7 @@
       "expected": "prompt_snapshot_conflict"
     },
     {
-      "id": "brief-theme-manifest-version-conflict",
+      "id": "prompt-theme-manifest-version-conflict",
       "theme_identity": {
         "selected_style_id": "canway-midyear-review",
         "selected_style_display_name": "嘉为年中总结风格",

@@ -1,5 +1,30 @@
 {
   "schema_version": 1,
+  "slide_ids": ["S03", "S04", "S05", "S06"],
+  "before_run": {
+    "dirty_slides": []
+  },
+  "after_run": {
+    "dirty_slides": ["S03", "S04", "S05", "S06"]
+  },
+  "dirty_transition_cases": [
+    {
+      "id": "deck-scoped-revision-dirties-all-slides",
+      "revision_id": "visual-revision-1",
+      "affected_scope": "deck",
+      "before_run": {"dirty_slides": []},
+      "after_run": {"dirty_slides": ["S03", "S04", "S05", "S06"]},
+      "expected_dirty_slides": ["S03", "S04", "S05", "S06"]
+    },
+    {
+      "id": "page-scoped-revision-dirties-only-s05",
+      "revision_id": "visual-revision-3",
+      "affected_scope": ["S05"],
+      "before_run": {"dirty_slides": []},
+      "after_run": {"dirty_slides": ["S05"]},
+      "expected_dirty_slides": ["S05"]
+    }
+  ],
   "history": [
     {
       "id": "visual-revision-1",
@@ -39,7 +64,7 @@
       "affected_scope": ["S05"],
       "supersedes": [],
       "status": "applied",
-      "artifact_owner": "visual-briefs/S05.md"
+      "artifact_owner": ".ppt-pilot/故事板.md"
     }
   ],
   "expected_active_contract": {

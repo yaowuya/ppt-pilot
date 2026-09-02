@@ -14,7 +14,11 @@ RESUME_ORDER = (
     "manuscript_review.pending_round",
     "visual_generation_blocker",
     "visual_generation_transaction",
+    "active_visual_generation_batch",
     "stage scan",
+)
+V1_RESUME_ORDER = tuple(
+    value for value in RESUME_ORDER if value != "active_visual_generation_batch"
 )
 
 
@@ -28,6 +32,8 @@ def fixture_first_recovery_action(run: dict) -> str:
         return "visual_generation_blocker"
     if "visual_generation_transaction" in run:
         return "visual_generation_transaction"
+    if "active_visual_generation_batch" in run:
+        return "active_visual_generation_batch"
     return "stage scan"
 
 
@@ -222,7 +228,7 @@ class InteractionProtocolTests(unittest.TestCase):
             "run.json.mode",
             "delivery_mode",
             "外部传输",
-            "pending_interaction > manuscript_review.pending_round > visual_generation_blocker > visual_generation_transaction > stage scan",
+            "pending_interaction > manuscript_review.pending_round > visual_generation_blocker > schema-v1 visual_generation_transaction migration > active_visual_generation_batch > stage scan",
             "未完成或脏输入",
         ):
             self.assertIn(token.lower(), brief, f"brief-and-research.md 缺少 {token}")
@@ -503,6 +509,12 @@ class InteractionProtocolTests(unittest.TestCase):
                     self.assertTrue(case["stop"])
                     self.assertEqual(case["expected_calls"]["resolver"], 0)
                     self.assertEqual(case["expected_calls"]["stage_scan"], 0)
+                elif case["expected_first_action"] == "active_visual_generation_batch":
+                    self.assertTrue(case["stop"])
+                    self.assertEqual(
+                        case["expected_calls"],
+                        {"resolver": 0, "generator": 0, "stage_scan": 0},
+                    )
                 else:
                     self.assertEqual(case["expected_first_action"], "stage scan")
                     self.assertFalse(case["stop"])
@@ -525,8 +537,9 @@ class InteractionProtocolTests(unittest.TestCase):
             self.assertIn("manuscript_review.pending_round", line)
             self.assertIn("visual_generation_blocker", line)
             self.assertIn("visual_generation_transaction", line)
-        self.assertIn("前四项均不存在后才能扫描", resume_line)
-        self.assertIn("四类 durable control state", revise_line)
+            self.assertIn("active_visual_generation_batch", line)
+        self.assertIn("前五项均不存在后才能扫描", resume_line)
+        self.assertIn("五类 durable control state", revise_line)
 
     def test_visual_generation_transaction_fixture_obeys_global_recovery_priority(self):
         fixture_path = self.fixture_root / "visual-generation-transaction-cases.json"
@@ -535,7 +548,7 @@ class InteractionProtocolTests(unittest.TestCase):
         recovery_cases = payload["recovery_order_cases"]
         self.assertEqual(
             tuple(case["expected_first_action"] for case in recovery_cases),
-            RESUME_ORDER,
+            V1_RESUME_ORDER,
         )
         for case in recovery_cases:
             with self.subTest(case=case["id"]):
@@ -742,6 +755,50 @@ class InteractionProtocolTests(unittest.TestCase):
             "remove pending_interaction",
         ):
             self.assertIn(token, resume)
+    def test_visual_revisions_persist_scope_supersedes_and_project_to_authority(self):
+        fixture = self.fixture_root / "visual-revision-precedence.json"
+        payload = json.loads(read_text(fixture))
+        owners = set()
+        ids = []
+        for record in payload["history"]:
+            ids.append(record["id"])
+            self.assertEqual(record["kind"], "visual_revision")
+            self.assertEqual(record["status"], "applied")
+            self.assertTrue(record["normalized_changes"])
+            self.assertIn("affected_scope", record)
+            self.assertIsInstance(record["supersedes"], list)
+            owners.add(record["artifact_owner"])
+        self.assertEqual(ids, ["visual-revision-1", "visual-revision-2", "visual-revision-3"])
+        self.assertEqual(owners, {"theme.json", ".ppt-pilot/故事板.md"})
+        self.assertNotIn("visual-briefs/", json.dumps(payload, ensure_ascii=False))
+        self.assertEqual(
+            payload["expected_superseded_rules"],
+            ["visual-revision-1:title_rail"],
+        )
+        self.assertEqual(payload["before_run"]["dirty_slides"], [])
+        self.assertEqual(
+            payload["after_run"]["dirty_slides"],
+            payload["slide_ids"],
+        )
+        transitions = {
+            case["id"]: case for case in payload["dirty_transition_cases"]
+        }
+        self.assertEqual(
+            set(transitions),
+            {
+                "deck-scoped-revision-dirties-all-slides",
+                "page-scoped-revision-dirties-only-s05",
+            },
+        )
+        for case in transitions.values():
+            self.assertEqual(case["before_run"]["dirty_slides"], [])
+            self.assertEqual(
+                case["after_run"]["dirty_slides"],
+                case["expected_dirty_slides"],
+            )
+        page_case = transitions["page-scoped-revision-dirties-only-s05"]
+        self.assertEqual(page_case["affected_scope"], ["S05"])
+        self.assertEqual(page_case["after_run"]["dirty_slides"], ["S05"])
 
 
 if __name__ == "__main__":

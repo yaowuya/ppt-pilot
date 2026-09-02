@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" font-family="Arial, 'Microsoft YaHei', sans-serif">
+  <title>Text fixture</title>
+  <desc>Inline, multiline, nested runs, and whitespace</desc>
+  <text x="64" y="100" font-size="20" fill="#112233">广东电网 <tspan fill="#156BFF" font-weight="700">27 套</tspan> 系统收敛</text>
+  <text x="64" y="160" font-size="18">
+    <tspan x="64" dy="0">第一行</tspan>
+    <tspan x="64" dy="24">第二行</tspan>
+    <tspan x="64" dy="24">第三行</tspan>
+  </text>
+  <text x="640" y="260" text-anchor="middle" font-size="16" letter-spacing="1">A<tspan fill="#445566">B<tspan font-weight="700">C</tspan>D</tspan>E</text>
+  <text x="64" y="320" font-size="16">左<tspan xml:space="preserve">   </tspan>右</text>
+</svg>

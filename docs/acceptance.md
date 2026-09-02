@@ -1,12 +1,12 @@
 # 跨宿主验收
 
-本文档给出同一标准 `skills/ppt-start/` 包在 Claude Code、OpenAI Codex 与 DeepSeek Harness 中的可重复人工验收矩阵。自动一致性测试验证书面契约，但不能证明宿主委派、跨宿主续作、fresh generator 隔离、浏览器渲染或 PowerPoint 导入。
+本文档给出标准 `skills/ppt-start/` 与 `skills/ppt-editable/` 在 Claude Code、OpenAI Codex 与 DeepSeek Harness 中的可重复验收矩阵。自动一致性测试验证书面契约，但不能代替真实宿主、浏览器、PowerPoint 或 FY26H1 集成证据。
 
-未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前四个 style-owned full prompts、Canway `1.3.0`（纯白画布、`#156BFF` 唯一强调蓝）、blocker 和 transaction 变更只新增静态与诊断边界；真实 Claude Code、Codex、fresh、浏览器和 PowerPoint 行为在重新执行前仍保持原台账状态。
+未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前活动架构是**故事板 + `theme.json` 直接编译**：唯一仓库 `generation-prompt-template.md` 只替换 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`，持久格式为 `creative-brief-v1`；新运行使用 schema-v2 per-slide transaction/batch manifest 与 `active_visual_generation_batch`，默认 width 4 isolated generation、per-slide validation 并发、coordinator ordered serial publication。Canway manifest 版本为 `1.3.0`。历史 style-owned prompts、visual briefs 与 singular v1 transaction 只作 inert migration evidence。
 
 ## 前置条件
 
-1. 把未经修改的 `skills/ppt-start/` 完整复制或链接到待测宿主的已记录发现路径。
+1. 把未经修改的 `skills/ppt-start/` 与 `skills/ppt-editable/` 完整复制或链接到待测宿主的已记录发现路径；每个源/安装树分别记录文件数和摘要。
 2. 每个场景都从干净工作区开始。不得把运行产物写入已安装 Skill 或宿主配置目录。
 3. 执行 `source-driven.md` 前，把仓库中的 `tests/inputs/` 复制到干净工作区的 `inputs/`。这些文件明确标注为合成验收样例，绝不能描述成真实研究或客户数据。
 4. 执行 `resume-after-review.md` 前，创建 `ppt-output/resume-approved/`，把 `tests/fixtures/run-review-approved.json` 复制为其中的 `run.json`，再把 `tests/fixtures/resume-approved/` 的六个文件复制到同一目录，并把 `tests/inputs/` 复制到工作区的 `inputs/`。这是专门验证只读恢复能力的**旧英文运行兼容夹具**，所有文件名与内容必须保持不变，接收宿主不得自动重命名或迁移。
@@ -29,24 +29,30 @@
 | inline fallback（宿主场景） | 验证子 Agent 不可用时当前步骤直接审查。 | 先尝试委派并保存失败原因；不空等、不询问；持久化 `pending_round` 和 `fallback_evidence`；当前上下文只依据冻结五文件审查，并声明“当前上下文降级审查，不具备独立上下文隔离”。 | inline PASS 可进入 `manuscript_approved`；inline BLOCK 继续阻断；真实宿主结果在台账中保持 `PENDING` 直到执行。 |
 | [`resume-after-review.md`](../tests/prompts/resume-after-review.md) | 从已批准样例恢复，不重复上游工作。 | 从 [`run-review-approved.json`](../tests/fixtures/run-review-approved.json) 开始；先读 `run.json`；保留已批准文稿；没有失效时不重复研究或审查。 | 推进到 `theme` 与 `anchor`，嵌套审查状态仍为 `manuscript_approved`。 |
 | [`resume-pending-interaction.md`](../tests/prompts/resume-pending-interaction.md) | 验证待回答、已回答和请求修订状态跨轮次／跨宿主恢复。 | 从 [`run-pending-interaction.json`](../tests/fixtures/run-pending-interaction.json) 开始；先读 `run.json`；重发同一个直接问题及完整效果／推荐理由；收到明确回答后先写 `status: answered`、原始 `answer` 和规范化 `decision`。 | 回答前不得推进下游；产物幂等写入后，以一次原子状态替换完成阶段更新和交互对象删除／替换，不重复上游工作。 |
-| [`revise-single-slide.md`](../tests/prompts/revise-single-slide.md) | 验证 patch、recompose 与事实变更的三个独立分支。 | 分支 A 的 24 px 对齐和非事实错字分类为 patch，只读取完整 brief、当前 SVG 与精确 defect；分支 B 的焦点、卡片密度和视觉参考变化分类为 recompose，重建 S05 brief／SVG 且不以旧 SVG 为几何底稿；分支 C 的数字／来源变化不属于视觉模式，使文稿批准和全部依赖视觉产物失效。 | patch 只标脏 S05 SVG 与 QA；recompose 只标脏 S05 brief／SVG 与 QA；factual change 只有新的正式 subagent／inline 审查通过后才能重新生成视觉内容。 |
+| [`revise-single-slide.md`](../tests/prompts/revise-single-slide.md) | 验证 patch、recompose 与事实变更的三个独立分支。 | 分支 A 的 24 px 对齐和非事实错字分类为 patch，只读取完整 direct-compile inputs、当前 SVG 与精确 defect；分支 B 的焦点、卡片密度和视觉参考变化分类为 recompose，把修订投影回故事板／theme，重编该页 prompt 且不以旧 SVG 为几何底稿；分支 C 的数字／来源变化不属于视觉模式，使文稿批准和全部依赖视觉产物失效。 | patch 只标脏 S05 SVG 与 QA；recompose 只标脏 S05 prompt／transaction／SVG 与 QA；factual change 只有新的正式 subagent／inline 审查通过后才能重新生成视觉内容。 |
 
 静态套件还解析 [`interaction-transition-cases.json`](../tests/fixtures/interaction-transition-cases.json)、[`workspace-run-selection.json`](../tests/fixtures/workspace-run-selection.json)、[`run-outline-reapproval.json`](../tests/fixtures/run-outline-reapproval.json) 和 [`review-cycle-reset.json`](../tests/fixtures/review-cycle-reset.json)，验证 `answered` 崩溃恢复、三个批准阶段映射、修订澄清替换、再次批准历史不覆盖、锚点上游修订重入、歧义目标路由及第 3 轮批准后的新审查周期。夹具只证明书面状态契约内部一致，不替代下面的真实宿主 transcript 验收。
 
 ## 快速视觉机制验证
 
-本次机制改造只要求本地契约测试与 SVG 静态检查：visual brief 完整性、视觉修订优先级、patch/recompose 分支、风格注册表、四份 style-owned full prompts、嘉为年中总结风格的抽象资产边界，以及生成 SVG 的 Office-safe 结构。
+本次机制改造要求本地契约测试与 SVG 静态检查验证：故事板/theme direct projection、唯一 repository prompt template 的两个 replacement 和 byte-exact envelope、schema-v2 per-slide transaction/batch manifest、pointer-last、host capability、prompt-by-value isolation、并发 generation/validation、ordered publication，以及 Office-safe SVG。
 
-本次不新增 Claude Code／Codex 现场运行、PowerPoint 导入、整套生成页面浏览器视觉检查或 FY26 页面重生成证据。历史验收台账保持原状态，不能把本地绿色测试描述为这些人工验收已经通过。所有 Task-10 影响的真实 Claude Code、Codex、fresh generator、完整生成页面浏览器和 PowerPoint 行在重新执行前继续 `PENDING`；带“历史旧标识”的行仅保留历史证据含义。2026-08-19 的内置示例 SVG 浏览器 PASS 是历史但仍适用于未改变内置资产的资产级证据，不证明本次 style prompt 或生成行为。
+本次不把未执行的 Claude Code／Codex 现场运行、完整生成页面浏览器视觉检查或 Microsoft PowerPoint 行描述成通过。历史验收台账保持原状态；WPS `wpp.exe` 不等同于 Microsoft `POWERPNT.EXE`，只能产生明确降级证据。
 
 静态验证还检查：
 
-- `visual-briefs/<slide-id>.md` 的七个必需章节、风格 provenance 与锁定来源边界；
-- `visual-revision-<N>`、`supersedes` 和 deck／slide 作用域归并；
-- `patch`、`recompose` 和事实重入三个互斥分支；
-- `assets/styles/registry.json`、`minimal-business.redesign.md`、`tech-dark.redesign.md`、`bold-editorial.redesign.md`、`canway-midyear-review` manifest／tokens／`STYLE.md`／`canway-midyear-review/REDESIGN.md`，且风格包不包含单页成品 SVG 或固定构图参考；Canway manifest 内容版本为 `1.2.0`；
-- shared `references/redesign-prompt.md` 只作为 resolver-only 共享契约，检查 identity／provenance、`generation_trigger_id`、`visual_generation_blocker`、`visual_generation_transaction`、旧 `redesign-prompts/` inert 迁移和全局恢复顺序；
-- 生成 SVG 的允许元素、禁止特性、画布、字号和唯一 ID。
+- storyboard + `theme.json` 只投影 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`，format 精确为 `creative-brief-v1`；
+- deterministic preflight 与 fresh-isolation capability negotiation 在任何 prompt／transaction／candidate write 前完成；
+- transaction→manifest→`run.json.active_visual_generation_batch` pointer-last，manifest 不复制页面 state，cursor 不能授权；
+- native/remote isolated task 只收完整 `prompt_by_value`、fresh history、filesystem none、tools none；无 fresh isolation 零生产写入，缺 concurrency/lookup 降为 width 1，非 Git 不降级；
+- generator 与 per-slide validation 可重叠；coordinator 按 `ordered_slide_ids` 串行 promotion，并只发布最低 visible blocker；
+- `assets/styles/registry.json` 与 `canway-midyear-review` manifest/tokens/STYLE 的抽象边界，manifest 版本 `1.3.0`；
+- 内部 `SRC-<digits>` 不得成为可见文字，机器 `data-source-id` 必须保留；显式人类 citation 可显示名称／URL 但省略内部 ID；
+- telemetry critical path 使用 DAG max、batch wall 使用真实跨度，损坏只记 `telemetry_diagnostic_failed`。
+
+### schema-v2 并发性能 telemetry 验收
+
+并发 telemetry 只属于 `EVIDENCE_CLASS: DIAGNOSTIC`，不能授权 transaction、validation 或 promotion。静态 fixture 必须证明：串行 4×1000 ms model 基线约为 4400 ms critical path；并发 width 4 为一个约 1000 ms model wave 加串行 promotion（1400 ms）；width 3 的 8 页为 `ceil(8/3)` model waves 加串行 promotion（3400 ms）；out-of-order QA 使用 DAG 最长依赖链而不是 span 总和；恢复重放同一 `span_id` 只计一次；telemetry corrupt 只记录 `telemetry_diagnostic_failed`，原 correctness outcome 不变。真实宿主验收还必须记录 host、provider、model、isolation、attribution/task IDs、queue、timeout、token（可用时）与 batch wall time。
 
 每个场景至少检查：
 
@@ -54,7 +60,7 @@
 - 五个冻结文稿文件；
 - 当前运行实际使用的审查报告：新运行检查 `文稿审查.md`，旧英文运行检查 `manuscript-review.md`，并核对审稿来源；
 - 视觉产物是否只在正确质量门后出现；
-- 每个待生成／修订页面是否先有有效 `visual-briefs/<slide-id>.md`，并且只含当前有效视觉规则；
+- 每个待生成／修订页面是否先有 byte-exact generation prompt、per-slide transaction 与 batch manifest，`run.json` 是否只发布 `active_visual_generation_batch`，修订是否只投影一次；
 - 当前运行实际使用的 QA 报告：新运行检查 `质量检查报告.md`，旧英文运行检查 `qa-report.md`，包括真实的 `visual_qa` 状态；
 - 独立 SVG 结构和运行目录内容。
 
@@ -62,9 +68,9 @@
 
 本轮验收必须按证据类别记录，不得互相冒充：
 
-- `static package`：本地测试和文件检查只证明包结构、书面契约和 fixture oracle，并验证标准 Skill 包、manifest、四份完整 prompt 与文档一致；测试中的 resolver／hash oracle 不是运行时代码，也不能证明宿主 Agent 会按这些规则执行。
+- `static package`：本地测试和文件检查只证明包结构、书面契约和 fixture oracle，并验证 direct compile、单一活动 prompt template、schema-v2 per-slide transactions／batch manifest、host capability、ordered publication 与文档一致；测试中的 resolver／hash oracle 不是运行时代码，也不能证明宿主 Agent 会按这些规则执行。
 - `EVIDENCE_CLASS: DIAGNOSTIC`：诊断压力提示（例如 style isolation、registry fallback、style blocker）只暴露风险或辅助复测，不得作为 Claude Code、Codex、fresh generator、浏览器或 PowerPoint 验收通过依据。
-- `deployment hash`：同步到用户级或项目级安装目录后的文件集 hash，只证明部署的 `skills/ppt-start/` 与仓库源一致，不证明运行行为。
+- `deployment hash`：只证明部署的 `skills/ppt-start/` 与仓库源一致；`ppt-editable` 也必须以独立 per-Skill 摘要证明其安装树与 `skills/ppt-editable/` 一致。它不证明运行行为，且任何 `*.bak-*` 都必须位于 `skills/` 扫描根之外。
 - `real host`：只有记录真实宿主版本、启动命令、transcript／协作日志、运行目录和必要截图／PPTX 的证据，才能更新当前 Claude Code、Codex、fresh、浏览器或 PowerPoint 行。
 
 Task 10 聚焦 GREEN 命令固定为：
@@ -102,15 +108,15 @@ python -m unittest discover -s tests -v
 
 ### Claude Code
 
-安装到 `~/.claude/skills/ppt-start/` 或 `.claude/skills/ppt-start/`。使用 `/ppt-start` 显式启动，再附上对应提示内容。记录精确 Claude Code 版本，以及证明全新审稿上下文的证据。
+安装两个 Skill 到 `~/.claude/skills/<skill-id>/` 或 `.claude/skills/<skill-id>/`。分别使用 `/ppt-start` 与 `/ppt-editable` 显式启动；后者必须以一个完成运行为输入。记录精确 Claude Code 版本、发现证据与行为证据。
 
 ### Codex
 
-安装到 `$HOME/.agents/skills/ppt-start/` 或 `.agents/skills/ppt-start/`。使用 `$ppt-start` 显式启动，再附上同一提示内容。记录精确 Codex 版本，以及证明全新审稿上下文的证据。
+安装两个 Skill 到 `$HOME/.agents/skills/<skill-id>/` 或 `.agents/skills/<skill-id>/`。分别使用 `$ppt-start` 与 `$ppt-editable`；记录精确 Codex 版本、发现证据与行为证据。
 
 ### DeepSeek Harness
 
-安装到 `.agents/skills/ppt-start/`（项目级）或 `$HOME/.agents/skills/ppt-start/`（用户级）；harness 不扫描该目录时，把 `SKILL.md` 粘贴进 `AGENTS.md`／系统提示层并保证 `references/` 与 `assets/` 可从工作区访问。使用显式启动词 `ppt-start`（无统一斜杠命令约定）。记录精确 harness 名称与版本，以及证明全新审稿上下文的证据；harness 无子代理原语时按契约记录 `inline_fallback`，不得伪造委派证据。
+一个 `ppt-pilot` 插件的 `skills/` 下同时安装 `ppt-start` 与 `ppt-editable`；使用启动词 `ppt-start`、`ppt-editable`。记录精确 harness 名称/版本、两个 Skill 的发现证据，以及 `ppt-start` 的审稿委派/降级证据。
 
 宿主专属调用语法只允许出现在安装与验收文档中；共享 `SKILL.md` 必须保持宿主中立。
 
@@ -154,9 +160,9 @@ python -m unittest discover -s tests -v
 对内置示例和代表性生成页面执行：
 
 1. 在当前浏览器中直接打开 SVG，并记录浏览器名称／版本；
-2. 确认画布为 16:9，标题、正文和来源文字全部可见，没有裁切或意外换行；
+2. 确认画布为 16:9，标题和正文全部可见，没有裁切或意外换行；内部 `SRC-<digits>` 不得成为可见文字，只有明确请求的人类可读来源名称/URL 可显示；
 3. 确认没有远程资源缺失、控制台资源错误、重叠、不安全元素或超出安全区域的内容；
-4. 如果生成演示文稿包含这些页面，至少检查一个低密度结论页、一个高密度数据／流程页和一个含来源页；
+4. 如果生成演示文稿包含这些页面，至少检查一个低密度结论页、一个高密度数据／流程页，以及一个明确请求人类可读引用的页面（如有）；
 5. 把截图或录屏保存到证据路径。
 
 只做 XML 源文件检查而没有实际渲染，不能记录为视觉批准。
@@ -173,6 +179,19 @@ python -m unittest discover -s tests -v
 
 导入通过只证明已测试的静态 SVG 路径，不代表其他 PowerPoint 版本／平台普遍兼容，也不代表所有元素都可编辑。
 
+## ppt-editable 独立行为验收
+
+对同一完成运行分别验证：
+
+1. 无 PowerPoint/Pillow 时只生成 `GENERATED_UNVERIFIED` 和独立 unverified 文件名；
+2. 支持子集生成原生 `p:sp`/`p:grpSp`、可编辑文本、备注与 trace `descr`，没有图片 fallback；
+3. unsupported SVG、可见 `SRC-<digits>`、结构/Office/视觉失败阻断新 final，并保留 previous PASS；
+4. PowerPoint 正常化、重开、递归计数和四路 render 全部通过后才可 `PASS`；
+5. FY26H1 参考运行的页面/owner/leaf/group/notes/视觉 gate 与无可见内部来源 ID 验收通过；
+6. 三宿主分别能发现并启动 `ppt-editable`，安装树摘要与仓库源一致。
+
+这些行为必须把 `static package`、`deployment hash`、`real host` 与 PowerPoint/reference integration 证据分开记录。
+
 ## 结果台账
 
 每次实际执行新增一行，不覆盖既有证据。日期使用 `YYYY-MM-DD`，版本必须精确，不能只写“最新”。
@@ -188,7 +207,7 @@ python -m unittest discover -s tests -v
 | 待回答恢复 | Claude Code | — | — | PENDING | — |
 | 单页修订 | Claude Code | — | — | PENDING | — |
 | 文稿 inline fallback | Claude Code | — | — | PENDING | — |
-| 风格 prompt fresh generator 隔离 | Claude Code | — | — | PENDING | — |
+| schema-v2 isolated generation | Claude Code | — | — | PENDING | — |
 | 仅主题 guided | Codex | — | — | PENDING | — |
 | 资料驱动 | Codex | — | — | PENDING | — |
 | 审查阻断（历史旧标识） | Codex | 2026-08-19 | Codex CLI 0.146.1 | FAIL — 空等待并虚构子上下文／结果来源 | [`codex-blocker-v3-evaluation.md`](../acceptance-evidence/2026-08-19/host-runs/codex-blocker-v3/codex-blocker-v3-evaluation.md) |
@@ -197,7 +216,7 @@ python -m unittest discover -s tests -v
 | 单页修订 | Codex | — | — | PENDING | — |
 | 委派不可用（历史旧标识） | Codex | 2026-08-19 | Codex CLI 0.146.1（`multi_agent` 禁用） | PASS | [`codex-review-unavailable-v3-evaluation.md`](../acceptance-evidence/2026-08-19/host-runs/codex-review-unavailable-v3/codex-review-unavailable-v3-evaluation.md) |
 | 文稿 inline fallback | Codex | — | — | PENDING | — |
-| 风格 prompt fresh generator 隔离 | Codex | — | — | PENDING | — |
+| schema-v2 isolated generation | Codex | — | — | PENDING | — |
 | 已批准交接 | Claude Code -> Codex | — | — | PENDING | — |
 | 仅主题 guided | DeepSeek Harness | — | — | PENDING | — |
 | 资料驱动 | DeepSeek Harness | — | — | PENDING | — |
@@ -206,7 +225,18 @@ python -m unittest discover -s tests -v
 | 待回答恢复 | DeepSeek Harness | — | — | PENDING | — |
 | 单页修订 | DeepSeek Harness | — | — | PENDING | — |
 | 文稿 inline fallback | DeepSeek Harness | — | — | PENDING | — |
-| 风格 prompt fresh generator 隔离 | DeepSeek Harness | — | — | PENDING | — |
+| schema-v2 isolated generation | DeepSeek Harness | — | — | PENDING | — |
+| ppt-start deployment hash | 三宿主安装树 | — | — | PENDING | — |
+| ppt-editable deployment hash | 三宿主安装树 | — | — | PENDING | — |
+| ppt-editable 发现 | Claude Code | — | — | PENDING | — |
+| ppt-editable 行为 | Claude Code | — | — | PENDING | — |
+| ppt-editable 发现 | Codex | — | — | PENDING | — |
+| ppt-editable 行为 | Codex | — | — | PENDING | — |
+| ppt-editable 发现 | DeepSeek Harness | — | — | PENDING | — |
+| ppt-editable 行为 | DeepSeek Harness | — | — | PENDING | — |
+| ppt-editable 无 Office 降级 | 本机 Python | — | — | PENDING | — |
+| ppt-editable 完整 Office/视觉 PASS | 受支持的 PowerPoint | — | — | PENDING | — |
+| ppt-editable FY26H1 参考运行 | Windows + PowerPoint | — | — | PENDING | — |
 | 已批准交接 | Codex -> Claude Code | — | — | PENDING | — |
 | 被阻断交接 | Claude Code -> Codex | — | — | PENDING | — |
 | 被阻断交接 | Codex -> Claude Code | — | — | PENDING | — |
