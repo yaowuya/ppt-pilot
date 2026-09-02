@@ -637,6 +637,31 @@ def compile_prompt_body(narrative_bullets: bytes, style_baseline: bytes) -> byte
     return compiled
 
 
+STYLE_NARRATIVE_TOKEN = b"{{NARRATIVE}}"
+
+
+def compile_style_prompt(narrative_bullets: bytes, template_bytes: bytes) -> bytes:
+    """Compile a style-owned complete prompt template by injecting the canonical
+    narrative bullets at its single whole-line {{NARRATIVE}} token. The narrative
+    carries no source-/source-annotation fields; those stay in the review layer.
+    The style template is a trusted repository asset and may contain its own
+    headings/steps; only the narrative replacement is run through the preflight
+    safety check, and the template's injection-token structure is validated."""
+    narrative = _reject_unsafe_replacement(narrative_bullets)
+    template = normalize_lf(template_bytes)
+    if template.count(STYLE_NARRATIVE_TOKEN) != 1:
+        raise ValueError("prompt_template_invalid")
+    for legacy in (CANONICAL_NARRATIVE_BULLETS_TOKEN.rstrip(b"\n"),):
+        if legacy in narrative:
+            raise ValueError("prompt_preflight_invalid")
+    body = normalize_lf(template.replace(STYLE_NARRATIVE_TOKEN, narrative))
+    if not body.endswith(b"\n"):
+        body += b"\n"
+    if b"[[STYLE_BASELINE]]" in body or b"[[CANONICAL_NARRATIVE_BULLETS]]" in body or b"{{NARRATIVE}}" in body:
+        raise ValueError("prompt_preflight_invalid")
+    return body
+
+
 def validate_compiled_prompt_body(body: bytes) -> None:
     normalized = normalize_lf(body)
     if normalized != body:
@@ -1190,6 +1215,31 @@ class RedesignPromptContractTests(unittest.TestCase):
         self.assertIn(b"# Role", compiled)
         self.assertIn(b"## Workflow", compiled)
         self.assertIn(b"### ", compiled)
+
+    def test_style_owned_prompt_template_compiles_and_carries_no_source(self):
+        template_path = skill_root() / "assets" / "styles" / "jiawei-product" / "prompt.md"
+        template_bytes = normalize_lf(template_path.read_bytes())
+        narrative = (
+            "- **金字塔原理**: 核心主标题：嘉为自动化运维平台 · 产品能力全景；分论点：底座能力、AI 提效、专项交付、决策诉求。\n"
+            "- **精确表达**: 保留显示文案、事实、数字、单位、限定词，来源映射只留在审查层。\n"
+            "- **层级执行**: 核心信息放大展示；支撑信息缩小放置。\n"
+        ).encode("utf-8")
+        body = compile_style_prompt(narrative, template_bytes)
+        self.assertIn("# Role:产品经理& SVG 可视化编码专家".encode("utf-8"), body)
+        self.assertIn("### 步骤 2: 匹配 Bento Grid".encode("utf-8"), body)
+        self.assertNotIn(b"{{NARRATIVE}}", body)
+        self.assertNotIn(b"[[STYLE_BASELINE]]", body)
+        self.assertNotIn(b"[[CANONICAL_NARRATIVE_BULLETS]]", body)
+        self.assertNotIn(b"source=", body)
+        self.assertNotIn(b"SRC-", body)
+        self.assertEqual(body.count(b"# Role"), 1)
+
+    def test_style_owned_template_requires_exactly_one_injection_token(self):
+        template_path = skill_root() / "assets" / "styles" / "jiawei-product" / "prompt.md"
+        valid = normalize_lf(template_path.read_bytes())
+        from_zero = valid.replace(STYLE_NARRATIVE_TOKEN, b"")
+        with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
+            compile_style_prompt(b"- sample\n", from_zero)
 
     def test_canonical_template_markers_must_be_exact_whole_lines(self):
         template = _canonical_template_bytes()
