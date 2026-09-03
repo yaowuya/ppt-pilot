@@ -59,13 +59,25 @@ PPT Pilot 是一个装进 **Claude Code / OpenAI Codex / DeepSeek Harness** 就�
 
 ### 第 1 步：装好技能
 
-技能启动标识：`ppt-start` 和 `ppt-editable`。一键装到三个宿主：
+技能启动标识：`ppt-start` 和 `ppt-editable`。代码在 **[github.com/yaowuya/ppt-pilot](https://github.com/yaowuya/ppt-pilot)**。
+
+**方式 A：让大模型自己装（最快）**
+
+直接对正在对话的 Agent 说一句，它会自己去下载并装好：
+
+> 请把 https://github.com/yaowuya/ppt-pilot 克隆到本机，然后按 README 把 `skills/ppt-start` 和 `skills/ppt-editable` 装到当前宿主的技能目录。
+
+在 Claude Code、Codex、DeepSeek Harness 里分别说，就会分别装到各自宿主。
+
+**方式 B：自己从 GitHub 下载安装**
 
 ```bash
+git clone https://github.com/yaowuya/ppt-pilot.git
+cd ppt-pilot
 powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 ```
 
-它会同时更新 **DeepSeek Harness、Claude Code、Codex**，旧版按 Skill ID 自动备份。想单独更新 DeepSeek，就用 `tools/install-deepseek-plugin.ps1`；复制或**符号链接**的逐宿主命令，见[安装指南](docs/INSTALL.md)。
+一个脚本装好三个宿主（**DeepSeek Harness、Claude Code、Codex**），旧版按 Skill ID 自动备份。只想装 DeepSeek，就跑 `tools/install-deepseek-plugin.ps1`；复制或**符号链接**的逐宿主命令，见[安装指南](docs/INSTALL.md)。
 
 | 宿主 | 用户级安装 | 项目级安装 | 启动命令 |
 |---|---|---|---|
@@ -92,23 +104,27 @@ powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 
 ---
 
-## ⚙️ 背后到底发生了什么？
+## 🔄 它会怎么做一份幻灯片
 
 PPT Pilot 的流程很像一位靠谱的同事：**先想清楚，再动手画**。
 
 ```text
 简报/研究 → 大纲+故事板 → 文稿审查（硬质量门）→ 主题/风格包选择
-  → 逐页编译生成（schema-v2 并发批次）→ 单页 QA + 整套 QA → complete
+  → 逐页生成 → 单页 QA + 整套 QA → complete
   → （可选）ppt-editable 转原生可编辑 PPTX ／ deck-deliver 组装预览与交付
 ```
 
-活动视觉路径是**故事板 + `theme.json` 直接编译**：先读所选风格包自带的完整生成模板（`assets/styles/<style-id>/<files.prompt_template>`，没声明就用仓库兜底模板），把已批准的叙事注入它的单一 `{{NARRATIVE}}` 注点，编译出 byte-exact `creative-brief-v1` Prompt，再完成无副作用 preflight 与宿主能力协商。早期那套 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议，已经作为迁移历史废弃了。
+一步步说人话：
 
-能力协商通过后，以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 和 `run.json.active_visual_generation_batch`，用 `prompt_by_value` 派出 fresh isolated generator，默认 `batch_width: 4`（缺并发或 durable lookup 时降为 width 1，非 Git 不降级）；generator 和每页 validation 可以**并发**，但 candidate/final、visible blocker 与 pointer 只由 coordinator 按 `ordered_slide_ids` **串行**提交——顺序不乱，接得上。
+1. **简报 / 研究**：听懂你要什么；缺的资料，它会按需去研究、补全来源。
+2. **大纲 + 故事板**：先把每页一句话结论和排版逻辑排好——**批准大纲前，它绝不先画**。
+3. **文稿审查（硬质量门）**：把你前面的内容交出去做一遍严格审查；有 `HIGH`/`BLOCKER` 没解决，它宁可停下来问，也不将就着画。
+4. **主题 / 风格包**：根据内容选一个风格（内置五套，也可给品牌色自定义）。
+5. **逐页生成**：一页一页画成独立 SVG，每页都有校验。
+6. **QA**：单页 + 整套检查通过，才宣告完成。
+7. **可转 PPT**：想要能改字的 PowerPoint？转一下就有了。
 
-风格通过 `assets/styles/registry.json` 发现，当前内置五个 style pack：`canway-midyear-review`（嘉为年中总结风格，manifest `1.3.0`）、`jiawei-product`、`minimal-business`、`tech-dark`、`bold-editorial`。
-
-> 一条红线：内部 `SRC-<digits>` 只出现在 `data-source-id`／trace 机器元数据里，一旦跑进可见文字，`fact_source_mismatch` 直接硬失败；telemetry 只作诊断，`telemetry_diagnostic_failed` 不改任何正确性结论。🛑
+> 想看它内部怎么实现的（编译范式、并发协议、证据分级）？那部分属于开发者视角，见 [架构与工作原理](docs/ARCHITECTURE.md)。
 
 ---
 
@@ -165,6 +181,20 @@ inline PASS 和独立审查用的是**同一道严格质量门**，都能进 `ma
 | [验收台账](docs/acceptance.md) | 证据分级与人工验收记录 |
 | [ppt-start 运行时契约](skills/ppt-start/SKILL.md) | 生成技能的入口契约 |
 | [ppt-editable 转换契约](skills/ppt-editable/SKILL.md) | 转换技能的入口契约 |
+
+---
+
+## 🔧 给开发者的实现备注
+
+如果你要**改代码**，这条红线请先记住：
+
+> 内部 `SRC-<digits>` 只出现在 `data-source-id`／trace 机器元数据里，一旦跑进可见文字，`fact_source_mismatch` 直接硬失败；telemetry 只作诊断，`telemetry_diagnostic_failed` 不改任何正确性结论。🛑
+
+几个核心实现要点（想深挖请去 [架构与工作原理](docs/ARCHITECTURE.md)）：
+
+- **生成范式**：活动视觉路径是**故事板 + `theme.json` 直接编译**——把已批准叙事注入所选风格包的单一 `{{NARRATIVE}}` 注点，产出 `creative-brief-v1` Prompt。早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃为迁移历史。
+- **并发批次**：以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 与 `run.json.active_visual_generation_batch`，用 `prompt_by_value` 派出 fresh isolated generator，默认 `batch_width: 4`（缺并发或 durable lookup 时降为 width 1，非 Git 不降级）；generator 与每页 validation 可**并发**，但 candidate/final、visible blocker 与 pointer 只由 coordinator 按 `ordered_slide_ids` **串行**提交。
+- **风格**：经 `assets/styles/registry.json` 发现，内置五套 style pack——`canway-midyear-review`（嘉为年中总结风格，manifest `1.3.0`）、`jiawei-product`、`minimal-business`、`tech-dark`、`bold-editorial`。
 
 ---
 
