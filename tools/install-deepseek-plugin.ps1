@@ -23,7 +23,8 @@ if (-not $Version) { $Version = "1.0.0+codex.$timestamp" }
 
 $skills = @(
     [ordered]@{ Id = 'ppt-start'; Source = Join-Path $RepoRoot 'skills\ppt-start' },
-    [ordered]@{ Id = 'ppt-editable'; Source = Join-Path $RepoRoot 'skills\ppt-editable' }
+    [ordered]@{ Id = 'ppt-editable'; Source = Join-Path $RepoRoot 'skills\ppt-editable' },
+    [ordered]@{ Id = 'ppt-style-extract'; Source = Join-Path $RepoRoot 'skills\ppt-style-extract' }
 )
 foreach ($skill in $skills) {
     if (-not (Test-Path -LiteralPath (Join-Path $skill.Source 'SKILL.md'))) {

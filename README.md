@@ -10,12 +10,13 @@ PPT Pilot 是一个装进 **Claude Code / OpenAI Codex / DeepSeek Harness** 就�
 
 它做的不是套模板，而是**先帮你把内容捋清楚**：主题是什么、每页讲什么、数字从哪来——全都有据可查；然后再按你选的风格，把它画成好看的 **16:9 SVG 独立页面**。
 
-两个技能，分工明确：
+三个技能，分工明确：
 
 | 技能 | 干什么 |
 |---|---|
 | `ppt-start` | 从主题 / 资料 / 既有运行，生成有证据支撑的 16:9 独立 SVG 演示 |
 | `ppt-editable` | 把一个已完成运行，变成**可编辑、能改字**的原生 PowerPoint |
+| `ppt-style-extract` | 从**模板 PPT / 参考图 / 风格 prompt** 提取风格，固化成你自己的 `ppt-start` 风格包 |
 
 整个 Skill 本体走**纯指令**路线，不强制依赖 MCP、SDK、Hook、后台服务或运行时软件包；**可选网络**研究默认不启用，机密内容默认不出网。
 
@@ -170,6 +171,22 @@ inline PASS 和独立审查用的是**同一道严格质量门**，都能进 `ma
 
 ---
 
+## 🎨 把你的风格固化下来
+
+内置的五套风格不够用？让 `ppt-style-extract` 帮你**提取一套你自己的风格**。给三个输入之一，就能得到一个可复用的 `ppt-start` 风格包：
+
+| 你给什么 | 它会做什么 |
+|---|---|
+| 一个**模板 PPT**（.pptx） | 读主题/母版/形状，提取主色、字体、字号阶梯、圆角、间距、描边 |
+| 一张或几张**参考图**（SVG/PNG） | 对图取样主色与版式倾向 |
+| 一句**风格描述** | 映射成 token 与构图/禁用母题倾向 |
+
+它会产出 `manifest.json` + `tokens.json` + `STYLE.md` + `prompt.md`（与内置风格包同一套契约），并幂等注册进 `registry.json`。之后你在 `ppt-start` 里就能用这个风格 id 生成整套演示。
+
+打开方式在 `skills/ppt-style-extract/`（详细契约见[提取设计](docs/style-extract-design.md)）。
+
+---
+
 ## 📚 想深挖？文档在这里
 
 | 文档 | 内容 |
@@ -179,6 +196,7 @@ inline PASS 和独立审查用的是**同一道严格质量门**，都能进 `ma
 | [架构与工作原理](docs/ARCHITECTURE.md) | 编译范式、质量门、并发协议、修订模型 |
 | [设计文档](docs/design.md) | 产品原则、共享 Skill 架构、验收标准 |
 | [验收台账](docs/acceptance.md) | 证据分级与人工验收记录 |
+| [提取设计](docs/style-extract-design.md) | 风格提取技能的契约与模块结构 |
 | [ppt-start 运行时契约](skills/ppt-start/SKILL.md) | 生成技能的入口契约 |
 | [ppt-editable 转换契约](skills/ppt-editable/SKILL.md) | 转换技能的入口契约 |
 
