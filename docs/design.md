@@ -24,15 +24,14 @@ MVP 刻意保持纯指令架构。它只使用宿主常规的工作区能力，�
 
 - `SKILL.md`：精简的编排入口和发现入口；
 - `references/`：各阶段流程与契约；
-- `assets/styles/registry.json`：风格发现注册表；
-- `assets/styles/*.json`：三个兼容的扁平风格种子；
-- `assets/styles/<style-id>/`：包含 manifest、tokens 与中文抽象设计指导的 rich style packs；历史完整 prompt 文件可以留在资产目录，但运行时永远不读取、不验证、不哈希；
-- `references/generation-prompt-template.md`：所有风格、所有首次生成与 `recompose` 唯一的 repository prompt body；
+- `assets/styles/registry.json`：风格发现注册表（五个内置风格包）；
+- `assets/styles/<style-id>/`：自包含 style pack——`manifest.json`、`tokens.json`（schema 2，含结构化 `prompt_baseline`）、中文 `STYLE.md`，以及风格自带完整生成模板 `files.prompt_template`（默认 `prompt.md`）；
+- `references/generation-prompt-template.md`：风格未声明自带模板时的 repository 兜底模板（已单注点化）；
 - `assets/examples/`：一份 Office-safe SVG 示例。
 
-运行目录不再创建逐页 visual brief。每页由已批准故事板与 `theme.json` 直接投影 `[[CANONICAL_NARRATIVE_BULLETS]]` 和 `[[STYLE_BASELINE]]`，从唯一 repository template 编译 `.ppt-pilot/generation-prompts/<slide-id>.md`；持久 envelope 的 `format` 精确为 `creative-brief-v1`。
+运行目录不再创建逐页 visual brief。每页由已批准故事板与 `theme.json` 直接编译：读取所选中风格包自带的完整 prompt 模板，把叙事要点注入其**单一** whole-line `{{NARRATIVE}}` 注点（模板未声明时兜底 repository template），编译 `.ppt-pilot/generation-prompts/<slide-id>.md`；持久 envelope 的 `format` 精确为 `creative-brief-v1`。早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 双域协议已被该单注点范式整体取代，旧协议产物只作迁移历史。
 
-共享 `references/redesign-prompt.md` 规定 style identity/path containment、exactly-two marker 编译、无副作用 preflight、宿主能力协商、schema-v2 batch/per-slide state、`prompt_by_value` isolated dispatch、coordinator ownership 和失败恢复。风格资产不拥有 prompt body，也不得把某个风格的布局语言作为默认。
+共享 `references/redesign-prompt.md` 规定 style identity/path containment、单注点编译、无副作用 preflight、宿主能力协商、schema-v2 batch/per-slide state、`prompt_by_value` isolated dispatch、coordinator ownership 和失败恢复。生成正文完全由风格自带模板承载，编译层拒绝 `source=`／`[claim=` 来源注解进入叙事，也不得把某个风格的布局语言作为默认。
 
 共享 frontmatter 只包含 `name` 与 `description`，其中 `name` 为 `ppt-start`。运行时指令使用“读取、写入、委派、检查”等语义动作，不依赖宿主专属工具名、变量、权限语法或调用语法。
 
@@ -49,7 +48,7 @@ brief
   -> page storyboard
   -> mandatory manuscript review (subagent preferred; inline fallback on attributable failure)
   -> deck-scoped theme
-  -> storyboard + theme.json direct compile (two canonical replacements)
+  -> storyboard + theme.json direct compile (single {{NARRATIVE}} injection into style-owned template)
   -> byte-exact creative-brief-v1 prompt + in-memory preflight/capability negotiation
   -> pointer-last schema-v2 per-slide transactions + batch manifest
   -> prompt_by_value isolated generation + overlapping per-slide validation
@@ -66,7 +65,7 @@ brief -> research -> outline -> storyboard -> manuscript_review -> theme -> anch
 
 `guided` 与 `auto` 是写入 `run.json.mode` 的持久执行策略。`guided` 在简报、大纲和锚点 SVG 后提出一个直接问题并等待明确批准；新运行未显式指定策略时默认 `guided`。只有显式 `auto` 才跳过可选问题和批准，但用户权限或没有安全默认值的决策仍然阻塞，且全部中间产物仍需创建和验证。`new`、`resume` 与 `revise` 是入口动作：恢复和修订先读取 `run.json`、保留既有执行策略，再分别继续未完成工作或使受影响依赖项失效。
 
-`theme` 阶段建立 deck-scoped style identity 与软风格基线。活动路径是**故事板 + `theme.json` 直接编译**：故事板拥有逐页叙事／素材／事实／来源，theme 拥有 deck 风格；已应用修订先投影回对应 owner，再编译两个 replacement。新 batch 在完整内存 preflight 与能力协商后 pointer-last 激活；SVG 不是设计状态，上述工作均属于既有阶段内部步骤。
+`theme` 阶段建立 deck-scoped style identity 与软风格基线。活动路径是**故事板 + `theme.json` 直接编译**：故事板拥有逐页叙事／素材／事实／来源，theme 拥有 deck 风格；已应用修订先投影回对应 owner，再把叙事要点注入所选风格自带模板的单一 `{{NARRATIVE}}` 注点。新 batch 在完整内存 preflight 与能力协商后 pointer-last 激活；SVG 不是设计状态，上述工作均属于既有阶段内部步骤。
 
 ## 用户交互与确认
 
@@ -97,7 +96,7 @@ ppt-output/<deck-id>/
     └── samples/*.svg
 ```
 
-`run.json` 使用 `schema_version: 1` 记录工作流／交互状态，并只用 `active_visual_generation_batch: {schema_version,batch_id,manifest_path}` 指向当前 schema-v2 视觉批次；schema-v1 `visual_generation_transaction` 仅作零模型调用迁移输入。每页 transaction 文件拥有 operation、prompt/candidate/final paths、hash、state、validation、host 与 timing；manifest 只拥有 ordered refs/snapshots 和可重建 cursor 提示。`.ppt-pilot/generation-prompts/<slide-id>.md` 只记录九个 metadata 字段与两个 replacement 派生的 canonical body，不含 raw answer/history JSON。pointer-last 与这些文件足以支持跨宿主恢复，无需此前对话。
+`run.json` 使用 `schema_version: 1` 记录工作流／交互状态，并只用 `active_visual_generation_batch: {schema_version,batch_id,manifest_path}` 指向当前 schema-v2 视觉批次；schema-v1 `visual_generation_transaction` 仅作零模型调用迁移输入。每页 transaction 文件拥有 operation、prompt/candidate/final paths、hash、state、validation、host 与 timing；manifest 只拥有 ordered refs/snapshots 和可重建 cursor 提示。`.ppt-pilot/generation-prompts/<slide-id>.md` 只记录九个 metadata 字段与单注点注入派生的 canonical body，不含 raw answer/history JSON。pointer-last 与这些文件足以支持跨宿主恢复，无需此前对话。
 
 中文 Markdown 名称是新运行的标准。为了让既有运行仍能恢复，`resume`／`revise` 可以继续原位读取旧英文名称 `brief.md`、`research.md`、`sources.md`、`outline.md`、`storyboard.md`、`manuscript-review.md` 和 `qa-report.md`，但不得自动重命名、复制或迁移。实际名称由 `run.json` 的引用字段和目录中的完整文件集合共同决定；无法唯一判定时停止并报告冲突。
 
@@ -142,13 +141,15 @@ subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创�
 
 设计系统使用 1280×720 画布、64 px 安全边距、24 px 标准间距、系统字体回退和显式 `<tspan>` 换行。标题至少 40 px，正文至少 20 px，脚注至少 14 px。
 
-新安装通过 `assets/styles/registry.json` 发现风格。注册表保留三个 `legacy_seed`：
+新安装通过 `assets/styles/registry.json` 发现风格。注册表当前提供五个内置 style pack：
 
+- `canway-midyear-review`（中文显示名"嘉为年中总结风格"，manifest 内容版本必须精确为 `1.3.0`）
+- `jiawei-product`（嘉为产品风格）
 - `minimal-business`
 - `tech-dark`
 - `bold-editorial`
 
-并提供非默认 rich style pack `canway-midyear-review`，中文显示名为“嘉为年中总结风格”，manifest 内容版本必须精确为 `1.3.0`。运行时只要求 manifest 的 machine-readable tokens 与中文 `STYLE.md` 抽象指导；历史完整 prompt 不读取、不验证、不哈希。颜色、字体、间距、形状和语义角色来自 soft baseline；页面区域、卡片数量、连接关系和阅读路径由 isolated generator 在故事板语义边界内自主决定，并由 QA 验证。
+每个风格都是自包含 style pack：manifest 声明 `files.tokens`、`files.guidance` 与 `files.prompt_template`；tokens（schema 2）承载颜色、字体、间距、形状与结构化 `prompt_baseline`；`prompt.md` 是风格自带完整生成模板。运行时按 manifest 解析模板路径，编译层只注入叙事要点并拒绝来源注解；页面区域、卡片数量、连接关系和阅读路径由 isolated generator 在故事板语义边界内自主决定，并由 QA 验证。
 
 布局根据内容语义选择，不机械轮换。支持封面／章节、单一结论、比较、时间线／流程、层级／架构、数据／图表、Bento 汇总和收束／行动。除非内容要求，相邻页面不得重复同一家族。
 
@@ -156,7 +157,7 @@ subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创�
 
 ### 风格身份、规范编译与恢复边界
 
-所有风格共用唯一 repository `references/generation-prompt-template.md`。style resolver 只验证 identity、registry／manifest、tokens 与 guidance；历史完整 prompt 不参与运行。compiler 仅执行 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`，持久 envelope 是 `creative-brief-v1`。
+每个风格经 `files.prompt_template` 自带完整生成模板；style resolver 验证 identity、registry／manifest、tokens 与 guidance，并解析模板相对路径。compiler 把叙事要点注入模板的单一 whole-line `{{NARRATIVE}}` 注点，持久 envelope 是 `creative-brief-v1`；风格未声明模板时兜底 repository `references/generation-prompt-template.md`。
 
 `theme.json` 权威拥有 deck style identity；故事板拥有逐页叙事、素材、事实与来源；per-slide schema-v2 transaction 拥有 operation/trigger/prompt/candidate/final/state/validation/host/timing。首次 trigger 使用 `initial:<slide-id>:<storyboard_snapshot_id>`，用户重构使用 `interaction:<history-id>`，fallback 与 patch 使用各自稳定 trigger。修订按 `visual-revision-N`／`supersedes` 投影回故事板或 theme，只应用一次。
 

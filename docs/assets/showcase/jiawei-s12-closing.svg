@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <title>夯实基础，加速升级——H1总结收尾页</title>
+  <desc>上半年总结收尾页：核心主旨为夯实基础·加速升级；总结上半年成果并感谢团队付出，请求批准下半年计划与资源投入。</desc>
+  <rect x="0" y="0" width="1280" height="720" fill="#FFFFFF" />
+  <circle cx="156" cy="560" r="89" fill="#EAF5FF" opacity="0.7" />
+  <rect x="1064" y="508" width="96" height="96" fill="#EAF5FF" /><rect x="1104" y="548" width="96" height="96" fill="#D8EEFF" opacity="0.9" />
+  <rect x="64" y="64" width="28" height="28" fill="#111827" /><rect x="80" y="80" width="28" height="28" fill="#0B74E5" />
+  <path d="M 610 216 H 670 A 18 18 0 0 1 670 252 H 610 A 18 18 0 0 1 610 216 Z" fill="#EAF5FF" stroke="#BFE3FF" stroke-width="1" />
+  <text x="640" y="240" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="16" font-weight="600" fill="#0A5CC9"><tspan>核心</tspan></text>
+  <text x="640" y="340" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="60" font-weight="700" fill="#111827"><tspan>夯实基础 · 加速升级</tspan></text>
+  <rect x="520" y="384" width="60" height="4" fill="#D8EEFF" /><rect x="600" y="384" width="80" height="4" fill="#0B74E5" /><rect x="700" y="384" width="60" height="4" fill="#D8EEFF" />
+  <text x="640" y="436" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="20" fill="#4B5563"><tspan>上半年夯基垒台、成果落地，感谢每一位团队成员的付出</tspan></text>
+  <path d="M 420 476 H 860 A 16 16 0 0 1 876 492 V 528 A 16 16 0 0 1 860 544 H 420 A 16 16 0 0 1 404 528 V 492 A 16 16 0 0 1 420 476 Z" fill="#EAF5FF" stroke="#BFE3FF" stroke-width="1" />
+  <text x="640" y="517" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="20" font-weight="600" fill="#0A5CC9"><tspan>请求批准下半年计划与资源投入</tspan></text>
+  <rect x="516" y="603" width="44" height="3" fill="#BFE3FF" /><text x="640" y="616" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="32" font-weight="700" letter-spacing="4" fill="#111827"><tspan>感谢聆听</tspan></text><rect x="720" y="603" width="44" height="3" fill="#BFE3FF" />
+</svg>

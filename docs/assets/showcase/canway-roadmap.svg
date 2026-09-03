@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <title>自动化4.0巡检场景开发启动，为平台升级迭代奠基</title>
+  <desc>深色主卡展示架构演进：3.x 自动化平台 → 平台底座 → 4.0 新增巡检场景，并在 4.0 节点标注关键模块（巡检指标库，对接权限/审批/日志）；下方里程碑时间线标注 5 月启动（核心）、6月10日提测（计划）、7月迭代二（进行中）与迁移交付目标（计划目标）；底部浅蓝结论条给出受众要点与口径边界。</desc>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    <rect x="0" y="0" width="1280" height="720" fill="#FFFFFF" />
+    <text x="64" y="80" font-size="14" font-weight="bold" fill="#156BFF"><tspan>自动化平台升级 · 证据与里程碑</tspan></text>
+    <text x="64" y="124" font-size="40" font-weight="bold" fill="#10233F"><tspan>自动化4.0巡检场景开发启动，为平台升级迭代奠基</tspan></text>
+    <path d="M84,156 H1196 A20,20 0 0 1 1216,176 V376 A20,20 0 0 1 1196,396 H84 A20,20 0 0 1 64,376 V176 A20,20 0 0 1 84,156 Z" fill="#10233F" />
+    <text x="88" y="204" font-size="24" font-weight="bold" fill="#FFFFFF"><tspan>架构演进：3.x → 平台底座 → 4.0</tspan></text>
+    <path d="M102,226 H390 A14,14 0 0 1 404,240 V332 A14,14 0 0 1 390,346 H102 A14,14 0 0 1 88,332 V240 A14,14 0 0 1 102,226 Z" fill="#1B3355" stroke="#45608A" stroke-width="1.2" />
+    <text x="108" y="278" font-size="24" font-weight="bold" fill="#FFFFFF"><tspan>3.x · 自动化平台</tspan></text>
+    <text x="108" y="310" font-size="14" fill="#8FA6C9"><tspan>既有版本基线</tspan></text>
+    <line x1="412" y1="286" x2="434" y2="286" stroke="#65B7F9" stroke-width="2" />
+    <polygon points="434,279 434,293 446,286" fill="#65B7F9" />
+    <path d="M462,226 H750 A14,14 0 0 1 764,240 V332 A14,14 0 0 1 750,346 H462 A14,14 0 0 1 448,332 V240 A14,14 0 0 1 462,226 Z" fill="#1B3355" stroke="#45608A" stroke-width="1.2" />
+    <text x="468" y="278" font-size="24" font-weight="bold" fill="#FFFFFF"><tspan>平台底座</tspan></text>
+    <text x="468" y="310" font-size="14" fill="#8FA6C9"><tspan>支撑场景扩展</tspan></text>
+    <line x1="772" y1="286" x2="794" y2="286" stroke="#65B7F9" stroke-width="2" />
+    <polygon points="794,279 794,293 806,286" fill="#65B7F9" />
+    <path d="M822,226 H1178 A14,14 0 0 1 1192,240 V332 A14,14 0 0 1 1178,346 H822 A14,14 0 0 1 808,332 V240 A14,14 0 0 1 822,226 Z" fill="#156BFF" stroke="#5B93FF" stroke-width="1.2" />
+    <text x="828" y="264" font-size="26" font-weight="bold" fill="#FFFFFF"><tspan>4.0 · 新增巡检场景</tspan></text>
+    <text x="828" y="296" font-size="14" fill="#DCE9FF"><tspan>关键模块：巡检指标库</tspan></text>
+    <text x="828" y="324" font-size="14" fill="#DCE9FF"><tspan>对接：权限 / 审批 / 日志</tspan></text>
+    <text x="64" y="437" font-size="14" fill="#5A6E8C"><tspan>里程碑时间线</tspan></text>
+    <circle cx="986" cy="432" r="5" fill="#156BFF" />
+    <text x="998" y="437" font-size="14" fill="#5A6E8C"><tspan>已启动</tspan></text>
+    <circle cx="1076" cy="432" r="5" fill="#65B7F9" />
+    <text x="1088" y="437" font-size="14" fill="#5A6E8C"><tspan>计划 / 进行中</tspan></text>
+    <line x1="64" y1="462" x2="1216" y2="462" stroke="#C9D8EE" stroke-width="2" />
+    <circle cx="74" cy="462" r="13" fill="#FFFFFF" stroke="#156BFF" stroke-width="2" />
+    <circle cx="74" cy="462" r="6" fill="#156BFF" />
+    <circle cx="368" cy="462" r="7" fill="#65B7F9" stroke="#FFFFFF" stroke-width="2" />
+    <circle cx="662" cy="462" r="7" fill="#65B7F9" stroke="#FFFFFF" stroke-width="2" />
+    <circle cx="956" cy="462" r="7" fill="#10233F" stroke="#FFFFFF" stroke-width="2" />
+    <text x="64" y="495" font-size="22" font-weight="bold" fill="#10233F"><tspan>5月</tspan></text>
+    <path d="M120,478 H156 A8,8 0 0 1 164,486 V494 A8,8 0 0 1 156,502 H120 A8,8 0 0 1 112,494 V486 A8,8 0 0 1 120,478 Z" fill="#156BFF" />
+    <text x="138" y="495" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle"><tspan>核心</tspan></text>
+    <text x="358" y="495" font-size="22" font-weight="bold" fill="#10233F"><tspan>6月10日</tspan></text>
+    <text x="652" y="495" font-size="22" font-weight="bold" fill="#10233F"><tspan>7月</tspan></text>
+    <text x="946" y="495" font-size="22" font-weight="bold" fill="#10233F"><tspan>目标</tspan></text>
+    <path d="M1010,478 H1082 A8,8 0 0 1 1090,486 V494 A8,8 0 0 1 1082,502 H1010 A8,8 0 0 1 1002,494 V486 A8,8 0 0 1 1010,478 Z" fill="#FFFFFF" stroke="#156BFF" stroke-width="1.2" />
+    <text x="1046" y="495" font-size="14" fill="#156BFF" text-anchor="middle"><tspan>计划目标</tspan></text>
+    <text x="64" y="524" font-size="20" fill="#33475E"><tspan>启动巡检场景需求评审、</tspan></text><text x="64" y="550" font-size="20" fill="#33475E"><tspan>指标库开发</tspan></text>
+    <text x="358" y="524" font-size="20" fill="#33475E"><tspan>巡检场景提测（计划）</tspan></text><text x="358" y="550" font-size="20" fill="#33475E"><tspan>对接权限 / 审批 / 日志</tspan></text>
+    <text x="652" y="524" font-size="20" fill="#33475E"><tspan>4.0迭代二需求设计、</tspan></text><text x="652" y="550" font-size="20" fill="#33475E"><tspan>UI设计（进行中）</tspan></text>
+    <text x="946" y="524" font-size="20" fill="#33475E"><tspan>迁移巡检+网络场景</tspan></text><text x="946" y="550" font-size="20" fill="#33475E"><tspan>交付两大重点客户</tspan></text>
+    <path d="M78,580 H1202 A14,14 0 0 1 1216,594 V642 A14,14 0 0 1 1202,656 H78 A14,14 0 0 1 64,642 V594 A14,14 0 0 1 78,580 Z" fill="#E8F1FF" />
+    <path d="M96,602 H136 A8,8 0 0 1 144,610 V624 A8,8 0 0 1 136,632 H96 A8,8 0 0 1 88,624 V610 A8,8 0 0 1 96,602 Z" fill="#156BFF" />
+    <text x="116" y="622" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle"><tspan>结论</tspan></text>
+    <text x="168" y="612" font-size="20" font-weight="bold" fill="#10233F"><tspan>4.0 在底座基础上新增巡检场景，是下半年重点方向</tspan></text>
+    <text x="168" y="640" font-size="14" fill="#4A6079"><tspan>口径：6月10日提测（计划）、7月迭代二（进行中）；交付两大重点客户为计划目标</tspan></text>
+  </g>
+</svg>

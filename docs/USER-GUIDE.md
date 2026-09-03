@@ -1,6 +1,6 @@
 # PPT Pilot 用户使用手册
 
-面向使用者的操作手册：如何用 PPT Pilot 从一个主题或一份资料出发，产出有证据支撑的 SVG 演示，并在需要时交付原生可编辑的 PowerPoint。安装、目录结构与契约细节见 [README](README.md)；本文只讲"怎么用"。
+面向使用者的操作手册：如何用 PPT Pilot 从一个主题或一份资料出发，产出有证据支撑的 SVG 演示，并在需要时交付原生可编辑的 PowerPoint。安装、目录结构与契约细节见 [README](../README.md)；本文只讲"怎么用"。
 
 ---
 
@@ -18,7 +18,7 @@
 
 ## 2. 开始之前
 
-- **装好技能**：按 [README](README.md) 的安装章节把 `ppt-start` 与 `ppt-editable` 装到你的宿主（Claude Code / Codex / DeepSeek Harness），或直接用一键脚本：
+- **装好技能**：按 [README](../README.md) 的安装章节把 `ppt-start` 与 `ppt-editable` 装到你的宿主（Claude Code / Codex / DeepSeek Harness），或直接用一键脚本：
 
   ```bash
   powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
@@ -29,7 +29,20 @@
   - 给一份完整简报（受众、时长、页数、关键结论）;
   - 给一批资料（报告、数据、来源文件）。
 
-- **可选：写一份工作区偏好档案** `ppt-output/pilot-preferences.json`，记录品牌色、字体、偏好风格、语言与保密限制，避免每次重复回答。格式见 [README](README.md#使用方式)。
+- **可选：写一份工作区偏好档案** `ppt-output/pilot-preferences.json`，记录品牌色、字体、偏好风格、语言与保密限制，避免每次重复回答。示例：
+
+  ```json
+  {
+    "schema_version": 1,
+    "brand": { "colors": ["#156BFF"], "font_stack": "Microsoft YaHei, Arial, sans-serif", "notes": "强调色只用于关键比较" },
+    "style": { "preferred_style_id": "canway-midyear-review" },
+    "audience": { "name": "运营管理层", "desired_action": "确认 H2 资源取舍" },
+    "language": "zh-CN",
+    "confidentiality_restriction": "内部资料不得外发到网络"
+  }
+  ```
+
+  优先级固定为：当前请求明确答案 > 本运行已批准产物 > 偏好档案 > 安全默认值。档案只能记录限制型保密策略；跨运行有效的网络或披露授权必须由用户显式给出并记录为 standing 授权。格式错误时披露原因并整体忽略，不影响运行。
 
 ---
 
@@ -87,6 +100,19 @@
 | 只看 SVG / 浏览器预览 | 直接用 `slides/`，或运行 `tools/deck-deliver.ps1`（自动生成 `preview.html`，可选 `-ExportPng`） | 静态预览页 / PNG |
 | 图片式 PPTX + 演讲者备注 | `tools/deck-deliver.ps1`（需本机 PowerPoint） | PPTX + 备注清单 |
 | **原生可编辑 PPTX**（可改字、可改形状） | 调用 `ppt-editable` 技能 | `delivery/editable/<deck-id>-editable.pptx` |
+
+`deck-deliver.ps1` 用法（可选伴随工具，在仓库根目录运行）：
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1                # 自动探测唯一运行
+powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1 -RunDir ppt-output/<deck-id> -ExportPng
+```
+
+- 始终生成 `<run>/preview.html` 联系表：缩略图网格 + 单页查看器（方向键翻页、Esc 关闭），纯静态、无外部资源；
+- 从 `.ppt-pilot/故事板.md` 解析每页 `assertion_title`／`audience_takeaway`／`next_link`，自动写入 PPTX 演讲者备注；
+- 调用本机 PowerPoint（COM 自动化）把每页 SVG 插入 16:9 PPTX 并复开校验；本机没有 PowerPoint 或指定 `-SkipPptx` 时跳过该步，preview.html 仍可用；
+- `-ExportPng` 额外导出每页 1280×720 PNG 作为渲染证据；结果清单写入 `<run>/delivery/delivery-result.json`；
+- 工具只新增 preview.html 与 `delivery/`，不修改任何运行产物。退出码：`0`=PPTX+preview 成功；`3`=仅 preview 成功。
 
 调用 `ppt-editable` 的方式（与 `ppt-start` 同宿主同前缀）：
 
@@ -163,4 +189,4 @@ DeepSeek:     ppt-editable  请把 ppt-output/<deck-id>/ 转换为经验证的�
 
 ---
 
-*安装、架构与验收细节见 [README](README.md)、[设计文档](docs/design.md) 与[验收文档](docs/acceptance.md)。*
+*安装、架构与验收细节见 [README](../README.md)、[设计文档](design.md) 与[验收文档](acceptance.md)。*

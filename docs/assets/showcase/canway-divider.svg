@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+  <title>平台建设：三个版本·一个底座·4.0启航——H1最核心的产出线</title>
+  <desc>章节过渡页：深色主卡居中作为唯一焦点，承载居中主标题“平台建设：三个版本·一个底座·4.0启航”；标题上方为浅蓝胶囊标签“H1 · 核心产出”；标题下方三枚关键词锚点卡依次为“三个版本”“一个底座”“4.0启航”，其中蓝色卡强调“4.0启航”；底部一行浅蓝文字为受众要点“平台建设是H1最核心的产出线”；右下角为页码03。</desc>
+  <rect x="0" y="0" width="1280" height="720" fill="#FFFFFF" />
+  <g id="main-card">
+    <path d="M 148 104 H 1132 A 20 20 0 0 1 1152 124 V 596 A 20 20 0 0 1 1132 616 H 148 A 20 20 0 0 1 128 596 V 124 A 20 20 0 0 1 148 104 Z" fill="#10233F" />
+  </g>
+  <g id="section-eyebrow">
+    <path d="M 566 184 H 714 A 14 14 0 0 1 728 198 V 210 A 14 14 0 0 1 714 224 H 566 A 14 14 0 0 1 552 210 V 198 A 14 14 0 0 1 566 184 Z" fill="#1E3D68" />
+    <text x="640" y="210" text-anchor="middle" font-size="18" font-weight="bold" fill="#65B7F9"><tspan>H1 · 核心产出</tspan></text>
+  </g>
+  <g id="section-title">
+    <text x="640" y="316" text-anchor="middle" font-size="40" font-weight="bold" fill="#FFFFFF"><tspan>平台建设：三个版本·一个底座·4.0启航</tspan></text>
+  </g>
+  <g id="keyword-anchors">
+    <path d="M 294 380 H 490 A 14 14 0 0 1 504 394 V 446 A 14 14 0 0 1 490 460 H 294 A 14 14 0 0 1 280 446 V 394 A 14 14 0 0 1 294 380 Z" fill="#FFFFFF" />
+    <path d="M 542 380 H 738 A 14 14 0 0 1 752 394 V 446 A 14 14 0 0 1 738 460 H 542 A 14 14 0 0 1 528 446 V 394 A 14 14 0 0 1 542 380 Z" fill="#FFFFFF" />
+    <path d="M 790 380 H 986 A 14 14 0 0 1 1000 394 V 446 A 14 14 0 0 1 986 460 H 790 A 14 14 0 0 1 776 446 V 394 A 14 14 0 0 1 790 380 Z" fill="#156BFF" />
+    <text x="392" y="428" text-anchor="middle" font-size="24" font-weight="bold" fill="#10233F"><tspan>三个版本</tspan></text>
+    <text x="640" y="428" text-anchor="middle" font-size="24" font-weight="bold" fill="#10233F"><tspan>一个底座</tspan></text>
+    <text x="888" y="428" text-anchor="middle" font-size="24" font-weight="bold" fill="#FFFFFF"><tspan>4.0启航</tspan></text>
+  </g>
+  <g id="audience-point">
+    <text x="640" y="524" text-anchor="middle" font-size="20" fill="#AEC6E4"><tspan>平台建设是H1最核心的产出线</tspan></text>
+  </g>
+  <g id="page-number">
+    <text x="1216" y="650" text-anchor="end" font-size="14" fill="#9FB2CE"><tspan>03</tspan></text>
+  </g>
+</svg>
