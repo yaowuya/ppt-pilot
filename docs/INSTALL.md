@@ -1,6 +1,6 @@
 # 安装指南
 
-两个 Skill 使用同一 descriptor 流程安装；`ppt-start` 与 `ppt-editable` 必须成对安装，任一 Skill 的 `SKILL.md`、`references/`、`assets/`、`scripts/` 都不可拆分。技能启动标识：`ppt-start`、`ppt-editable`。
+三个 Skill 使用同一 descriptor 流程安装；`ppt-start`、`ppt-editable` 与 `ppt-style-extract` 必须成对安装，任一 Skill 的 `SKILL.md`、`references/`、`assets/`、`scripts/` 都不可拆分。技能启动标识：`ppt-start`、`ppt-editable`、`ppt-style-extract`。
 
 ## 一键安装 / 更新三宿主（推荐）
 
@@ -109,6 +109,21 @@ ppt-editable
 
 - 若 harness 提供子代理／委派原语，文稿审查按契约优先独立 subagent；未提供时自动走已定义的 `inline_fallback` 正式降级审查；
 - 技能发现与启动语法的最终行为以真实宿主验证为准，见[验收文档](acceptance.md)的 DeepSeek Harness 行。
+
+## PPT Style Extract
+
+从模板 PPT／参考图／风格 prompt 提取风格并固化成 `ppt-start` 风格包（详见[提取设计](style-extract-design.md)）。
+
+- 依赖：Python 3.9+；`python-pptx` 用于 `.pptx` 提取（`pip install python-pptx`），`Pillow` 用于 PNG/JPEG 像素取样（环境缺该能力时如实返回 `UNAVAILABLE`，不伪造）。
+- 启动词：`ppt-style-extract`
+- 示例：
+
+```text
+ppt-style-extract
+请用一个品牌模板 pptx 提取一套风格，id 设为 acme-brand，注册到当前 ppt-start 的 registry。
+```
+
+包结构与内置风格包一致，产物为 `manifest.json` + `tokens.json` + `STYLE.md` + `prompt.md`，并幂等写入 `registry.json`。
 
 ## 通用注意事项
 
