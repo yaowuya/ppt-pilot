@@ -4,12 +4,17 @@ PPT Pilot 是一个可同时用于 Claude Code、OpenAI Codex 与 DeepSeek Harne
 
 ## 效果示例
 
-同一套已批准故事板，由两个内置风格包直接编译生成（示例来自真实运行，含客户名称与人名的页面未收录）：
+同一套已批准故事板，由两个内置风格包直接编译生成（示例来自真实运行；含客户名称与人名的页面已匿名或未收录）：
 
 **嘉为产品风格 `jiawei-product`**
 
 <p align="center">
   <img src="docs/assets/showcase/jiawei-s01-cover.svg" alt="嘉为产品风格 · 封面" width="32%">
+  <img src="docs/assets/showcase/jiawei-divider.svg" alt="嘉为产品风格 · 章节页" width="32%">
+  <img src="docs/assets/showcase/jiawei-modules.svg" alt="嘉为产品风格 · 架构分解页" width="32%">
+</p>
+<p align="center">
+  <img src="docs/assets/showcase/jiawei-roadmap.svg" alt="嘉为产品风格 · 里程碑页" width="32%">
   <img src="docs/assets/showcase/jiawei-s09-content.svg" alt="嘉为产品风格 · 内容页" width="32%">
   <img src="docs/assets/showcase/jiawei-s12-closing.svg" alt="嘉为产品风格 · 收尾页" width="32%">
 </p>
@@ -18,6 +23,11 @@ PPT Pilot 是一个可同时用于 Claude Code、OpenAI Codex 与 DeepSeek Harne
 
 <p align="center">
   <img src="docs/assets/showcase/canway-s01-cover.svg" alt="嘉为年中总结风格 · 封面" width="32%">
+  <img src="docs/assets/showcase/canway-divider.svg" alt="嘉为年中总结风格 · 章节页" width="32%">
+  <img src="docs/assets/showcase/canway-modules.svg" alt="嘉为年中总结风格 · 架构分解页" width="32%">
+</p>
+<p align="center">
+  <img src="docs/assets/showcase/canway-roadmap.svg" alt="嘉为年中总结风格 · 里程碑页" width="32%">
   <img src="docs/assets/showcase/canway-s09-content.svg" alt="嘉为年中总结风格 · 内容页" width="32%">
   <img src="docs/assets/showcase/canway-s12-closing.svg" alt="嘉为年中总结风格 · 收尾页" width="32%">
 </p>

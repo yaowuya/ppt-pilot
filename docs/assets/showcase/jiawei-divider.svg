@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <title>平台建设：三个版本·一个底座·4.0启航</title>
+  <desc>章节过渡页：平台建设是H1最核心的产出线；三个版本、一个底座、4.0启航作为三个视觉锚点。</desc>
+  <rect x="0" y="0" width="1280" height="720" fill="#FFFFFF" />
+  <g><circle cx="1120" cy="170" r="76" fill="none" stroke="#EAF5FF" stroke-width="2" /><circle cx="1120" cy="170" r="46" fill="none" stroke="#D8EEFF" stroke-width="2" /><circle cx="1120" cy="170" r="6" fill="#BFE3FF" /></g>
+  <g><circle cx="76" cy="596" r="3.5" fill="#0B74E5" /><circle cx="96" cy="596" r="3.5" fill="#BFE3FF" /><circle cx="116" cy="596" r="3.5" fill="#BFE3FF" /><circle cx="76" cy="616" r="3.5" fill="#BFE3FF" /><circle cx="96" cy="616" r="3.5" fill="#BFE3FF" /><circle cx="116" cy="616" r="3.5" fill="#BFE3FF" /><circle cx="76" cy="636" r="3.5" fill="#BFE3FF" /><circle cx="96" cy="636" r="3.5" fill="#BFE3FF" /><circle cx="116" cy="636" r="3.5" fill="#BFE3FF" /></g>
+  <g><rect x="64" y="64" width="20" height="20" fill="#111827" /><rect x="76" y="76" width="20" height="20" fill="#0B74E5" /><text font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif" font-size="15" font-weight="600" fill="#4B5563" x="110" y="85"><tspan>嘉为</tspan></text></g>
+  <g>
+    <rect x="628" y="204" width="24" height="4" fill="#27B3FF" />
+    <text font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif" text-anchor="middle" font-size="19" font-weight="600" fill="#0B74E5" letter-spacing="2" x="640" y="246"><tspan>H1 最核心的产出线</tspan></text>
+    <text font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif" text-anchor="middle" font-size="76" font-weight="700" fill="#111827" letter-spacing="6" x="640" y="330"><tspan>平台建设</tspan></text>
+    <rect x="604" y="348" width="36" height="6" fill="#0B74E5" /><rect x="640" y="348" width="36" height="6" fill="#27B3FF" />
+  </g>
+  <g>
+    <path d="M194 436 H446 A14 14 0 0 1 460 450 V522 A14 14 0 0 1 446 536 H194 A14 14 0 0 1 180 522 V450 A14 14 0 0 1 194 436 Z" fill="#D8EEFF" />
+    <path d="M194 430 H446 A14 14 0 0 1 460 444 V516 A14 14 0 0 1 446 530 H194 A14 14 0 0 1 180 516 V444 A14 14 0 0 1 194 430 Z" fill="#EAF5FF" stroke="#BFE3FF" stroke-width="1.5" />
+    <path d="M514 436 H766 A14 14 0 0 1 780 450 V522 A14 14 0 0 1 766 536 H514 A14 14 0 0 1 500 522 V450 A14 14 0 0 1 514 436 Z" fill="#D8EEFF" />
+    <path d="M514 430 H766 A14 14 0 0 1 780 444 V516 A14 14 0 0 1 766 530 H514 A14 14 0 0 1 500 516 V444 A14 14 0 0 1 514 430 Z" fill="#EAF5FF" stroke="#BFE3FF" stroke-width="1.5" />
+    <path d="M834 436 H1086 A14 14 0 0 1 1100 450 V522 A14 14 0 0 1 1086 536 H834 A14 14 0 0 1 820 522 V450 A14 14 0 0 1 834 436 Z" fill="#D8EEFF" />
+    <path d="M834 430 H1086 A14 14 0 0 1 1100 444 V516 A14 14 0 0 1 1086 530 H834 A14 14 0 0 1 820 516 V444 A14 14 0 0 1 834 430 Z" fill="#EAF5FF" stroke="#BFE3FF" stroke-width="1.5" />
+    <text font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif" text-anchor="middle" font-size="16" font-weight="700" fill="#0B74E5" letter-spacing="3" x="320" y="468"><tspan>01</tspan></text>
+    <text font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif" text-anchor="middle" font-size="30" font-weight="700" fill="#111827" x="320" y="508"><tspan>三个版本</tspan></text>
+    <text font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif" text-anchor="middle" font-size="16" font-weight="700" fill="#0B74E5" letter-spacing="3" x="640" y="468"><tspan>02</tspan></text>
+    <text font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif" text-anchor="middle" font-size="30" font-weight="700" fill="#111827" x="640" y="508"><tspan>一个底座</tspan></text>
+    <text font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif" text-anchor="middle" font-size="16" font-weight="700" fill="#0B74E5" letter-spacing="3" x="960" y="468"><tspan>03</tspan></text>
+    <text font-family="Microsoft YaHei, PingFang SC, SimHei, sans-serif" text-anchor="middle" font-size="30" font-weight="700" fill="#111827" x="960" y="508"><tspan>4.0启航</tspan></text>
+  </g>
+</svg>

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+  <title>自动化底座H1完成从0到1建设，发布1.0版本</title>
+  <desc>深色主卡展示自动化底座三层模块架构，8个核心模块均以对勾标注完成状态：用户与组织层（用户管理、标签管理、动态分组），内容与通道层（通道管理、文件库），流程与安全层（审批管理、权限中心对接、审计日志）；卡片右上角蓝色徽标标注1.0已发布。右侧浅蓝卡为H1里程碑（4月发布1.0版本、5月提测），下方白色卡为交付定位结论（底座成为核心客户多租户交付基础）。</desc>
+  <rect x="0" y="0" width="1280" height="720" fill="#F6F8FC" />
+  <g>
+    <text x="1216" y="92" text-anchor="end" font-size="20" font-weight="bold" fill="#B7C3D6"><tspan>05</tspan></text>
+    <text x="64" y="104" font-size="40" font-weight="bold" fill="#10233F"><tspan>自动化底座 H1 完成从 0 到 1 建设，发布 1.0 版本</tspan></text>
+    <text x="64" y="142" font-size="20" fill="#5A6B85"><tspan>为后续 4.x 版本和定制化交付奠定基础</tspan></text>
+  </g>
+  <g>
+    <path d="M84,176 H804 A20,20 0 0 1 824,196 V636 A20,20 0 0 1 804,656 H84 A20,20 0 0 1 64,636 V196 A20,20 0 0 1 84,176 Z" fill="#10233F" />
+    <text x="88" y="230" font-size="24" font-weight="bold" fill="#FFFFFF"><tspan>自动化底座</tspan></text>
+    <text x="232" y="228" font-size="16" fill="#65B7F9"><tspan>H1 · 从 0 到 1 建设</tspan></text>
+    <path d="M690,200 H786 A14,14 0 0 1 800,214 V218 A14,14 0 0 1 786,232 H690 A14,14 0 0 1 676,218 V214 A14,14 0 0 1 690,200 Z" fill="#156BFF" />
+    <text x="738" y="222" text-anchor="middle" font-size="16" font-weight="bold" fill="#FFFFFF"><tspan>1.0 已发布</tspan></text>
+    <g>
+      <rect x="88" y="268" width="6" height="6" fill="#65B7F9" /><text x="102" y="280" font-size="16" font-weight="bold" fill="#65B7F9"><tspan>用户与组织</tspan></text>
+      <path d="M102,292 H295 A14,14 0 0 1 309,306 V338 A14,14 0 0 1 295,352 H102 A14,14 0 0 1 88,338 V306 A14,14 0 0 1 102,292 Z" fill="#FFFFFF" />
+      <path d="M347,292 H540 A14,14 0 0 1 554,306 V338 A14,14 0 0 1 540,352 H347 A14,14 0 0 1 333,338 V306 A14,14 0 0 1 347,292 Z" fill="#FFFFFF" />
+      <path d="M592,292 H786 A14,14 0 0 1 800,306 V338 A14,14 0 0 1 786,352 H592 A14,14 0 0 1 578,338 V306 A14,14 0 0 1 592,292 Z" fill="#FFFFFF" />
+      <circle cx="114" cy="322" r="11" fill="#EAF3FF" /><circle cx="359" cy="322" r="11" fill="#EAF3FF" /><circle cx="604" cy="322" r="11" fill="#EAF3FF" />
+      <polyline points="109,322 112.5,326 119,318" fill="none" stroke="#156BFF" stroke-width="2.2" />
+      <polyline points="354,322 357.5,326 364,318" fill="none" stroke="#156BFF" stroke-width="2.2" />
+      <polyline points="599,322 602.5,326 609,318" fill="none" stroke="#156BFF" stroke-width="2.2" />
+      <text x="136" y="329" font-size="20" font-weight="bold" fill="#10233F"><tspan>用户管理</tspan></text><text x="381" y="329" font-size="20" font-weight="bold" fill="#10233F"><tspan>标签管理</tspan></text><text x="626" y="329" font-size="20" font-weight="bold" fill="#10233F"><tspan>动态分组</tspan></text>
+    </g>
+    <g>
+      <rect x="88" y="380" width="6" height="6" fill="#65B7F9" /><text x="102" y="392" font-size="16" font-weight="bold" fill="#65B7F9"><tspan>内容与通道</tspan></text>
+      <path d="M102,404 H418 A14,14 0 0 1 432,418 V450 A14,14 0 0 1 418,464 H102 A14,14 0 0 1 88,450 V418 A14,14 0 0 1 102,404 Z" fill="#FFFFFF" />
+      <path d="M470,404 H786 A14,14 0 0 1 800,418 V450 A14,14 0 0 1 786,464 H470 A14,14 0 0 1 456,450 V418 A14,14 0 0 1 470,404 Z" fill="#FFFFFF" />
+      <circle cx="114" cy="434" r="11" fill="#EAF3FF" /><circle cx="482" cy="434" r="11" fill="#EAF3FF" />
+      <polyline points="109,434 112.5,438 119,430" fill="none" stroke="#156BFF" stroke-width="2.2" />
+      <polyline points="477,434 480.5,438 487,430" fill="none" stroke="#156BFF" stroke-width="2.2" />
+      <text x="136" y="441" font-size="20" font-weight="bold" fill="#10233F"><tspan>通道管理</tspan></text><text x="504" y="441" font-size="20" font-weight="bold" fill="#10233F"><tspan>文件库</tspan></text>
+    </g>
+    <g>
+      <rect x="88" y="492" width="6" height="6" fill="#65B7F9" /><text x="102" y="504" font-size="16" font-weight="bold" fill="#65B7F9"><tspan>流程与安全</tspan></text>
+      <path d="M102,516 H295 A14,14 0 0 1 309,530 V562 A14,14 0 0 1 295,576 H102 A14,14 0 0 1 88,562 V530 A14,14 0 0 1 102,516 Z" fill="#FFFFFF" />
+      <path d="M347,516 H540 A14,14 0 0 1 554,530 V562 A14,14 0 0 1 540,576 H347 A14,14 0 0 1 333,562 V530 A14,14 0 0 1 347,516 Z" fill="#FFFFFF" />
+      <path d="M592,516 H786 A14,14 0 0 1 800,530 V562 A14,14 0 0 1 786,576 H592 A14,14 0 0 1 578,562 V530 A14,14 0 0 1 592,516 Z" fill="#FFFFFF" />
+      <circle cx="114" cy="546" r="11" fill="#EAF3FF" /><circle cx="359" cy="546" r="11" fill="#EAF3FF" /><circle cx="604" cy="546" r="11" fill="#EAF3FF" />
+      <polyline points="109,546 112.5,550 119,538" fill="none" stroke="#156BFF" stroke-width="2.2" />
+      <polyline points="354,546 357.5,550 364,538" fill="none" stroke="#156BFF" stroke-width="2.2" />
+      <polyline points="599,546 602.5,550 609,538" fill="none" stroke="#156BFF" stroke-width="2.2" />
+      <text x="136" y="553" font-size="20" font-weight="bold" fill="#10233F"><tspan>审批管理</tspan></text><text x="381" y="553" font-size="20" font-weight="bold" fill="#10233F"><tspan>权限中心对接</tspan></text><text x="626" y="553" font-size="20" font-weight="bold" fill="#10233F"><tspan>审计日志</tspan></text>
+    </g>
+    <polyline points="90,610 94,614 101,605" fill="none" stroke="#65B7F9" stroke-width="2" />
+    <text x="110" y="616" font-size="14" fill="#9FB3D1"><tspan>8 个模块均为核心 · H1 已完成建设</tspan></text>
+  </g>
+  <g>
+    <path d="M868,176 H1196 A20,20 0 0 1 1216,196 V396 A20,20 0 0 1 1196,416 H868 A20,20 0 0 1 848,396 V196 A20,20 0 0 1 868,176 Z" fill="#EAF3FF" />
+    <text x="872" y="234" font-size="24" font-weight="bold" fill="#10233F"><tspan>H1 里程碑</tspan></text>
+    <circle cx="886" cy="278" r="6" fill="#156BFF" /><text x="904" y="287" font-size="24" font-weight="bold" fill="#156BFF"><tspan>4月</tspan></text><text x="962" y="287" font-size="20" fill="#10233F"><tspan>发布 1.0 版本</tspan></text>
+    <line x1="886" y1="290" x2="886" y2="344" stroke="#65B7F9" stroke-width="2" />
+    <circle cx="886" cy="352" r="6" fill="#FFFFFF" stroke="#156BFF" stroke-width="1.2" /><text x="904" y="361" font-size="24" font-weight="bold" fill="#10233F"><tspan>5月</tspan></text><text x="962" y="361" font-size="20" fill="#5A6B85"><tspan>提测</tspan></text>
+  </g>
+  <g>
+    <path d="M868,440 H1196 A20,20 0 0 1 1216,460 V636 A20,20 0 0 1 1196,656 H868 A20,20 0 0 1 848,636 V460 A20,20 0 0 1 868,440 Z" fill="#FFFFFF" stroke="#E3EAF4" stroke-width="1.2" />
+    <rect x="872" y="468" width="44" height="7" fill="#156BFF" /><rect x="872" y="480" width="32" height="7" fill="#65B7F9" /><rect x="872" y="492" width="20" height="7" fill="#B7C3D6" />
+    <text x="928" y="490" font-size="14" fill="#5A6B85"><tspan>交付定位</tspan></text>
+    <text x="872" y="552" font-size="24" font-weight="bold" fill="#156BFF"><tspan>底座成为核心客户</tspan></text>
+    <text x="872" y="590" font-size="24" font-weight="bold" fill="#156BFF"><tspan>多租户交付基础</tspan></text>
+  </g>
+</svg>
