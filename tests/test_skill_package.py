@@ -15,6 +15,7 @@ class SkillPackageTests(unittest.TestCase):
         self.readme = repo_root() / "README.md"
         self.design = repo_root() / "docs" / "design.md"
         self.acceptance = repo_root() / "docs" / "acceptance.md"
+        self.architecture = repo_root() / "docs" / "ARCHITECTURE.md"
 
     def test_shared_frontmatter_uses_only_portable_fields(self):
         fields = parse_frontmatter(skill_root() / "SKILL.md")
@@ -44,6 +45,26 @@ class SkillPackageTests(unittest.TestCase):
     def test_skill_is_a_short_orchestrator(self):
         lines = read_text(skill_root() / "SKILL.md").splitlines()
         self.assertLessEqual(len(lines), 500)
+
+    def test_skill_and_architecture_keep_sources_out_of_prompt_body(self):
+        skill = read_text(skill_root() / "SKILL.md")
+        architecture = read_text(self.architecture)
+
+        for name, text in (("skill", skill), ("architecture", architecture)):
+            with self.subTest(document=name):
+                self.assertIn("叙事、素材与事实值", text)
+                self.assertRegex(text, r"来源映射[^。；\n]{0,80}(?:单独|独立)校验")
+                self.assertRegex(text, r"来源注解[^。；\n]{0,80}(?:不|不得)进入(?:模板)?正文")
+
+        self.assertNotRegex(
+            skill,
+            r"把故事板拥有的叙事／素材／事实／来源注入",
+        )
+        self.assertNotIn(
+            "由 `StyleBaselineCompiler` 从 `prompt_baseline` 投影供语义参考",
+            architecture,
+        )
+        self.assertIn("不投影进模板正文", architecture)
 
     def test_readme_documents_both_hosts_without_runtime_coupling(self):
         readme_path = repo_root() / "README.md"
@@ -178,7 +199,7 @@ class SkillPackageTests(unittest.TestCase):
         for token in (
             "files.prompt_template",
             "whole-line `{{NARRATIVE}}`",
-            "repository `references/generation-prompt-template.md`",
+            "`references/generation-prompt-template.md` authoring seed",
             "`tokens.json.prompt_baseline`",
         ):
             self.assertIn(token, design)
@@ -282,7 +303,7 @@ class SkillPackageTests(unittest.TestCase):
         for token in (
             "故事板 + `theme.json` 直接编译",
             "manifest `files.prompt_template`",
-            "repository `generation-prompt-template.md` fallback",
+            "`generation-prompt-template.md` 仅是建包 authoring seed",
             "whole-line `{{NARRATIVE}}`",
             "`tokens.json.prompt_baseline`",
             "schema-v2 per-slide transaction/batch manifest",
@@ -299,17 +320,31 @@ class SkillPackageTests(unittest.TestCase):
             "render-ready effective visual brief",
             "单个 `visual_generation_transaction`",
             "[[EFFECTIVE_PAGE_SPECIFICATION]]",
+            "风格未声明时才采用 repository",
         ):
             self.assertNotIn(stale, acceptance)
+
+    def test_manual_install_examples_copy_skill_contents_without_nesting(self):
+        install = read_text(repo_root() / "docs" / "INSTALL.md")
+        for skill_id in ("ppt-start", "ppt-editable"):
+            self.assertIn(f"skills/{skill_id}/.", install)
+            self.assertNotRegex(
+                install,
+                rf"cp\s+-R\s+skills/{re.escape(skill_id)}\s+[^\n]+/{re.escape(skill_id)}(?:[\"']|\s|$)",
+            )
+        self.assertIn("skill-backups/", install)
+        self.assertIn("禁止把源目录直接复制到同名已有目标", install)
 
     def test_package_wide_active_authorities_are_direct_compile_schema_v2_only(self):
         active_paths = (
             skill_root() / "SKILL.md",
             *sorted((skill_root() / "references").glob("*.md")),
-            skill_root() / "assets" / "styles" / "canway-midyear-review" / "STYLE.md",
+            *sorted((skill_root() / "assets" / "styles").glob("*/STYLE.md")),
             self.readme,
+            repo_root() / "docs" / "USER-GUIDE.md",
             self.design,
             self.acceptance,
+            *sorted((repo_root() / "tests" / "prompts").glob("*.md")),
         )
         texts = {path: read_text(path) for path in active_paths}
         combined = "\n".join(texts.values())
@@ -331,7 +366,7 @@ class SkillPackageTests(unittest.TestCase):
         for required in (
             "files.prompt_template",
             "{{NARRATIVE}}",
-            "repository fallback",
+            "authoring seed",
             "prompt_baseline",
             "creative-brief-v1",
             "active_visual_generation_batch",
@@ -358,31 +393,41 @@ class SkillPackageTests(unittest.TestCase):
                 self.assertNotRegex(visible, visible_internal)
 
     def test_style_prompt_supersession_is_unambiguous(self):
-        current = "2026-08-21-ppt-start-style-owned-redesign-prompts-design.md"
-        plans = (
-            "2026-08-20-ppt-pilot-style-registry.md",
-            "2026-08-20-ppt-pilot-canway-reference-svg.md",
-            "2026-08-20-ppt-pilot-canway-style-guidance.md",
-            "2026-08-20-ppt-pilot-visual-brief-contract.md",
-            "2026-08-20-ppt-pilot-visual-prompt-assembly.md",
-            "2026-08-20-ppt-pilot-visual-integration.md",
+        current_authorities = (
+            "skills/ppt-start/references/generation-prompt-byte-grammar.md",
+            "skills/ppt-start/references/artifact-contract.md",
+            "skills/ppt-start/references/workflow.md",
         )
-        for filename in plans:
-            text = read_text(repo_root() / "docs" / "superpowers" / "plans" / filename)
-            lines = text.splitlines()
-            self.assertIn("SUPERSEDED", lines[2])
-            self.assertIn(current, lines[2])
-        old_design = read_text(
-            repo_root() / "docs" / "superpowers" / "specs"
-            / "2026-08-20-ppt-pilot-visual-prompt-assembly-design.md"
+        superseded_documents = (
+            ("specs", "2026-08-20-ppt-pilot-visual-prompt-assembly-design.md"),
+            ("specs", "2026-08-21-ppt-start-style-owned-redesign-prompts-design.md"),
+            ("specs", "2026-08-26-generation-prompt-creative-reform-design.md"),
+            ("specs", "2026-08-30-machine-only-source-ids-design.md"),
+            ("specs", "2026-09-01-style-baseline-projection-design.md"),
+            ("specs", "2026-09-01-style-owns-prompt-template-design.md"),
+            ("plans", "2026-08-20-ppt-pilot-canway-reference-svg.md"),
+            ("plans", "2026-08-20-ppt-pilot-canway-style-guidance.md"),
+            ("plans", "2026-08-20-ppt-pilot-style-registry.md"),
+            ("plans", "2026-08-20-ppt-pilot-visual-brief-contract.md"),
+            ("plans", "2026-08-20-ppt-pilot-visual-brief-fixtures.md"),
+            ("plans", "2026-08-20-ppt-pilot-visual-integration.md"),
+            ("plans", "2026-08-20-ppt-pilot-visual-prompt-assembly.md"),
+            ("plans", "2026-08-20-ppt-pilot-visual-revision-modes.md"),
+            ("plans", "2026-08-21-ppt-start-style-owned-redesign-prompts.md"),
+            ("plans", "2026-08-26-generation-prompt-creative-reform.md"),
+            ("plans", "2026-08-29-ppt-start-concurrent-svg-generation.md"),
+            ("plans", "2026-09-01-style-baseline-projection.md"),
         )
-        self.assertIn("部分已被 2026-08-21", old_design)
-        self.assertIn("当前风格由 tokens 与 `STYLE.md` 表达身份，并由风格自有 `REDESIGN.md` 提供完整生成模板。", old_design)
-        self.assertIn("`visual-briefs/<slide-id>.md` 是该页已消解冲突的权威视觉输入，但不是可直接交给生成器的完整 prompt。", old_design)
-        self.assertIn("按照 2026-08-21 规范，首次生成、`recompose` 与确定性回退还必须解析所选风格自有模板，编译并持久化 `generation-prompts/<slide-id>.md`，再由 fresh generator 生成候选 SVG。", old_design)
-        self.assertIn("风格身份仍由 tokens 与抽象 `STYLE.md` 表达；完整 `REDESIGN.md` 是风格自有生成模板而非单页成品", old_design)
-        self.assertIn("每个风格另外拥有一份 `REDESIGN.md`（legacy 使用同级 `*.redesign.md`）作为可独立交给 fresh generator 的完整生成指令模板；", old_design)
-        self.assertNotIn("manifest 只引用机器可读 tokens 与中文 `STYLE.md", old_design)
+        for folder, filename in superseded_documents:
+            text = read_text(
+                repo_root() / "docs" / "superpowers" / folder / filename
+            )
+            banner = "\n".join(text.splitlines()[:6])
+            with self.subTest(document=filename):
+                self.assertIn("SUPERSEDED", banner)
+                for authority in current_authorities:
+                    self.assertIn(authority, banner)
+                self.assertIn("不得用于新运行", banner)
 
     def test_legacy_skill_identifier_is_absent_from_current_docs(self):
         documents = [

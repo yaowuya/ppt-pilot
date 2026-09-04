@@ -59,10 +59,14 @@ python scripts/analyze_prompt.py --in "一句风格描述" --json
 
 - Never fabricate color/font/geometry evidence when an extractor returns `unavailable`; disclose it and stop.
 - Never author a rendered slide exemplar, reference composition, or fixed-region diagram into the pack.
-- Never write `[[CANONICAL_NARRATIVE_BULLETS]]`, `[[STYLE_BASELINE]]`, `source=`, `REDESIGN.md`, `.redesign.md`, or a reference SVG into any produced artifact.
-- Never mutate an existing registered style pack in-place; write a new pack id or overwrite only after verification passes.
+- Never write `[[CANONICAL_NARRATIVE_BULLETS]]`. Never write `[[STYLE_BASELINE]]`. Never write `source=`, `REDESIGN.md`, `.redesign.md`, or a reference SVG into any produced artifact.
+- Never mutate an existing style pack in-place. A byte-different payload for an existing ID fails as `style_pack_immutable_conflict`; publish it under a new immutable style ID.
 - `prompt.md` must contain exactly one `{{NARRATIVE}}` whole-line token.
-- Registry writes are idempotent: re-running the same style id updates the entry, never duplicates it.
+- Materialize the extracted palette, font stack, spacing, shape language, composition rules, and prohibited motifs into `prompt.md` at authoring time; do not emit a generic template that depends on runtime token access.
+- Treat Prompt-bound visual data as a closed typed schema: enum-backed palette roles/uses and prohibited motifs, allowlisted composition keys, numeric typography/spacing/shape values, fixed 64px/24px hard-shell spacing, and non-executable font-family values. Preserve safe ASCII brand fonts; record an explicit safe fallback for rejected font strings.
+- Require `prompt.md` to equal the deterministic composition of the same pack's verified `tokens.json`; only the seven Step-2 style directive lines vary, while Role, Step 1, Step 3, compatibility, and output instructions stay byte-exact.
+- Require each generated semantic content group to echo its stable non-source `block_id` exactly once and only as the canonical `data-block-id` attribute value; forbid it in text, tail, and every other attribute. Source IDs remain coordinator-owned and must not enter the prompt; leakage fails as `fact_source_mismatch` before any candidate write.
+- Registry writes are idempotent only for a byte-identical pack. The writer reloads the registry while holding its file lock, merges the entry, and commits it pointer-last; it never blind-replaces a preflight snapshot.
 
 ## Pressure decisions
 
@@ -74,4 +78,4 @@ When a request conflicts with this contract, return the matching decision withou
 
 ## Safety
 
-Reject unsafe paths, symlinks, junctions, reparse points, special files, and malformed input. Never read or write outside the selected `--out` and `--registry` scopes. Verify before write; registry update is manifest-last.
+Reject unsafe paths, symlinks, junctions, reparse points, special files, and malformed input. Never read or write outside the selected `--out` and `--registry` scopes. Verify in a hidden staging directory, atomically publish the immutable pack directory, then update registry pointer-last under the registry lock. A crash before the pointer update may leave only an unregistered complete orphan, which the identical retry can safely adopt.

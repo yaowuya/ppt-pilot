@@ -1,5 +1,6 @@
 # 规模1：Style 自定义视觉结构（扩展基线）+ 移除输出层 SRC
 
+> **SUPERSEDED（历史记录）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`skills/ppt-start/references/artifact-contract.md` 与 `skills/ppt-start/references/workflow.md`。本文中的旧模板、marker、runtime fallback、来源注入、visual-brief 与恢复规则仅保留作审计历史，不得用于新运行。
 > 方向（用户已拍板）：保留唯一 canonical 固定模板 + 两个 marker；扩展 `prompt_baseline` 让 style 能自定义更完整的视觉/布局/规范指令；移除生成 prompt 正文的 SRC/来源标记（输出层）。**不**推翻 byte-grammar 规则 1/8/10 的"仅 canonical 模板可执行"安全边界。
 
 ## 1. 核心原则

@@ -1,5 +1,7 @@
 # Machine-Only Source IDs Design
 
+> **SUPERSEDED（历史记录）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`skills/ppt-start/references/artifact-contract.md` 与 `skills/ppt-start/references/workflow.md`。本文中的旧模板、marker、runtime fallback、来源注入、visual-brief 与恢复规则仅保留作审计历史，不得用于新运行。
+
 **Date:** 2026-08-30  
 **Status:** Approved design; pending written-spec review
 

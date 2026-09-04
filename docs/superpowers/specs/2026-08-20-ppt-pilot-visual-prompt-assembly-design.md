@@ -1,6 +1,6 @@
 # PPT Pilot 视觉提示组装机制设计
 
-> **部分已被 2026-08-21 规范取代：** 视觉 prompt 的资产所有权、编译、恢复、兼容与相关测试边界以 [`2026-08-21-ppt-start-style-owned-redesign-prompts-design.md`](2026-08-21-ppt-start-style-owned-redesign-prompts-design.md) 为准；当前风格由 tokens 与 `STYLE.md` 表达身份，并由风格自有 `REDESIGN.md` 提供完整生成模板。本文其余未冲突内容保留为历史设计背景。
+> **SUPERSEDED（历史记录）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`skills/ppt-start/references/artifact-contract.md` 与 `skills/ppt-start/references/workflow.md`。本文中的旧模板、marker、runtime fallback、来源注入、visual-brief 与恢复规则仅保留作审计历史，不得用于新运行。
 
 - **日期**：2026-08-20
 - **状态**：设计已逐节批准

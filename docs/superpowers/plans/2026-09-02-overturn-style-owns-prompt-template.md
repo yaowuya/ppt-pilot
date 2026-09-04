@@ -1,5 +1,7 @@
 # 推翻范式：Style 自带完整 Prompt 模板 实施计划
 
+> **SUPERSEDED（历史实施稿）：** 本计划已由当前活动契约取代，仅保留审计轨迹。新运行必须使用 style-owned 必需模板、单 whole-line `{{NARRATIVE}}`、闭合 tokens 精确绑定、冻结故事板 `block_id` 集合校验与稳定 blocker reason；不得执行本文未完成复选框或 fallback 备选项。
+
 > **面向 Agent 执行者：** 必需子技能：使用 superpower-subagent-driven-development（推荐）或 superpower-executing-plans 按任务逐项执行本计划。步骤使用复选框（`- [ ]`）语法进行跟踪。
 
 **目标：** 以"每个 style 自带完整 `prompt.md` 模板 + 单个 `{{NARRATIVE}}` 注入点 + 叙事去 source"取代现有"canonical `generation-prompt-template.md` + 两 marker（`[[CANONICAL_NARRATIVE_BULLETS]]`/`[[STYLE_BASELINE]]`）"的编译范式。所有 5 个内置 style（minimal-business/tech-dark/bold-editorial/canway-midyear-review/jiawei-product）各自声明 `files.prompt_template` 并提供完整生成指令；原 3 个 legacy_seed 迁移为 style_pack；canonical 两 marker 机制移除。

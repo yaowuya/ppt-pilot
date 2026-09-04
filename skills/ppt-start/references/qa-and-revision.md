@@ -33,12 +33,12 @@
 
 - 结论标题和受众要点都已呈现；
 - 每个必需内容块均已表示；
-- 数字、单位、期间、标签、限定条件和来源 ID 一致；
+- 数字、单位、期间、标签、限定条件以及机器来源映射与冻结故事板一致；
 - 图表尺度与比较基准忠实于证据；
 - 设计过程中没有新增缺少支持的文案；
-- 来源说明可读且不与正文碰撞；
-- 内部 `SRC-<digits>` 只保留在 `data-source-id`／trace 机器元数据中；可见 `<text>`／`<tspan>` 出现该模式时以 `fact_source_mismatch` 硬失败，不能删除文字或改用栅格回退；
-- 只有用户明确请求时才允许显示人类可读的来源名称或 URL，且可见文字必须省略内部 ID。
+- 不显示来源说明、人类可读来源名称、URL 或 citation；当前视觉运行时只支持机器 trace，用户的可见引用请求必须在生成前进入 `pending_interaction`，不能由 generator／coordinator 临时满足；
+- canonical source ID 精确匹配大写 ASCII `SRC-[0-9]+`，只保留在 `data-source-id`／trace 机器元数据中；可见 `<text>`／`<tspan>` 出现任何大小写变体时以 `fact_source_mismatch` 硬失败，不能删除文字或改用栅格回退；
+- 所有人类引用、来源名称、URL 以及任何可见内部 ID 都以 `fact_source_mismatch` 阻断。
 
 重要主张缺失或变化属于硬失败，必须使文稿批准失效，不能只做视觉修补。
 
@@ -108,14 +108,14 @@ initial/recompose generator = durable generation prompt only
 
 ### 页面首次生成与 recompose 的统一 Prompt QA
 
-每个首次生成和任何 `recompose` 都必须使用[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)。QA 必须先验证固定生产顺序：读取已批准 outline／storyboard／theme 与适用 revisions → 按 `theme.selected_style_id` 解析 style-owned `files.prompt_template`，未声明时采用 repository fallback → 向唯一 whole-line `{{NARRATIVE}}` 注点投影叙事／素材并完成确定性 preflight → 能力协商 → 按页持久化并复读 schema-v2 transaction/prompt → 写 batch manifest → pointer-last 激活 → prompt-by-value isolated dispatch → coordinator 写 candidate／hash → per-slide QA → validated → ordered serial promotion。`tokens.json.prompt_baseline` 只参与风格数据、QA 与 snapshot provenance，不是第二个 prompt 正文注入域。
+每个首次生成和任何 `recompose` 都必须使用[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)。QA 必须先验证固定生产顺序：读取已批准 outline／storyboard／theme 与适用 revisions → 按 `theme.selected_style_id` 执行 manifest → tokens → guidance → prompt 的固定 no-follow traversal，解析必需的 style-owned `files.prompt_template`（字段缺失 fail closed）→ 向唯一 whole-line `{{NARRATIVE}}` 注点投影叙事／素材／非来源 `block_id` 并完成确定性 preflight → 能力协商 → 按页持久化并复读 schema-v2 transaction/prompt → 写 batch manifest → pointer-last 激活 → prompt-by-value isolated dispatch → coordinator 解析裸 SVG、按 `data-block-id` 确定性关联来源并移除临时属性 → 写 candidate／复读／hash → per-slide QA → validated → ordered serial promotion。仓库模板只作建包 authoring seed；运行时 `tokens.json.prompt_baseline` 只参与风格数据、QA 与 snapshot provenance，不是第二个 prompt 正文注入域。
 
 确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。该失败不得留下半 transaction、半成品 prompt 或可采用 candidate；canonical blocker 只能在没有为本次尝试创建 transaction/prompt 后独立写入。
 
 随后检查：
 
 - 验证 `.ppt-pilot/generation-prompts/<slide-id>.md` 的 `prompt_snapshot_id`、`storyboard_snapshot_id`、`theme_snapshot_id` 与已应用视觉修订 ID；
-- 风格身份／资产或 authoritative outline／storyboard／theme 验证失败时返回对应 owner；只有当前解析出的 style-owned generation prompt 模板（或未声明模板时的 repository fallback）／字节或无法唯一解释的 snapshot／provenance 自身失败，才按产物契约独立写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 和 dirty slide，不启动 generator、不写 prompt/SVG、不改用其他风格、不降级为 patch；
+- 风格身份／资产或 authoritative outline／storyboard／theme 验证失败时返回对应 owner；缺少 `files.prompt_template` 属于 `style_assets_unavailable: style_asset_field_missing`。只有当前解析出的 style-owned generation prompt 模板／字节或无法唯一解释的 snapshot／provenance 自身失败，才按产物契约独立写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 和 dirty slide，不启动 generator、不写 prompt/SVG、不改用其他风格、不降级为 patch；
 - 对每个候选重新检查冻结故事板的 `fact_source_consistency` 与 `narrative_integrity`，并检查 `theme.json` 的软风格基线；
 - fresh 独立生成上下文只接收该持久化 Prompt；首次生成不接收其他页面，`recompose` 还不得接收旧 SVG 或创作对话；
 - 生成回复必须恰好一个 `xml` 代码围栏；提取后裸内容从 `<svg` 开始并以 `</svg>` 结束；不得把代码围栏写入工作区 SVG；
@@ -125,7 +125,7 @@ initial/recompose generator = durable generation prompt only
 
 ## 生成 transaction、失败 consumer 与 QA 边界
 
-页面首次生成与 `recompose` 的 QA 只消费 per-slide schema-v2 transaction；manifest 不复制或授权页面 state。`candidate_written` 与 `validated` 都不是交付成功，只有 transaction 的 final CAS 提升为 `promoted`，且页面／整套 QA 通过后才能清除 dirty slide。`candidate_sha256` 在候选写入、关闭、复读后才存在；promotion 前的任何 orphan candidate never adopted，previous final SVG 必须保留。
+页面首次生成与 `recompose` 的 QA 只消费 per-slide schema-v2 transaction；manifest 不复制或授权页面 state。generator 返回先由 coordinator 执行 source-enrichment gate：每个 `block_id` 仅可临时出现一次于规范 `<g data-block-id>` 的精确属性值，禁止进入 text／tail／其他属性名值；它必须与冻结故事板一一对应，机器来源关联后移除临时 block 属性并规范化序列化。任何遗漏／未知／重复／泄漏 block 或非法来源以 `fact_source_mismatch` 保持 candidate writes 为 0。`candidate_written` 与 `validated` 都不是交付成功，只有 transaction 的 final CAS 提升为 `promoted`，且页面／整套 QA 通过后才能清除 dirty slide。`candidate_sha256` 只对 enrichment 后的 candidate bytes 在写入、关闭、复读后计算；promotion 前的任何 orphan candidate never adopted，previous final SVG 必须保留。
 
 同一批次的 generator 与各页 XML/source/narrative/render/visual validation 可以重叠：某页 QA 可在 sibling 仍生成时运行。但只有 coordinator 能提交该页 `validation`、发布 visible blocker 或替换 final；promotion、blocker publication 与 `run.json` pointer 改变必须按 `ordered_slide_ids` 串行确定，不能按 completion order。隔离任务与 callback 对工作区零写入。
 
@@ -160,7 +160,7 @@ initial/recompose generator = durable generation prompt only
 1. 在不改变已批准主张和已接受构图的情况下，修复一个具体的溢出、重叠、对比度、对齐、连接线或契约问题；
 2. 如仍有另一个局部硬失败，修复该唯一 defect，同时保留内容、布局家族、层级和最低字号。
 
-每次 patch 后重新执行所有受影响硬检查和适用的渲染检查。修复请求一旦需要改变构图层级，停止累计 patch，改为 `recompose` 并重置新候选次数。候选的两次 patch 仍未通过时，确定性降级为简单单栏（single-column）或双栏（two-column）布局，并保留相同结论、证据、来源 ID 与主题令牌；把回退结果作为新 SVG 验证。回退仍有硬检查失败时，停止生产并把该页记录为阻断；不得作为完整产物交付。
+每次 patch 后重新执行所有受影响硬检查和适用的渲染检查。修复请求一旦需要改变构图层级，停止累计 patch，改为 `recompose` 并重置新候选次数。候选的两次 patch 仍未通过时，确定性降级为简单单栏（single-column）或双栏（two-column）布局，并保留相同结论、证据、机器来源映射与主题令牌；把回退结果作为新 SVG 验证，内部来源 ID 仍只存在于机器元数据。回退仍有硬检查失败时，停止生产并把该页记录为阻断；不得作为完整产物交付。
 
 ## 请求预算与派发可观测
 
@@ -215,7 +215,7 @@ QA 报告统一写入 `.ppt-pilot/质量检查报告.md`，记录：
 
 ## 生产阻断
 
-正常生产批次不提出问题。每页两次修复和 single-column／two-column 确定性回退都失败后，如果继续需要删除已批准内容、改变主张、牺牲来源可读性或选择不同交付兼容策略，先写入一个 `kind: blocker` 的 `pending_interaction` 并提出一个生产阻断问题。问题必须说明不能继续的具体硬失败和推荐的安全路径。
+正常生产批次不提出问题。用户请求可见 citation 时必须在任何视觉生成前写入一个 `kind: blocker` 的 `pending_interaction`，说明当前运行时只支持机器 trace，并让用户选择机器 trace 或单独来源报告。除此之外，每页两次修复和 single-column／two-column 确定性回退都失败后，如果继续需要删除已批准内容、改变主张、牺牲机器来源可追溯性或选择不同交付兼容策略，也必须提出一个生产阻断问题。问题必须说明不能继续的具体硬失败和推荐的安全路径。
 
 如果唯一剩余方案仍违反 XML、安全、来源忠实度、最低字号、边界或其他 SVG 硬检查，则停止并记录 `BLOCKED`；不得把无效 SVG 作为用户可以批准的选项。需要改变主张或来源时先使文稿批准失效，返回相应阶段。
 
@@ -225,9 +225,10 @@ QA 报告统一写入 `.ppt-pilot/质量检查报告.md`，记录：
 
 1. `pending_interaction`：`pending` 原样重发并停止；`status: answered` 使用已保存的 answer／decision 幂等提交；存在时不得处理其他 durable state。
 2. `manuscript_review.pending_round`：没有 pending interaction 时恢复相同 cycle／round／snapshot 的审查。若匹配的完整报告已 durable，验证后只追加一次 history，并在一次原子 `run.json` 替换中删除 pending；重复 resume 为 no-op。报告不存在时复用同一 pending round，不重复计数。
-3. `visual_generation_blocker`：只有没有更高优先级状态时处理；仍失败则刷新并停止。
-4. `active_visual_generation_batch`：只有没有 pending 与 blocker 时处理；验证 pointer/manifest/transactions，从 per-slide state 恢复，不做 stage scan。schema-v1 singular transaction 先零模型调用迁移。
-5. stage scan：前四者都不存在时，才验证普通阶段字段并寻找第一个未完成或脏阶段。
+3. `visual_generation_blocker`：只有没有更高优先级状态时处理；仍失败则刷新并停止。修复且完整无副作用 preflight 成功时，先以一次原子 `run.json` 替换只移除 blocker、原样保留可能存在的 v1 owner，再重新进入全局顺序；不得跨过 v1 migration 创建新 transaction。
+4. schema-v1 `visual_generation_transaction` migration：只有没有 pending 与 blocker 时执行零模型调用迁移，严格按 transaction → manifest → 原子 `run.json` 替换的 pointer-last 顺序删除 v1 owner 并发布 v2 pointer；迁移期间不 dispatch。
+5. `active_visual_generation_batch`：只有没有前三项与 v1 owner 时处理；验证 pointer/manifest/transactions，从 per-slide state 恢复，不做 stage scan。
+6. stage scan：前五者都不存在时，才验证普通阶段字段并寻找第一个未完成或脏阶段。
 
 恢复时按每轮 `review_mode` 验证互斥 execution evidence：subagent round 必须有非空且 child/result 一致的宿主 delegation evidence；inline fallback round 必须有合法 fallback evidence、冻结快照和隔离限制，且不能含 delegation evidence。任一模式证据缺失或格式错误时使批准失效；下一轮仍先尝试独立审查，失败则在当前步骤 inline 审查。只有两种方式都不能执行时才设置 `review_unavailable`。绝不能根据无效 evidence 的批准恢复视觉阶段。
 

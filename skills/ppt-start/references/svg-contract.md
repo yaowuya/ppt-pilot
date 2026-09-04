@@ -87,7 +87,7 @@
 
 ## 数据与来源映射
 
-使用白名单中的矢量元素构建基本图表。坐标轴、柱、点、连接线和标签在页面尺度下必须清晰。重要数据主张通过相关分组的 `data-source-id="SRC-001"` 携带稳定来源 ID（source ID）。内部 `SRC-<digits>` 只属于 `data-source-id`／trace 机器元数据，禁止出现在可见 `<text>`／`<tspan>` 中。只有用户明确请求时才允许显示人类可读的来源名称或 URL，且必须省略内部 ID。
+使用白名单中的矢量元素构建基本图表。坐标轴、柱、点、连接线和标签在页面尺度下必须清晰。isolated generator 不接收 source ID；每个非来源 `block_id` 只可在故事板内容块对应的唯一语义 `<g data-block-id="S03-B1">` 精确属性值中临时出现一次，禁止进入 text／tail／其他属性名值。coordinator 必须在 candidate 写入前将这些 block 与冻结故事板的 ordered source IDs 确定性关联：每个来源通过一层确定性嵌套 `<g data-source-id="SRC-001">` 保存，随后移除全部 `data-block-id` 并规范化序列化。任何缺失、未知、重复／泄漏 block，预存来源属性或非法／重复来源均以 `fact_source_mismatch` 零 candidate 写入失败。最终 SVG 的重要数据主张通过相关分组的 `data-source-id` 携带稳定来源 ID。source ID 的 canonical grammar 精确为大写 ASCII `SRC-[0-9]+`；小写、混合大小写、非 ASCII 数字或其他前缀均非法。内部 source ID 只属于该属性／trace 机器元数据，任何来源名称、URL、引用或内部 ID 都禁止出现在可见 `<text>`／`<tspan>` 中；用户请求可见 citation 也不能绕过该契约，必须在生成前进入交互阻断并选择机器 trace 或单独来源报告。
 
 每张图表必须说明指标、单位、期间和比较基准。不得推断缺失值、绘制超出资料期间的趋势，也不得用误导性基线编码差异。
 

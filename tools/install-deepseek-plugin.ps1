@@ -32,6 +32,19 @@ foreach ($skill in $skills) {
     }
 }
 
+function Get-FileSha256 {
+    param([string]$Path)
+    $fileStream = [IO.File]::OpenRead($Path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString($sha.ComputeHash($fileStream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha.Dispose()
+        $fileStream.Dispose()
+    }
+}
+
 function Get-SkillTreeInfo {
     param([string]$Root)
     $rootPath = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
@@ -41,7 +54,7 @@ function Get-SkillTreeInfo {
     try {
         foreach ($file in $files) {
             $relative = $file.FullName.Substring($rootPath.Length).TrimStart('\', '/').Replace('\', '/')
-            $contentHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $contentHash = Get-FileSha256 -Path $file.FullName
             $frame = "$relative`0$($file.Length)`0$contentHash`n"
             $bytes = $encoding.GetBytes($frame)
             $stream.Write($bytes, 0, $bytes.Length)

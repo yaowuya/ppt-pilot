@@ -1,5 +1,7 @@
 # Generation Prompt 创意化重构设计
 
+> **SUPERSEDED（历史记录）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`skills/ppt-start/references/artifact-contract.md` 与 `skills/ppt-start/references/workflow.md`。本文中的旧模板、marker、runtime fallback、来源注入、visual-brief 与恢复规则仅保留作审计历史，不得用于新运行。
+
 日期：2026-08-26
 状态：待复核
 范围：ppt-pilot 插件 `skills/ppt-start/` 的页面生成 prompt 契约重构

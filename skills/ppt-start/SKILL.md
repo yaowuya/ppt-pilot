@@ -20,7 +20,7 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 
 `resume` 和 `revise` 是入口动作，不写入 `run.json.mode`：
 
-- **resume**：先读取 `run.json`，按[工作流](references/workflow.md)的全局恢复顺序表处理 durable control state；保留既有 `run.json.mode`，只有前四者都不存在或已完成时才从第一个未完成或脏阶段继续。
+- **resume**：先读取 `run.json`，按[工作流](references/workflow.md)的全局恢复顺序表处理 durable control state；保留既有 `run.json.mode`，只有前五者都不存在或已完成时才从第一个未完成或脏阶段继续。
 - **revise**：先读取并保留既有 `run.json.mode`，同样先按[工作流](references/workflow.md)的全局恢复顺序表处理 durable control state，再按照产物契约只使受影响的产物失效；修改类别无法唯一判断时先询问。
 
 推荐不是确认。提出阻塞问题后必须停止，不得在收到并持久化明确答案前推进下游工作。每次运行写入 `ppt-output/<deck-id>/`。禁止把产物写入本 Skill 或宿主配置目录。新运行的过程 Markdown 使用中文文件名；`resume`／`revise` 对旧英文运行只做原位读取并沿用既有名称，不自动重命名、复制或迁移，具体规则见产物契约。
@@ -34,7 +34,7 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 3. 文稿审查（subagent 优先，失败时 inline fallback）——[文稿审查](references/manuscript-review.md)
 4. 主题、风格包与语义布局选择——[设计系统](references/design-system.md)和[布局目录](references/layout-catalog.md)
 5. 在生成任何视觉页面前，先按[页面编译路径](references/visual-brief-and-generation.md)从已批准故事板与 `theme.json` 编译并验证对应 `generation-prompts/<slide-id>.md`；没有有效 prompt 不得生成 SVG。
-6. 每个页面的首次生成和任何 `recompose` 都必须按[页面生成与重新排版专用 Prompt](references/redesign-prompt.md)：把故事板拥有的叙事／素材／事实／来源注入所选中风格包自身声明的完整 prompt 模板（`assets/styles/<style-id>/<files.prompt_template>`；未声明时兜底仓库 [generation-prompt-template.md](references/generation-prompt-template.md)）的**单一** `{{NARRATIVE}}` whole-line 注点；完整内存 preflight 后先协商 fresh isolation，无能力则零 prompt／transaction／candidate 写入；能力通过才按 pointer-last 写 schema-v2 per-slide transactions、batch manifest 与 `active_visual_generation_batch`。隔离任务只接收 `prompt_by_value`，fresh history、filesystem none、tools none、text-only；旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert。
+6. 每个页面的首次生成和任何 `recompose` 都必须按[页面生成与重新排版专用 Prompt](references/redesign-prompt.md)：每个可选择 `style_pack` 必须通过 `files.prompt_template` 自带已静态物化具体视觉约定的完整模板；所有模板的 hard prefix/suffix 字节相同，只有 Step 2 的七条 closed typed 风格指令由同包 tokens 确定性改变。只把故事板拥有的叙事、素材与事实值以及非来源 `block_id` 注入该模板的**单一** `{{NARRATIVE}}` whole-line 注点。缺少模板字段必须 fail closed，仓库 [generation-prompt-template.md](references/generation-prompt-template.md) 只作建包 authoring seed，不允许运行时静默 fallback。来源映射单独校验；来源注解不得进入模板正文。isolated generator 只能把每个 `block_id` 精确回显一次于规范 `<g data-block-id>` 属性值，禁止写入 text／tail／其他属性；coordinator 在任何 candidate 写入／hash／`candidate_written` 前从冻结故事板确定性关联机器来源元数据并移除临时 block 属性，泄漏以 `fact_source_mismatch` 零 candidate write 失败。完整内存 preflight 后先协商 fresh isolation，无能力则零 prompt／transaction／candidate 写入；能力通过才按 pointer-last 写 schema-v2 per-slide transactions、batch manifest 与 `active_visual_generation_batch`。隔离任务只接收 `prompt_by_value`，fresh history、filesystem none、tools none、text-only；旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert。
 7. 两页锚点 SVG——[SVG 契约](references/svg-contract.md)
 8. 生成任何正式页面前，先读取 [QA、恢复与修订](references/qa-and-revision.md)；默认 `batch_width: 4`（可配置 3）。宿主有 concurrent fresh isolation 与 durable lookup 时批内最多 4 个 generator 并发，缺一项则 width 1；非 Git 不降级。每页生成与 validation 可重叠，但 candidate/transaction 写入、final promotion、visible blocker 和 `run.json` pointer 只由 coordinator 按 `ordered_slide_ids` 确定性提交。
 
@@ -51,8 +51,8 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 - 每页最多修复两次，之后使用简单布局回退；回退后仍有硬检查失败时必须停止。
 - `resume` 入口必须先读取 `run.json` 并保留既有 `run.json.mode`；除非产物缺失、格式错误或被标记为脏，否则不得重新计算已批准的上游工作。
 - 纯视觉修改或可证明不改变事实的文字修正，只把受影响页面和 QA 标记为脏，不重新进行文稿审查。
-- 所有首次页面生成和 `recompose` 必须从所选中风格包自身声明的完整 prompt 模板（`assets/styles/<style-id>/<files.prompt_template>`；未声明时兜底 [generation-prompt-template.md](references/generation-prompt-template.md)）编译 `.ppt-pilot/generation-prompts/<slide-id>.md`，完成 canonical bytes 与关系门禁后按 pointer-last 激活 schema-v2 batch。fresh 隔离任务只接收完整 prompt bytes by value；coordinator 提取裸 SVG、原子写 candidate、复读 hash 并提交 per-slide transaction。
-- 确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。authoritative outline／storyboard／theme 缺陷返回对应 owner；只有规范模板／规范字节或无法唯一解释的 provenance 自身失败，才在没有本次 transaction/prompt 的情况下独立写 `run.json.visual_generation_blocker`。历史 crash 留下旧协议的 prompt／`compiling`／blocker 组合时，不采用旧 Prompt，必须从完整无副作用 preflight 重启。
+- 所有首次页面生成和 `recompose` 必须按 manifest → tokens → guidance → prompt 固定 traversal 读取所选中风格包必需的完整 `files.prompt_template`，再编译 `.ppt-pilot/generation-prompts/<slide-id>.md`；完成 canonical bytes 与关系门禁后按 pointer-last 激活 schema-v2 batch。fresh 隔离任务只接收完整 prompt bytes by value；`block_id` 仅可临时出现一次于规范 `data-block-id` 精确属性值，禁止进入 text／tail／其他属性。coordinator 完成来源关联并移除该属性后才原子写 candidate、复读 hash 并提交 per-slide transaction；泄漏以 `fact_source_mismatch` 零 candidate write 失败。
+- 确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。authoritative outline／storyboard／theme 缺陷返回对应 owner；只有规范模板／规范字节或无法唯一解释的 provenance 自身失败，才在没有本次 transaction/prompt 的情况下独立写 `run.json.visual_generation_blocker`。历史 crash 留下旧协议的 prompt／`compiling`／blocker 组合时，不采用旧 Prompt，必须从完整无副作用 preflight 重启；成功后先以一次原子 `run.json` 替换仅移除 blocker，并原样保留可能存在的 schema-v1 owner，再重新进入全局顺序完成零模型调用迁移，不能跨过 v1 创建新 transaction。
 - 主张、来源、事实性文案、大纲或故事板变化会使批准失效；重新生成视觉页面前必须进行新的文稿审查。
 
 ## 输出规则

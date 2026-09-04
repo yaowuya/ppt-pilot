@@ -1,5 +1,7 @@
 # PPT Start 风格自有 Redesign Prompt 实施计划
 
+> **SUPERSEDED（历史记录）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`skills/ppt-start/references/artifact-contract.md` 与 `skills/ppt-start/references/workflow.md`。本文中的旧模板、marker、runtime fallback、来源注入、visual-brief 与恢复规则仅保留作审计历史，不得用于新运行。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 把完整 redesign prompt 下沉到四个内置风格，由共享 `redesign-prompt.md` 确定性解析、编译和恢复，并把验证后的标准 Skill 精确同步到 Claude Code 用户级安装目录。

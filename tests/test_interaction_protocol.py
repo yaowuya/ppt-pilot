@@ -568,7 +568,7 @@ class InteractionProtocolTests(unittest.TestCase):
                 elif case["expected_first_action"] == "visual_generation_transaction":
                     transaction = case["before_run"]["visual_generation_transaction"]
                     self.assertEqual(transaction["state"], "failed")
-                    self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 1, "stage_scan": 0})
+                    self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 0, "stage_scan": 0})
                 elif case["expected_first_action"] == "stage scan":
                     self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 0, "stage_scan": 1})
                 else:

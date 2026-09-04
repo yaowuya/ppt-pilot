@@ -148,7 +148,7 @@ ppt-output/<deck-id>/
     └── samples/
 ```
 
-状态以 `.ppt-pilot/run.json` 为准。`resume` 按 `pending_interaction` > `manuscript_review.pending_round` > `visual_generation_blocker` > `run.json.active_visual_generation_batch` > stage scan 的顺序恢复现场。这些文件也是**跨宿主交接接口**：换个宿主，凭这些文件就能接着 `resume`，不用你重讲一遍。
+状态以 `.ppt-pilot/run.json` 为准。`resume` 按 `pending_interaction` > `manuscript_review.pending_round` > `visual_generation_blocker` > schema-v1 `visual_generation_transaction` migration > `run.json.active_visual_generation_batch` > stage scan 的顺序恢复现场。这些文件也是**跨宿主交接接口**：换个宿主，凭这些文件就能接着 `resume`，不用你重讲一遍。
 
 ---
 

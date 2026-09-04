@@ -140,7 +140,7 @@ DeepSeek:     ppt-editable  请把 ppt-output/<deck-id>/ 转换为经验证的�
 /ppt-start  请从 ppt-output/<deck-id>/ 恢复运行并继续。
 ```
 
-恢复顺序：待回答问题 → 审查轮次 → 生成 blocker → 活动批次 → 阶段扫描。已批准的上游工作（大纲、故事板、主题）不会被重算。
+恢复顺序：待回答问题 → 审查轮次 → 生成 blocker → 旧 schema-v1 transaction 零模型迁移 → 活动批次 → 阶段扫描。已批准的上游工作（大纲、故事板、主题）不会被重算。
 
 ---
 

@@ -1,5 +1,7 @@
 # 方案B：Style 自带完整 Prompt 模板（核心重构）
 
+> **SUPERSEDED（历史决策稿）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`artifact-contract.md` 与 `workflow.md`。本文中的“可选 prompt_template”、可选 `prompt_baseline`、旧 resolver reason 与不含 `block_id` 精确绑定的编译签名均不得用于新运行。
+
 > 用户方向（已确认）：PPT Pilot 改为"每个 style 自带完整 prompt 模板"。嘉为产品（jiawei-product）用用户原文（Safety/语法合规化）；现有 4 个 style（minimal-business/tech-dark/bold-editorial/canway-midyear-review）也全部改为自带完整模板，由我按各风格设计生成指令。输入用"规范化叙事（去 source）"。原有 canonical `generation-prompt-template.md` 与两 marker 机制被移除/降级。
 
 ## 0. 目标范式变化

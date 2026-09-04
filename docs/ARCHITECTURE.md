@@ -21,16 +21,16 @@ skills/ppt-start/
 └── assets/examples/         # Office-safe SVG 示例
 ```
 
-每个 style pack 的 `manifest.json` 声明机器可读资产（`files.tokens` / `files.guidance` / `files.prompt_template`）；`tokens.json`（schema 2）承载颜色/字体/间距/形状与结构化 `prompt_baseline`；`prompt.md` 是该风格**自带的完整生成指令模板**。
+每个 style pack 的 `manifest.json` 声明机器可读资产（`files.tokens` / `files.guidance` / `files.prompt_template`）；`tokens.json`（schema 2）承载颜色/字体/间距/形状与结构化 `prompt_baseline`；`prompt.md` 是该风格**自带的完整生成指令模板**。所有可执行模板的 hard prefix/suffix 字节完全一致，只有 Step 2 的七条 closed typed 风格指令由同包 tokens 确定性变化。
 
 ## 核心范式：风格自带完整模板 + 单注入点
 
 生成 Prompt 的编译范式是"**每个风格自带完整 prompt 模板，模板内嵌单一 `{{NARRATIVE}}` 注入点**"：
 
-1. 从已批准故事板投影 canonical narrative bullets：叙事要点、显示素材，以及数字、单位、期间、限定词、因果与来源映射组成的事实底线；
-2. 读取所选风格包自身声明的完整模板（`assets/styles/<style-id>/<files.prompt_template>`；未声明时兜底仓库 `references/generation-prompt-template.md`），在内存中把模板的**单一** `{{NARRATIVE}}` whole-line 注点替换为叙事要点；
-3. 模板自身内嵌角色、工作流与视觉约定（含 `tokens.json` 的颜色/字体/间距/形状/构图/禁用母题，由 `StyleBaselineCompiler` 从 `prompt_baseline` 投影供语义参考），不另设第二个注入域；
-4. 编译器预检**拒绝** `source=` / `[claim=` 等来源注解进入叙事——内部 `SRC-<digits>` 只保留在 `data-source-id`／trace 机器元数据，禁止成为可见文字；
+1. 从已批准故事板投影叙事、素材与事实值：叙事要点、显示素材，以及数字、单位、期间、限定词与因果组成的事实底线；
+2. 每个可选择 `style_pack` 必须声明完整模板 `assets/styles/<style-id>/<files.prompt_template>`；缺字段 fail closed，仓库模板只作建包 authoring seed。在内存中把模板的**单一** `{{NARRATIVE}}` whole-line 注点替换为叙事要点；
+3. 建包器把提取出的具体颜色、字体、间距、形状、构图与禁止母题静态物化进 `prompt.md`；运行时 `tokens.json.prompt_baseline` 只作为风格数据、QA 输入与 snapshot provenance，不投影进模板正文，也不另设第二个注入域；
+4. 来源映射单独校验并留在故事板／coordinator／审查层；来源注解不得进入模板正文，prompt 只携带稳定非来源 `block_id`。generator 只能在唯一语义 `<g data-block-id>` 的精确属性值中临时回显每个 `block_id` 一次，禁止写入 text／tail／其他属性；coordinator 在 candidate 写入和 hash 前按冻结故事板完成 `block_id -> ordered source_ids` 关联、移除临时 block 属性，再写入 `data-source-id`／trace 机器元数据；任何映射缺失、未知、重复或泄漏均以 `fact_source_mismatch` 零 candidate 写入失败；
 5. 持久化 `.ppt-pilot/generation-prompts/<slide-id>.md`，envelope `format` 精确为 `creative-brief-v1`：九字段 `## Snapshot metadata` + `## Compiled Prompt` 编译体，全文件只用工作区相对路径。
 
 编译由确定性预检保护：拒绝旧 Role+S01 形式、`PROMPT_SCHEMA_VERSION`、遗留 `[[...]]` marker、注入的 ATX/Setext 标题、JSON 围栏、Unix 绝对路径与外部文件/工具指令。预检失败产生零 prompt/transaction/candidate/SVG 写入。

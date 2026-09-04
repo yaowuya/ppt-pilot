@@ -113,10 +113,11 @@ class MultiSkillInstallerTests(unittest.TestCase):
                 "ppt-editable",
                 "$skills",
                 "Get-SkillTreeInfo",
-                "Get-FileHash",
+                "Get-FileSha256",
             ):
                 with self.subTest(source=source[:20], token=token):
                     self.assertIn(token, source)
+            self.assertNotIn("Get-FileHash", source)
         self.assertIn("skill-backups", update)
         self.assertIn("'backups'", deepseek)
         self.assertIn("$args2.RepoRoot", update)

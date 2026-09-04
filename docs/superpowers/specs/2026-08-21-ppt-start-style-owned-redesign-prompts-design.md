@@ -1,5 +1,7 @@
 # PPT Start 风格自有 Redesign Prompt 设计
 
+> **SUPERSEDED（历史记录）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`skills/ppt-start/references/artifact-contract.md` 与 `skills/ppt-start/references/workflow.md`。本文中的旧模板、marker、runtime fallback、来源注入、visual-brief 与恢复规则仅保留作审计历史，不得用于新运行。
+
 - **日期**：2026-08-21
 - **状态**：设计已确认；书面规范已完成自审修订，待用户复核
 - **范围**：把完整视觉生成 prompt 从共享 reference 下沉到每个内置风格；共享文件只保留解析、持久化和失败语义

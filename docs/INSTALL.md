@@ -32,9 +32,12 @@ powershell -ExecutionPolicy Bypass -File tools/install-deepseek-plugin.ps1
 
 用户级复制示例：
 
+以下命令只复制 Skill **目录内容**，不会在已有目标下再生成同名嵌套目录。手动升级不要用 `cp -R skills/ppt-start <已有目标>`；优先运行上方更新脚本，由脚本先把整个旧目标移到扫描根之外的 `skill-backups/`，再安装干净副本。
+
 ```bash
-cp -R skills/ppt-start ~/.claude/skills/ppt-start
-cp -R skills/ppt-editable ~/.claude/skills/ppt-editable
+mkdir -p ~/.claude/skills/ppt-start ~/.claude/skills/ppt-editable
+cp -R skills/ppt-start/. ~/.claude/skills/ppt-start/
+cp -R skills/ppt-editable/. ~/.claude/skills/ppt-editable/
 ```
 
 项目级符号链接示例：
@@ -62,9 +65,12 @@ ln -s ../../skills/ppt-editable .claude/skills/ppt-editable
 
 用户级复制示例：
 
+以下命令只复制 Skill 目录内容；已有目标的升级应交给更新脚本完成安全备份与干净替换，禁止把源目录直接复制到同名已有目标中。
+
 ```bash
-cp -R skills/ppt-start "$HOME/.agents/skills/ppt-start"
-cp -R skills/ppt-editable "$HOME/.agents/skills/ppt-editable"
+mkdir -p "$HOME/.agents/skills/ppt-start" "$HOME/.agents/skills/ppt-editable"
+cp -R skills/ppt-start/. "$HOME/.agents/skills/ppt-start/"
+cp -R skills/ppt-editable/. "$HOME/.agents/skills/ppt-editable/"
 ```
 
 项目级符号链接示例：
@@ -90,9 +96,12 @@ $ppt-editable
 
 手动安装时，在用户级/项目级 agents 根下分别复制两个 Skill 目录：
 
+若目标已存在，先使用更新脚本备份并替换；下面的内容复制形式不会创建 `ppt-start/ppt-start/` 或 `ppt-editable/ppt-editable/`。
+
 ```bash
-cp -R skills/ppt-start "$HOME/.agents/skills/ppt-start"
-cp -R skills/ppt-editable "$HOME/.agents/skills/ppt-editable"
+mkdir -p "$HOME/.agents/skills/ppt-start" "$HOME/.agents/skills/ppt-editable"
+cp -R skills/ppt-start/. "$HOME/.agents/skills/ppt-start/"
+cp -R skills/ppt-editable/. "$HOME/.agents/skills/ppt-editable/"
 ```
 
 DeepSeek harness 无统一斜杠命令约定，使用显式启动词：

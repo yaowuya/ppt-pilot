@@ -26,10 +26,10 @@ MVP 刻意保持纯指令架构。它只使用宿主常规的工作区能力，�
 - `references/`：各阶段流程与契约；
 - `assets/styles/registry.json`：风格发现注册表（五个内置风格包）；
 - `assets/styles/<style-id>/`：自包含 style pack——`manifest.json`、`tokens.json`（schema 2，含结构化 `prompt_baseline`）、中文 `STYLE.md`，以及风格自带完整生成模板 `files.prompt_template`（默认 `prompt.md`）；
-- `references/generation-prompt-template.md`：风格未声明自带模板时的 repository 兜底模板（已单注点化）；
+- `references/generation-prompt-template.md`：仅供创建／迁移 style pack 时参考的 authoring seed；运行时不可选择，且故意不能通过 prompt/tokens binding gate；
 - `assets/examples/`：一份 Office-safe SVG 示例。
 
-运行目录不再创建逐页 visual brief。每页由已批准故事板与 `theme.json` 直接编译：读取所选中风格包自带的完整 prompt 模板，把叙事要点注入其**单一** whole-line `{{NARRATIVE}}` 注点（模板未声明时兜底 repository template），编译 `.ppt-pilot/generation-prompts/<slide-id>.md`；持久 envelope 的 `format` 精确为 `creative-brief-v1`。早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 双域协议已被该单注点范式整体取代，旧协议产物只作迁移历史。
+运行目录不再创建逐页 visual brief。每页由已批准故事板与 `theme.json` 直接编译：读取所选中风格包由 manifest 必需声明、且与 tokens 精确绑定的完整 prompt 模板，把叙事要点注入其**单一** whole-line `{{NARRATIVE}}` 注点；所有模板 hard prefix/suffix 字节固定，只有 Step 2 七条 closed typed 风格指令由同包 tokens 确定性变化。字段缺失立即 fail closed，仓库 authoring seed 不参与运行。编译产物为 `.ppt-pilot/generation-prompts/<slide-id>.md`，持久 envelope 的 `format` 精确为 `creative-brief-v1`。早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 双域协议已被该单注点范式整体取代，旧协议产物只作迁移历史。
 
 共享 `references/redesign-prompt.md` 规定 style identity/path containment、单注点编译、无副作用 preflight、宿主能力协商、schema-v2 batch/per-slide state、`prompt_by_value` isolated dispatch、coordinator ownership 和失败恢复。生成正文完全由风格自带模板承载，编译层拒绝 `source=`／`[claim=` 来源注解进入叙事，也不得把某个风格的布局语言作为默认。
 
@@ -149,7 +149,7 @@ subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创�
 - `tech-dark`
 - `bold-editorial`
 
-每个风格都是自包含 style pack：manifest 声明 `files.tokens`、`files.guidance` 与 `files.prompt_template`；tokens（schema 2）承载颜色、字体、间距、形状与结构化 `prompt_baseline`；`prompt.md` 是风格自带完整生成模板。运行时按 manifest 解析模板路径，编译层只注入叙事要点并拒绝来源注解；页面区域、卡片数量、连接关系和阅读路径由 isolated generator 在故事板语义边界内自主决定，并由 QA 验证。
+每个风格都是自包含 style pack：manifest 声明 `files.tokens`、`files.guidance` 与 `files.prompt_template`；tokens（schema 2）承载颜色、字体、间距、形状与结构化 `prompt_baseline`；`prompt.md` 是风格自带完整生成模板。运行时按 manifest → tokens → guidance → prompt 的固定 no-follow traversal 解析并验证模板，编译层只注入叙事要点并拒绝来源注解；页面区域、卡片数量、连接关系和阅读路径由 isolated generator 在故事板语义边界内自主决定，并由 QA 验证。
 
 布局根据内容语义选择，不机械轮换。支持封面／章节、单一结论、比较、时间线／流程、层级／架构、数据／图表、Bento 汇总和收束／行动。除非内容要求，相邻页面不得重复同一家族。
 
@@ -157,11 +157,11 @@ subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创�
 
 ### 风格身份、规范编译与恢复边界
 
-每个风格经 `files.prompt_template` 自带完整生成模板；style resolver 验证 identity、registry／manifest、tokens 与 guidance，并解析模板相对路径。compiler 把叙事要点注入模板的单一 whole-line `{{NARRATIVE}}` 注点，持久 envelope 是 `creative-brief-v1`；风格未声明模板时兜底 repository `references/generation-prompt-template.md`。
+每个可选择风格必须经 `files.prompt_template` 自带完整生成模板；style resolver 按 manifest → tokens → guidance → prompt 验证 identity、路径、schema 与精确 binding。模板 hard prefix/suffix 字节固定，仅 Step 2 的七条 closed typed 行可由同包 tokens 改变；compiler 只把叙事要点注入单一 whole-line `{{NARRATIVE}}` 注点，持久 envelope 是 `creative-brief-v1`。字段缺失以 `style_asset_field_missing` fail closed，绝不回退到 repository `references/generation-prompt-template.md` authoring seed。
 
 `theme.json` 权威拥有 deck style identity；故事板拥有逐页叙事、素材、事实与来源；per-slide schema-v2 transaction 拥有 operation/trigger/prompt/candidate/final/state/validation/host/timing。首次 trigger 使用 `initial:<slide-id>:<storyboard_snapshot_id>`，用户重构使用 `interaction:<history-id>`，fallback 与 patch 使用各自稳定 trigger。修订按 `visual-revision-N`／`supersedes` 投影回故事板或 theme，只应用一次。
 
-新批次先按 manifest 解析 style-owned `files.prompt_template`（未声明时采用 repository fallback），向唯一 whole-line `{{NARRATIVE}}` 注点注入已批准的叙事／素材，再完成 canonical hash preflight 与 fresh-isolation 能力协商；`tokens.json.prompt_baseline` 只作为风格数据、QA 与 snapshot provenance，不是第二个正文 replacement。无能力保持零 prompt/transaction/candidate 写入。能力通过后按 pointer-last 写 per-slide transactions、batch manifest 与 `active_visual_generation_batch`。isolated task 只接收完整 `prompt_by_value`，fresh history、filesystem none、tools none、text-only；coordinator 独占所有工作区写入。
+新批次先按 manifest → tokens → guidance → prompt 固定 traversal 解析必需的 style-owned `files.prompt_template`；字段缺失立即 fail closed，仓库 `references/generation-prompt-template.md` 仅是建包 authoring seed，运行时不得选择。compiler 向唯一 whole-line `{{NARRATIVE}}` 注点注入带稳定 `block_id` 的已批准叙事／素材，再完成 canonical hash preflight 与 fresh-isolation 能力协商；`tokens.json.prompt_baseline` 只作为闭合类型风格数据、QA 与 snapshot provenance，不是第二个正文 replacement。isolated generator 只可把每个 `block_id` 临时写入一次规范 `data-block-id` 精确属性值，禁止进入 text／tail／其他属性，泄漏以 `fact_source_mismatch` 零 candidate write 失败。无能力保持零 prompt/transaction/candidate 写入。能力通过后按 pointer-last 写 per-slide transactions、batch manifest 与 `active_visual_generation_batch`。isolated task 只接收完整 `prompt_by_value`，fresh history、filesystem none、tools none、text-only；coordinator 独占所有工作区写入。
 
 默认 `batch_width: 4`（可配置 3）；并发或 durable lookup 缺失时 width 1，非 Git 不降级。generation 与 per-slide validation 可重叠；promotion、最低 visible blocker 与 pointer 由 coordinator 按 `ordered_slide_ids` 串行提交。内部 `SRC-<digits>` 可保留在 `data-source-id`／trace，但可见文字以 `fact_source_mismatch` 阻断。
 
@@ -182,7 +182,7 @@ MVP 禁止：
 - 自动 HTML 文字换行；
 - 用 emoji 承载关键信息。
 
-文字保持为文字，使用系统字体回退，并通过显式 `<tspan>` 换行。基本图表由允许的矢量元素构造，重要主张携带来源 ID。
+文字保持为文字，使用系统字体回退，并通过显式 `<tspan>` 换行。基本图表由允许的矢量元素构造；重要主张的内部来源 ID 只保存在 `data-source-id`／trace 机器元数据中，禁止出现在可见文字。
 
 ## QA 与能力降级
 
