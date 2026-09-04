@@ -21,14 +21,7 @@ HISTORICAL_STYLE_PROMPTS = (
 )
 
 CANONICAL_GENERATION_TEMPLATE_PATH = "skills/ppt-start/references/generation-prompt-template.md"
-CANONICAL_NARRATIVE_BULLETS_TOKEN = b"[[CANONICAL_NARRATIVE_BULLETS]]\n"
-EFFECTIVE_PAGE_SPECIFICATION_TOKEN = b"[[EFFECTIVE_PAGE_SPECIFICATION]]\n"
 VISIBLE_INTERNAL_SOURCE_ID = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
-DEFAULT_CANONICAL_NARRATIVE_BULLETS = (
-    "- **金字塔原理**: 严格遵循已批准的核心主标题与关键分论点。\n"
-    "- **精确表达**: 保留显示文案、事实、数字、单位、限定词与来源。\n"
-    "- **层级执行**: 严格遵循已批准的核心信息与支撑信息划分。\n"
-).encode("utf-8")
 
 
 class TemplateCreativeReformTest(unittest.TestCase):
@@ -69,11 +62,20 @@ class TemplateCreativeReformTest(unittest.TestCase):
         self.assertIn("改写", template)
         self.assertIn("补充", template)
 
-    def test_byte_grammar_specifies_three_domains(self):
+    def test_byte_grammar_specifies_single_narrative_domain(self):
         grammar = read_text(skill_root() / "references" / "generation-prompt-byte-grammar.md")
-        self.assertIn("[[CANONICAL_NARRATIVE_BULLETS]]", grammar)
-        self.assertIn("[[STYLE_BASELINE]]", grammar)
-        self.assertNotIn("[[EFFECTIVE_PAGE_SPECIFICATION]]", grammar)
+        self.assertIn("files.prompt_template", grammar)
+        self.assertIn("repository fallback", grammar)
+        self.assertIn("whole-line `{{NARRATIVE}}`", grammar)
+        self.assertIn("The only dynamic replacement domain is the single narrative injection", grammar)
+        self.assertIn("never a compiled-body injection", grammar)
+        for legacy_marker in (
+            "[[CANONICAL_NARRATIVE_BULLETS]]",
+            "[[STYLE_BASELINE]]",
+            "EFFECTIVE_PAGE_SPECIFICATION",
+        ):
+            self.assertIn(legacy_marker, grammar)
+        self.assertIn("are invalid for new canonical compilation", grammar)
         self.assertNotIn("Exactly two replacement domains", grammar)
 
     def test_byte_grammar_rule_count_wording_cannot_drift(self):
@@ -121,7 +123,7 @@ class TemplateCreativeReformTest(unittest.TestCase):
             with self.subTest(path=path):
                 text = read_text(path)
                 for token in (
-                    "唯一投影权威",
+                    "内容权威",
                     "已批准故事板",
                     "theme.json",
                     "visual_revision-<N>",
@@ -621,19 +623,6 @@ def _reject_unsafe_replacement(raw: bytes) -> bytes:
     return normalized
 
 
-STYLE_BASELINE_TOKEN = b"[[STYLE_BASELINE]]\n"
-
-
-def compile_prompt_body(narrative_bullets: bytes, style_baseline: bytes) -> bytes:
-    # 兼容层：范式已改为"style 模板 + 单 {{NARRATIVE}} 注点"。读取单注点模板并委托
-    # 新编译器注入叙事。旧范式的第二个注入域（style_baseline）不再存在，故忽略之；
-    # 若调用方仍传入它，仅当它不安全时由叙事预检拒绝。保留此函数以兼容旧调用点。
-    template = _canonical_template_bytes()
-    body = compile_style_prompt(narrative_bullets, template)
-    validate_compiled_prompt_body(body)
-    return body
-
-
 STYLE_NARRATIVE_TOKEN = b"{{NARRATIVE}}"
 
 
@@ -658,12 +647,6 @@ def compile_style_prompt(narrative_bullets: bytes, template_bytes: bytes) -> byt
     if b"[[STYLE_BASELINE]]" in body or b"[[CANONICAL_NARRATIVE_BULLETS]]" in body or b"{{NARRATIVE}}" in body:
         raise ValueError("prompt_preflight_invalid")
     return body
-
-
-def validate_compiled_prompt_body(body: bytes) -> None:
-    """Compatibility alias: the two-marker canonical validation is gone. Delegates to
-    the style-owned single-injection validator."""
-    validate_style_compiled_body(body)
 
 
 def validate_style_compiled_body(body: bytes) -> None:
@@ -1320,13 +1303,11 @@ class RedesignPromptContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
                     compile_style_prompt((absolute_path + "\n").encode("utf-8"), template)
 
-    def test_preflight_rejects_setext_headings_in_either_replacement(self):
+    def test_preflight_rejects_setext_headings_in_narrative_replacement(self):
         template = _canonical_template_bytes()
         invalid_values = (
             b"Injected narrative heading\n===\n",
             b"Injected narrative heading\n---\n",
-            b"Injected specification heading\n===\n",
-            b"Injected specification heading\n---\n",
         )
         for value in invalid_values:
             with self.subTest(value=value):
@@ -1994,7 +1975,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             "旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert",
             "所有新生成统一写入 `.ppt-pilot/generation-prompts/`",
             "`.ppt-pilot/generation-prompts/<slide-id>.md`",
-            "repository bytes 唯一派生",
+            "manifest 声明 `files.prompt_template`",
             "prompt_snapshot_conflict",
             "Transaction 创建前的无副作用 preflight",
             "确定性 preflight 或 capability 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入",
@@ -2242,7 +2223,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             self.assertIn(token, text)
         self.assertNotIn("visual-briefs/S07.md", text)
 
-    def test_active_style_contract_has_no_style_owned_prompt_authority(self):
+    def test_active_style_contract_uses_manifest_prompt_authority(self):
         combined = "\n".join(
             read_text(path)
             for path in (
@@ -2259,18 +2240,18 @@ class RedesignPromptContractTests(unittest.TestCase):
             "resolved_redesign_prompt_path",
             "style_prompt_snapshot_id",
             "prompt_field_missing",
-            "prompt_path_unsafe",
-            "prompt_file_missing",
-            "prompt_target_invalid",
-            "prompt_unreadable",
             "companion prompt",
             "STYLE_ID == selected_style_id",
             "PROMPT_SCHEMA_VERSION: 1",
         ):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, combined)
+        self.assertIn("files.prompt_template", combined)
+        self.assertIn("{{NARRATIVE}}", combined)
+        self.assertIn("prompt_path_unsafe", combined)
+        self.assertIn("prompt_template_invalid", combined)
         self.assertIn("generation-prompt-template.md", combined)
-        self.assertIn("身份、令牌与指导", combined)
+        self.assertIn("身份、令牌、指导与模板", combined)
 
     def test_shared_reference_is_resolver_only(self):
         text = read_text(self.reference)

@@ -2,7 +2,7 @@
 
 本文档给出标准 `skills/ppt-start/` 与 `skills/ppt-editable/` 在 Claude Code、OpenAI Codex 与 DeepSeek Harness 中的可重复验收矩阵。自动一致性测试验证书面契约，但不能代替真实宿主、浏览器、PowerPoint 或 FY26H1 集成证据。
 
-未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前活动架构是**故事板 + `theme.json` 直接编译**：唯一仓库 `generation-prompt-template.md` 只替换 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`，持久格式为 `creative-brief-v1`；新运行使用 schema-v2 per-slide transaction/batch manifest 与 `active_visual_generation_batch`，默认 width 4 isolated generation、per-slide validation 并发、coordinator ordered serial publication。Canway manifest 版本为 `1.3.0`。历史 style-owned prompts、visual briefs 与 singular v1 transaction 只作 inert migration evidence。
+未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前活动架构是**故事板 + `theme.json` 直接编译**：运行时优先采用 manifest `files.prompt_template` 声明的 style-owned 完整模板，风格未声明时才采用 repository `generation-prompt-template.md` fallback；两者都必须只有一个 whole-line `{{NARRATIVE}}` 注点，编译器只注入已批准的叙事／素材且拒绝来源注解，持久格式为 `creative-brief-v1`。`tokens.json.prompt_baseline` 只作为风格数据、QA 与 snapshot provenance，不是第二个正文注入域。早期 legacy `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃，新运行必须拒绝。新运行使用 schema-v2 per-slide transaction/batch manifest 与 `active_visual_generation_batch`，默认 width 4 isolated generation、per-slide validation 并发、coordinator ordered serial publication。Canway manifest 版本为 `1.3.0`。历史 visual briefs 与 singular v1 transaction 只作 inert migration evidence。
 
 ## 前置条件
 
@@ -35,13 +35,13 @@
 
 ## 快速视觉机制验证
 
-本次机制改造要求本地契约测试与 SVG 静态检查验证：故事板/theme direct projection、唯一 repository prompt template 的两个 replacement 和 byte-exact envelope、schema-v2 per-slide transaction/batch manifest、pointer-last、host capability、prompt-by-value isolation、并发 generation/validation、ordered publication，以及 Office-safe SVG。
+本次机制改造要求本地契约测试与 SVG 静态检查验证：故事板/theme direct projection、style-owned `files.prompt_template` 优先与 repository fallback、唯一 whole-line `{{NARRATIVE}}` 注入和 byte-exact envelope、schema-v2 per-slide transaction/batch manifest、pointer-last、host capability、prompt-by-value isolation、并发 generation/validation、ordered publication，以及 Office-safe SVG。
 
 本次不把未执行的 Claude Code／Codex 现场运行、完整生成页面浏览器视觉检查或 Microsoft PowerPoint 行描述成通过。历史验收台账保持原状态；WPS `wpp.exe` 不等同于 Microsoft `POWERPNT.EXE`，只能产生明确降级证据。
 
 静态验证还检查：
 
-- storyboard + `theme.json` 只投影 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`，format 精确为 `creative-brief-v1`；
+- storyboard + `theme.json` 只向解析模板的唯一 whole-line `{{NARRATIVE}}` 注点投影已批准叙事／素材，并拒绝来源注解；`tokens.json.prompt_baseline` 只参与风格数据、QA 与 snapshot provenance，format 精确为 `creative-brief-v1`；
 - deterministic preflight 与 fresh-isolation capability negotiation 在任何 prompt／transaction／candidate write 前完成；
 - transaction→manifest→`run.json.active_visual_generation_batch` pointer-last，manifest 不复制页面 state，cursor 不能授权；
 - native/remote isolated task 只收完整 `prompt_by_value`、fresh history、filesystem none、tools none；无 fresh isolation 零生产写入，缺 concurrency/lookup 降为 width 1，非 Git 不降级；

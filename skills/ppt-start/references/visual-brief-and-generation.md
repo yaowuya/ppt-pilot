@@ -1,6 +1,6 @@
 # 页面编译路径（故事板 + 主题直接编译）
 
-本文件是已批准故事板、`theme.json` 与已应用视觉修订投影到页面生成 Prompt 两个替换域的唯一投影权威。它不定义 envelope、字节、哈希、事务、派发或候选晋升规则；这些职责分别由 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md)、[redesign-prompt.md](redesign-prompt.md) 与 [qa-and-revision.md](qa-and-revision.md) 持有。
+本文件是已批准故事板、`theme.json` 与已应用视觉修订投影到页面生成 Prompt 的内容权威。正文只有一个动态域：不含来源注解的故事板叙事／素材注入 resolved template 的 whole-line `{{NARRATIVE}}`；`prompt_baseline` 只保留为风格数据、QA 输入与 snapshot provenance。它不定义 envelope、字节、哈希、事务、派发或候选晋升规则；这些职责分别由 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md)、[redesign-prompt.md](redesign-prompt.md) 与 [qa-and-revision.md](qa-and-revision.md) 持有。
 
 ## 进入条件
 
@@ -16,8 +16,8 @@
 
 ## 编译步骤：单注点注入
 
-1. 从已批准故事板及其已应用内容修订投影 canonical narrative bullets：叙事要点、显示素材以及数字、单位、期间、限定词、因果与来源映射组成的事实底线；
-2. 读取所选中风格包自身声明的完整 prompt 模板（`assets/styles/<style-id>/<files.prompt_template>`；若该风格未声明则读仓库 [generation-prompt-template.md](generation-prompt-template.md) 兜底），在内存中把该模板的**单一** `{{NARRATIVE}}` whole-line 注点替换为上述叙事要点；模板自身内嵌其角色、工作流与视觉约定（含 `tokens.json` 的颜色/字体/间距/形状/构图/禁用母题，由 `StyleBaselineCompiler` 投影供语义参考），不另设第二个注入域；不得增加第二个动态替换域或持久化逐页中间规格；
+1. 从已批准故事板及其已应用内容修订投影 canonical narrative/material：保留叙事要点、显示素材以及数字、单位、期间、限定词与因果组成的事实底线；来源映射仍在故事板／审查层核验，但 `source=`、`[claim=...source=[...]]` 等来源注解不得进入注入文本；
+2. 读取所选中风格包自身声明的完整 prompt 模板（`assets/styles/<style-id>/<files.prompt_template>`；若该风格未声明则读仓库 [generation-prompt-template.md](generation-prompt-template.md) 兜底），在内存中把该模板的**单一** `{{NARRATIVE}}` whole-line 注点替换为上述叙事／素材；模板自身内嵌其角色、工作流与视觉约定。`tokens.json.prompt_baseline` 供 QA、风格一致性判断与 snapshot provenance 使用，不注入正文；唯一动态替换域就是该叙事注点，也不持久化逐页中间规格；
 3. 按 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md) 完成规范化、预检、envelope 与哈希后，持久化 `generation-prompts/<slide-id>.md`（`format: creative-brief-v1`）；
 4. 首次生成与 `recompose` 都只通过该已持久化编译 Prompt 进入生成：启动 fresh、独立上下文，只授予编译后的 Prompt；生成上下文只返回一个 `xml` 代码围栏中的完整 SVG。
 

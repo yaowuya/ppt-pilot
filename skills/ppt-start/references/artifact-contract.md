@@ -79,7 +79,7 @@ telemetry 是**非权威**诊断。写入、解析、父引用、时钟或 DAG �
 
 新运行根目录只保留用户可读的 `大纲.md`、最终页面 `slides/` 与内部目录 `.ppt-pilot/`；`.ppt-pilot/大纲.md` 不得作为活动读取或写入路径。`resume`／`revise` 对旧英文运行或旧布局运行原位读取并存续既有路径。
 
-`generation-prompts/` 位于 `.ppt-pilot/` 内部，是新运行的必需视觉执行产物目录。每个首次生成或 `recompose` 的页面都必须创建 `.ppt-pilot/generation-prompts/<slide-id>.md`；`patch` 不重新生成。每份文件严格遵循黄金格式：`# <slide-id> 页面生成 Prompt` 标题、恰好九个加粗字段的 `## Snapshot metadata`（slide_id、storyboard_snapshot_id、theme_snapshot_id、applied_visual_revision_ids、prompt_snapshot_id、user_page_request、expected_output、workspace_output_path、format），以及 `## Compiled Prompt` 后的规范正文。`format` 字段值精确为 `creative-brief-v1`，标识新格式；prompt snapshot 不再引用 brief。`expected_output` 字段值精确为常量 `恰好一个 xml 代码围栏中的完整 SVG`。正文必须由 [generation-prompt-template.md](generation-prompt-template.md) 的 repository bytes 唯一派生，只允许恰好两个 whole-line replacement：`[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`；不得改写其他模板字节或加入第三 fragment。全文件只允许工作区相对路径，禁止绝对路径、盘符、UNC、URL、raw answer、history JSON 与 UNTRUSTED 围栏。
+`generation-prompts/` 位于 `.ppt-pilot/` 内部，是新运行的必需视觉执行产物目录。每个首次生成或 `recompose` 的页面都必须创建 `.ppt-pilot/generation-prompts/<slide-id>.md`；`patch` 不重新生成。每份文件严格遵循黄金格式：`# <slide-id> 页面生成 Prompt` 标题、恰好九个加粗字段的 `## Snapshot metadata`（slide_id、storyboard_snapshot_id、theme_snapshot_id、applied_visual_revision_ids、prompt_snapshot_id、user_page_request、expected_output、workspace_output_path、format），以及 `## Compiled Prompt` 后的规范正文。`format` 字段值精确为 `creative-brief-v1`，标识新格式；prompt snapshot 不再引用 brief。`expected_output` 字段值精确为常量 `恰好一个 xml 代码围栏中的完整 SVG`。正文模板先由 `theme.selected_style_id` 经 registry／manifest 解析：manifest 声明 `files.prompt_template` 时读取该风格自有完整模板，未声明时才读取仓库 [generation-prompt-template.md](generation-prompt-template.md) 兜底。解析后的模板必须恰含一个 whole-line `{{NARRATIVE}}` 注点，compiler 只把不含来源注解的已批准故事板叙事／素材注入一次；`tokens.json.prompt_baseline` 只作为风格数据、QA 输入与 snapshot provenance，不作为正文替换域。历史旧 marker `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]` 对新编译均无效并必须拒绝。具体 byte derivation 以 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md) 为唯一权威。全文件只允许工作区相对路径，禁止绝对路径、盘符、UNC、URL、raw answer、history JSON 与 UNTRUSTED 围栏。
 
 `generation-prompts/<slide-id>.md` 是由已批准故事板与 theme.json 直接编译的可恢复执行产物，不得成为主张、来源、主题或修订历史的唯一副本。输入快照变化后旧 Prompt 失效；恢复时必须重新编译，不能依赖旧对话。不存在根目录 `redesign-prompts/` 兼容目录；所有生成统一写入 `.ppt-pilot/generation-prompts/`。
 
@@ -281,12 +281,12 @@ Markdown 记录使用与 JSON 相同的字段名。阶段产物镜像可以随�
 
 `style_assets_unavailable` 的稳定 reason 集合固定为：`registry_missing`、`registry_path_unsafe`、`registry_target_invalid`、`registry_unreadable`、`registry_malformed`、`registry_schema_unsupported`、`registry_duplicate_style`、`style_not_registered`、`style_kind_invalid`、`entrypoint_missing`、`entrypoint_path_unsafe`、`entrypoint_target_invalid`、`entrypoint_unreadable`、`legacy_entrypoint_malformed`、`legacy_identity_mismatch`、`manifest_malformed`、`manifest_schema_unsupported`、`manifest_identity_mismatch`、`manifest_version_invalid`、`style_asset_field_missing`、`style_asset_path_unsafe`、`style_asset_target_invalid`、`style_asset_unreadable`、`style_asset_malformed`、`style_asset_schema_unsupported`、`prompt_snapshot_conflict`。同一状态有多个缺陷时按 resolver traversal 的第一失败项选择唯一 reason：registry-wide 未选 pack root 错误先于 selected assets；selected tokens 错误先于 guidance 错误。
 
-`generation_prompt_unavailable` 的稳定 reason 集合固定为：`prompt_template_invalid`、`prompt_preflight_invalid`、`prompt_snapshot_conflict`。前两项只验证仓库规范的 `references/generation-prompt-template.md` 及其编译结果；任何风格包内的历史完整模板文件都不读取、不验证，也不产生 blocker。
+`generation_prompt_unavailable` 的稳定 reason 集合固定为：`prompt_path_unsafe`、`prompt_file_missing`、`prompt_target_invalid`、`prompt_unreadable`、`prompt_template_invalid`、`prompt_preflight_invalid`、`prompt_snapshot_conflict`。这些 reason 验证当前解析出的模板及其编译结果：优先验证所选风格 manifest 声明的 `files.prompt_template`，未声明时验证仓库兜底 `references/generation-prompt-template.md`。未被 manifest 声明的历史 `REDESIGN.md`／`*.redesign.md` 仍只读且 inert，不读取、不验证，也不产生新运行 blocker。
 
 写入、刷新或清除规则：
 
 1. blocker 写入使用单次原子 `run.json` 替换；保持 `stage`、`mode`、`interaction_history` 不变，并保持受影响 slide 在 `dirty_slides` 中。
-2. `resource` 不得保存未验证绝对路径、Windows 盘符、UNC、URL、工作区路径、`..` 越界路径或机密内容；路径安全前失败统一写 `none`。风格状态只保存已验证 `assets/styles/...` 路径；规范模板状态只保存 `references/generation-prompt-template.md`。
+2. `resource` 不得保存未验证绝对路径、Windows 盘符、UNC、URL、工作区路径、`..` 越界路径或机密内容；路径安全前失败统一写 `none`。风格状态只保存已验证 `assets/styles/...` 路径；模板状态保存已验证的 `assets/styles/<style-id>/<files.prompt_template>`，只有使用仓库兜底时才保存 `references/generation-prompt-template.md`。
 3. 同一 slide 已有 active blocker 时，恢复后重新验证当前资源和快照；仍失败则幂等刷新同一对象，不启动 generator。
 4. 另一 slide 已有 active blocker 时，先处理原 blocker，不创建并行 blocker；同一运行一次只允许一个 active `visual_generation_blocker`。
 5. canonical blocker 只能在无副作用 preflight 失败后独立写入；本次尝试不得同时存在 prompt、`compiling` transaction 与 active blocker。历史 crash 留下旧协议组合时，不采用 durable prompt，必须重新执行完整 preflight。
@@ -296,7 +296,7 @@ Markdown 记录使用与 JSON 相同的字段名。阶段产物镜像可以随�
 
 ### Transaction 创建前的无副作用 preflight
 
-每次首次生成或 `recompose` 必须先完成下面五个内存阶段：读取批准 outline/storyboard/theme 快照与权威 revisions；组装 canonical narrative bullets 与 style baseline；验证所有 snapshot、claim/source/qualifier/metric、narrative/revision/theme、capacity/safe-area/font/Office-safe 关系；从 repository template 恰好执行两个 marker replacement；验证 canonical bytes、自包含性并计算全部 hash/snapshot。批内页面可并行做内存准备；全部成功后先协商 fresh-isolation 能力，仍不创建 durable owner。能力通过后才按 pointer-last 写 per-slide `compiling`→prompt→`compiled` transactions、manifest 与 active pointer。
+每次首次生成或 `recompose` 必须先完成下面五个内存阶段：读取批准 outline/storyboard/theme 快照与权威 revisions；解析所选风格 manifest 声明的完整 prompt 模板，未声明时解析 repository fallback；组装不含来源注解的 canonical narrative/material，并把 `prompt_baseline` 保留为 QA 与 snapshot provenance；验证所有 snapshot、claim/source/qualifier/metric、narrative/revision/theme、capacity/safe-area/font/Office-safe 关系；按 byte grammar 在唯一 whole-line `{{NARRATIVE}}` 注点执行一次替换，验证 canonical bytes、自包含性并计算全部 hash/snapshot。批内页面可并行做内存准备；全部成功后先协商 fresh-isolation 能力，仍不创建 durable owner。能力通过后才按 pointer-last 写 per-slide `compiling`→prompt→`compiled` transactions、manifest 与 active pointer。
 
 确定性 preflight 或 capability 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。成功路径固定为：preflight + capability → transactions/prompts → manifest → active pointer → isolated model dispatch → coordinator candidate/hash → concurrent per-slide QA → validated → ordered serial promotion。
 

@@ -108,14 +108,14 @@ initial/recompose generator = durable generation prompt only
 
 ### 页面首次生成与 recompose 的统一 Prompt QA
 
-每个首次生成和任何 `recompose` 都必须使用[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)。QA 必须先验证固定生产顺序：读取已批准 outline／storyboard／theme 与适用 revisions → 内存投影两个 replacement 并完成确定性 preflight → 按页持久化并复读 schema-v2 transaction/prompt → 写 batch manifest → pointer-last 激活 → 能力协商与 prompt-by-value isolated dispatch → coordinator 写 candidate／hash → per-slide QA → validated → ordered serial promotion。
+每个首次生成和任何 `recompose` 都必须使用[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)。QA 必须先验证固定生产顺序：读取已批准 outline／storyboard／theme 与适用 revisions → 按 `theme.selected_style_id` 解析 style-owned `files.prompt_template`，未声明时采用 repository fallback → 向唯一 whole-line `{{NARRATIVE}}` 注点投影叙事／素材并完成确定性 preflight → 能力协商 → 按页持久化并复读 schema-v2 transaction/prompt → 写 batch manifest → pointer-last 激活 → prompt-by-value isolated dispatch → coordinator 写 candidate／hash → per-slide QA → validated → ordered serial promotion。`tokens.json.prompt_baseline` 只参与风格数据、QA 与 snapshot provenance，不是第二个 prompt 正文注入域。
 
 确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。该失败不得留下半 transaction、半成品 prompt 或可采用 candidate；canonical blocker 只能在没有为本次尝试创建 transaction/prompt 后独立写入。
 
 随后检查：
 
 - 验证 `.ppt-pilot/generation-prompts/<slide-id>.md` 的 `prompt_snapshot_id`、`storyboard_snapshot_id`、`theme_snapshot_id` 与已应用视觉修订 ID；
-- 风格身份／资产或 authoritative outline／storyboard／theme 验证失败时返回对应 owner；只有规范 generation prompt 模板／字节或无法唯一解释的 snapshot／provenance 自身失败，才按产物契约独立写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 和 dirty slide，不启动 generator、不写 prompt/SVG、不改用其他风格、不降级为 patch；
+- 风格身份／资产或 authoritative outline／storyboard／theme 验证失败时返回对应 owner；只有当前解析出的 style-owned generation prompt 模板（或未声明模板时的 repository fallback）／字节或无法唯一解释的 snapshot／provenance 自身失败，才按产物契约独立写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 和 dirty slide，不启动 generator、不写 prompt/SVG、不改用其他风格、不降级为 patch；
 - 对每个候选重新检查冻结故事板的 `fact_source_consistency` 与 `narrative_integrity`，并检查 `theme.json` 的软风格基线；
 - fresh 独立生成上下文只接收该持久化 Prompt；首次生成不接收其他页面，`recompose` 还不得接收旧 SVG 或创作对话；
 - 生成回复必须恰好一个 `xml` 代码围栏；提取后裸内容从 `<svg` 开始并以 `</svg>` 结束；不得把代码围栏写入工作区 SVG；

@@ -161,7 +161,7 @@ subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创�
 
 `theme.json` 权威拥有 deck style identity；故事板拥有逐页叙事、素材、事实与来源；per-slide schema-v2 transaction 拥有 operation/trigger/prompt/candidate/final/state/validation/host/timing。首次 trigger 使用 `initial:<slide-id>:<storyboard_snapshot_id>`，用户重构使用 `interaction:<history-id>`，fallback 与 patch 使用各自稳定 trigger。修订按 `visual-revision-N`／`supersedes` 投影回故事板或 theme，只应用一次。
 
-新批次先完成两个 replacement、canonical hash preflight 与 fresh-isolation 能力协商；无能力保持零 prompt/transaction/candidate 写入。能力通过后按 pointer-last 写 per-slide transactions、batch manifest 与 `active_visual_generation_batch`。isolated task 只接收完整 `prompt_by_value`，fresh history、filesystem none、tools none、text-only；coordinator 独占所有工作区写入。
+新批次先按 manifest 解析 style-owned `files.prompt_template`（未声明时采用 repository fallback），向唯一 whole-line `{{NARRATIVE}}` 注点注入已批准的叙事／素材，再完成 canonical hash preflight 与 fresh-isolation 能力协商；`tokens.json.prompt_baseline` 只作为风格数据、QA 与 snapshot provenance，不是第二个正文 replacement。无能力保持零 prompt/transaction/candidate 写入。能力通过后按 pointer-last 写 per-slide transactions、batch manifest 与 `active_visual_generation_batch`。isolated task 只接收完整 `prompt_by_value`，fresh history、filesystem none、tools none、text-only；coordinator 独占所有工作区写入。
 
 默认 `batch_width: 4`（可配置 3）；并发或 durable lookup 缺失时 width 1，非 Git 不降级。generation 与 per-slide validation 可重叠；promotion、最低 visible blocker 与 pointer 由 coordinator 按 `ordered_slide_ids` 串行提交。内部 `SRC-<digits>` 可保留在 `data-source-id`／trace，但可见文字以 `fact_source_mismatch` 阻断。
 

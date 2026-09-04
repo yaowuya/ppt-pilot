@@ -155,8 +155,7 @@ class SkillPackageTests(unittest.TestCase):
         for text in (readme, design):
             for token in (
                 "故事板 + `theme.json` 直接编译",
-                "[[CANONICAL_NARRATIVE_BULLETS]]",
-                "[[STYLE_BASELINE]]",
+                "{{NARRATIVE}}",
                 "creative-brief-v1",
                 "active_visual_generation_batch",
                 "visual-generation-transactions/",
@@ -175,6 +174,14 @@ class SkillPackageTests(unittest.TestCase):
                 "单个 `visual_generation_transaction`",
             ):
                 self.assertNotIn(stale, text)
+
+        for token in (
+            "files.prompt_template",
+            "whole-line `{{NARRATIVE}}`",
+            "repository `references/generation-prompt-template.md`",
+            "`tokens.json.prompt_baseline`",
+        ):
+            self.assertIn(token, design)
 
         for token in (
             "pointer-last",
@@ -274,7 +281,10 @@ class SkillPackageTests(unittest.TestCase):
         acceptance = read_text(self.acceptance)
         for token in (
             "故事板 + `theme.json` 直接编译",
-            "唯一仓库 `generation-prompt-template.md`",
+            "manifest `files.prompt_template`",
+            "repository `generation-prompt-template.md` fallback",
+            "whole-line `{{NARRATIVE}}`",
+            "`tokens.json.prompt_baseline`",
             "schema-v2 per-slide transaction/batch manifest",
             "`active_visual_generation_batch`",
             "Canway manifest 版本为 `1.3.0`",
@@ -283,8 +293,9 @@ class SkillPackageTests(unittest.TestCase):
             self.assertIn(token, acceptance)
         for stale in (
             "Canway `1.2.0`",
-            "当前四个 style-owned full prompts",
             "四份完整 prompt",
+            "唯一仓库 `generation-prompt-template.md`",
+            "唯一 repository prompt template 的两个 replacement",
             "render-ready effective visual brief",
             "单个 `visual_generation_transaction`",
             "[[EFFECTIVE_PAGE_SPECIFICATION]]",
@@ -303,7 +314,6 @@ class SkillPackageTests(unittest.TestCase):
         texts = {path: read_text(path) for path in active_paths}
         combined = "\n".join(texts.values())
         for forbidden in (
-            "[[EFFECTIVE_PAGE_SPECIFICATION]]",
             "有效页面规格（唯一动态内容）",
             "visual_brief_snapshot_id",
             "visual-brief assembler",
@@ -319,8 +329,10 @@ class SkillPackageTests(unittest.TestCase):
                 with self.subTest(path=path, line=line[:80]):
                     self.assertRegex(line, r"(?i)(?:schema-v1|\bv1\b|迁移|legacy)")
         for required in (
-            "[[CANONICAL_NARRATIVE_BULLETS]]",
-            "[[STYLE_BASELINE]]",
+            "files.prompt_template",
+            "{{NARRATIVE}}",
+            "repository fallback",
+            "prompt_baseline",
             "creative-brief-v1",
             "active_visual_generation_batch",
             "visual-generation-transactions/",
