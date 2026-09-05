@@ -1,5 +1,6 @@
 # Style Baseline Projection 设计（风格 → 基线 → prompt）
 
+> **SUPERSEDED（历史记录）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`skills/ppt-start/references/artifact-contract.md` 与 `skills/ppt-start/references/workflow.md`。本文中的旧模板、marker、runtime fallback、来源注入、visual-brief 与恢复规则仅保留作审计历史，不得用于新运行。
 > 本文件是“把风格包编译成稳定 `style_baseline` 并填入 `[[STYLE_BASELINE]]`”的设计规格。它定义目标文件结构、确定性投影规则、`style_baseline_snapshot_id` 的输入域，以及如何让既有测试与金样保持一致。它是演进式改动：不改运行时生成逻辑、不新增第三个替换域、不把可执行 prompt 正文还给风格包。
 
 ## 1. 目标

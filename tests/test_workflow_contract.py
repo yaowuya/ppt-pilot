@@ -422,7 +422,7 @@ class WorkflowContractTests(unittest.TestCase):
             "branch b — recompose",
             "branch c — factual change",
             "24 px",
-            "full brief + current svg + exact defect",
+            "complete direct-compile inputs + current svg + exact defect",
             "do not use old svg as a geometric base",
             "fresh independent subagent first",
             "inline fallback",
@@ -450,7 +450,10 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("旧 SVG 不得提供给 `recompose`", qa)
         self.assertIn("事实、主张、来源", qa)
         self.assertIn("文稿批准失效", qa)
-        self.assertIn("schema-v1 singular transaction 先零模型调用迁移", qa)
+        self.assertIn(
+            "schema-v1 `visual_generation_transaction` migration：只有没有 pending 与 blocker 时执行零模型调用迁移",
+            qa,
+        )
 
 
 if __name__ == "__main__":

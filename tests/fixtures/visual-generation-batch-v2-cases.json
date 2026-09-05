@@ -79,7 +79,7 @@
     "visible-internal-source-en",
     "visible-internal-source-only",
     "machine-metadata-only",
-    "explicit-human-readable-source"
+    "explicit-human-readable-source-is-blocked"
   ],
   "migration_state_cases": [
     "migration-state-compiling",
@@ -3114,7 +3114,6 @@
     "visible-internal-source-cn": {
       "id": "visible-internal-source-cn",
       "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>来源：SRC-001 · SRC-002</text></svg>",
-      "human_readable_citation_requested": false,
       "transaction": {
         "schema_version": 2,
         "kind": "visual_generation_transaction",
@@ -3160,7 +3159,6 @@
     "visible-internal-source-en": {
       "id": "visible-internal-source-en",
       "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>Source: SRC-003</text></svg>",
-      "human_readable_citation_requested": false,
       "transaction": {
         "schema_version": 2,
         "kind": "visual_generation_transaction",
@@ -3206,7 +3204,6 @@
     "visible-internal-source-only": {
       "id": "visible-internal-source-only",
       "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>SRC-005</text></svg>",
-      "human_readable_citation_requested": false,
       "transaction": {
         "schema_version": 2,
         "kind": "visual_generation_transaction",
@@ -3252,7 +3249,6 @@
     "machine-metadata-only": {
       "id": "machine-metadata-only",
       "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><g data-source-id=\"SRC-001\"><text>88%</text></g></svg>",
-      "human_readable_citation_requested": false,
       "transaction": {
         "schema_version": 2,
         "kind": "visual_generation_transaction",
@@ -3295,10 +3291,9 @@
         "raster_fallbacks": 0
       }
     },
-    "explicit-human-readable-source": {
-      "id": "explicit-human-readable-source",
+    "explicit-human-readable-source-is-blocked": {
+      "id": "explicit-human-readable-source-is-blocked",
       "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>来源：2026 年年度报告</text></svg>",
-      "human_readable_citation_requested": true,
       "transaction": {
         "schema_version": 2,
         "kind": "visual_generation_transaction",
@@ -3334,8 +3329,8 @@
         "timing": []
       },
       "expected": {
-        "failure_reason": null,
-        "next_state": "validated",
+        "failure_reason": "fact_source_mismatch",
+        "next_state": "failed",
         "preserve_previous_final": true,
         "text_deletions": 0,
         "raster_fallbacks": 0
@@ -3373,16 +3368,6 @@
           "generation_attempt": 0,
           "candidate_sha256": null,
           "failure_reason": null
-        },
-        "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
-          "slide_id": "S07",
-          "reason": "prompt_file_missing",
-          "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:69bd0b7e96b13ad215e351155607202e50c59bae9e4116992ff62d8244a78bc5",
-          "theme_snapshot_id": "sha256:9e102c171ca680b20d74d117c4c933c019ce5b848ecdd3b57945adddb24f00a6",
-          "status": "active"
         }
       },
       "corpus_case": {
@@ -3420,16 +3405,6 @@
               "stage": "production",
               "affected_scope": "slide"
             }
-          },
-          "visual_generation_blocker": {
-            "state": "style_prompt_unavailable",
-            "slide_id": "S07",
-            "reason": "prompt_file_missing",
-            "selected_style_id": "canway-midyear-review",
-            "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-            "visual_brief_snapshot_id": "sha256:69bd0b7e96b13ad215e351155607202e50c59bae9e4116992ff62d8244a78bc5",
-            "theme_snapshot_id": "sha256:9e102c171ca680b20d74d117c4c933c019ce5b848ecdd3b57945adddb24f00a6",
-            "status": "active"
           },
           "active_visual_generation_batch": {
             "schema_version": 2,
@@ -3499,7 +3474,7 @@
         },
         "transaction_bytes_base64": "eyJiYXRjaF9pZCI6Im1pZ3JhdGlvbi05NTVmMDkwYWFhYjk5ZTJhYTM0MTc2ZWQiLCJjYW5kaWRhdGVfcGF0aCI6InNsaWRlcy8uY2FuZGlkYXRlcy9TMDctOTU1ZjA5MGFhYWI5OWUyYWEzNDE3NmVkYzBiOWNjMmU5ZWQwYWNkZTM5MDhjZTg5NmM2ZTM1M2QyY2Q3ZThiZS5zdmciLCJjYW5kaWRhdGVfc2hhMjU2IjpudWxsLCJjb21waWxlZF9wcm9tcHRfc2hhMjU2Ijoic2hhMjU2OjZiYjAyNzJlYjlmZmVkM2M5YmFmZWUwN2I5MDQ5ZjlkNjFjZWIwYTVjMGIxNWUxNzdlYzc1YjE4Nzc3N2Y3NTEiLCJkaXNwYXRjaF9lcG9jaCI6MCwiZmFpbHVyZV9yZWFzb24iOm51bGwsImZpbmFsX3BhdGgiOiJzbGlkZXMvUzA3LnN2ZyIsImdlbmVyYXRpb25fYXR0ZW1wdCI6MCwiZ2VuZXJhdGlvbl9pbnRlbnQiOiJ1c2VyX3JlY29tcG9zZSIsImdlbmVyYXRpb25fdHJpZ2dlcl9pZCI6ImludGVyYWN0aW9uOnZpc3VhbC1yZXZpc2lvbi00IiwiaG9zdF9hdHRyaWJ1dGlvbl9pZCI6bnVsbCwiaG9zdF90YXNrX2lkIjpudWxsLCJraW5kIjoidmlzdWFsX2dlbmVyYXRpb25fdHJhbnNhY3Rpb24iLCJwcmlvcl9maW5hbF9zaGEyNTYiOiJzaGEyNTY6MGQwODFjODE5MDRiOGE5OTRjYWNhMDliZmRiYTMxN2QwYTkzMWZmNzk2MWJhYzhhZWE2ODdkNzJlNmZjMTBhMyIsInByb21wdF9wYXRoIjoiZ2VuZXJhdGlvbi1wcm9tcHRzL1MwNy5tZCIsInByb21wdF9zbmFwc2hvdF9pZCI6InNoYTI1Njo5NTVmMDkwYWFhYjk5ZTJhYTM0MTc2ZWRjMGI5Y2MyZTllZDBhY2RlMzkwOGNlODk2YzZlMzUzZDJjZDdlOGJlIiwic2NoZW1hX3ZlcnNpb24iOjIsInNsaWRlX2lkIjoiUzA3Iiwic3RhdGUiOiJjb21waWxpbmciLCJ0aW1pbmciOltdLCJ0cmFuc2FjdGlvbl9pZCI6InNoYTI1Njo5NTVmMDkwYWFhYjk5ZTJhYTM0MTc2ZWRjMGI5Y2MyZTllZDBhY2RlMzkwOGNlODk2YzZlMzUzZDJjZDdlOGJlIiwidmFsaWRhdGlvbiI6eyJjaGVja3MiOnsiZmFjdF9zb3VyY2UiOiJwZW5kaW5nIiwiZ2VvbWV0cnlfdGV4dCI6InBlbmRpbmciLCJuYXJyYXRpdmUiOiJwZW5kaW5nIiwib2ZmaWNlIjoicGVuZGluZyIsInZpc3VhbCI6InBlbmRpbmciLCJ4bWwiOiJwZW5kaW5nIn0sInN0YXRlIjoicGVuZGluZyJ9fQo=",
         "manifest_bytes_base64": "eyJhY3RpdmVfYmxvY2tlcl9yZWYiOm51bGwsImJhdGNoX2lkIjoibWlncmF0aW9uLTk1NWYwOTBhYWFiOTllMmFhMzQxNzZlZCIsImJhdGNoX3dpZHRoIjo0LCJibG9ja2VyX2N1cnNvciI6MSwiY3JlYXRlZF9hdCI6IjE5NzAtMDEtMDFUMDA6MDA6MDBaIiwiZGlzcGF0Y2hfZXBvY2giOjAsImdlbmVyYXRpb25fcHJvbXB0X3RlbXBsYXRlX3NuYXBzaG90X2lkIjoic2hhMjU2OjJkZmVhYWQ2MGQyYTU5ODFlYWZmYTY1NDM2OGMyMzllMzBlNDgxOTNkYzliZjdhYWI3NDdmODU2NzIwMzM2M2EiLCJraW5kIjoidmlzdWFsX2dlbmVyYXRpb25fYmF0Y2giLCJvcmRlcmVkX3NsaWRlX2lkcyI6WyJTMDciXSwicHJvbW90aW9uX2N1cnNvciI6MCwic2NoZW1hX3ZlcnNpb24iOjIsInNvdXJjZV9hdWRpdF9zbmFwc2hvdF9pZCI6InNoYTI1NjpmM2Q5ZmI0NTc0MzFlZDVjNjk4MDkxNTdhMjc5NzhlNjM2YjczNjExMGUxNTI2ZDhjN2ZhNTI1ZDE5ZTM2ZmFlIiwic3RhdGUiOiJhY3RpdmUiLCJzdG9yeWJvYXJkX3NuYXBzaG90X2lkIjoic2hhMjU2OjgxMGM5ZjJiMjRlY2M5MTM2ZWVmOTkwZDViMTk0NjViNjQ2ZWFmOWNiYzFhYjZhYzE0ZjQ3ZjIwY2VhYWI1OWQiLCJ0ZWxlbWV0cnlfc3VtbWFyeSI6eyJtaWdyYXRpb24iOiJ2MSJ9LCJ0aGVtZV9zbmFwc2hvdF9pZCI6InNoYTI1NjowOGQ2MzNjMTgxNmU0MGQxN2Q0YzExODFjZDhmYTJhOWYxODVkY2M5ZDU3NWYzYTA1NTFkMGY1NDBlMGMxYWI1IiwidHJhbnNhY3Rpb25fcmVmcyI6WyIucHB0LXBpbG90L3Zpc3VhbC1nZW5lcmF0aW9uLXRyYW5zYWN0aW9ucy9TMDctOTU1ZjA5MGFhYWI5OWUyYWEzNDE3NmVkYzBiOWNjMmU5ZWQwYWNkZTM5MDhjZTg5NmM2ZTM1M2QyY2Q3ZThiZS5qc29uIl0sInVwZGF0ZWRfYXQiOiIxOTcwLTAxLTAxVDAwOjAwOjAwWiJ9Cg==",
-        "run_bytes_base64": "eyJhY3RpdmVfdmlzdWFsX2dlbmVyYXRpb25fYmF0Y2giOnsiYmF0Y2hfaWQiOiJtaWdyYXRpb24tOTU1ZjA5MGFhYWI5OWUyYWEzNDE3NmVkIiwibWFuaWZlc3RfcGF0aCI6Ii5wcHQtcGlsb3QvdmlzdWFsLWdlbmVyYXRpb24tYmF0Y2hlcy9taWdyYXRpb24tOTU1ZjA5MGFhYWI5OWUyYWEzNDE3NmVkLmpzb24iLCJzY2hlbWFfdmVyc2lvbiI6Mn0sImRpcnR5X3NsaWRlcyI6WyJTMDciXSwiaW50ZXJhY3Rpb25faGlzdG9yeSI6eyJ2aXN1YWwtcmV2aXNpb24tNCI6eyJhZmZlY3RlZF9zY29wZSI6InNsaWRlIiwia2luZCI6InZpc3VhbF9yZXZpc2lvbiIsInN0YWdlIjoicHJvZHVjdGlvbiIsInN0YXR1cyI6ImFwcGxpZWQifX0sIm1vZGUiOiJndWlkZWQiLCJzY2hlbWFfdmVyc2lvbiI6MSwic3RhZ2UiOiJwcm9kdWN0aW9uIiwidmlzdWFsX2dlbmVyYXRpb25fYmxvY2tlciI6eyJyZWFzb24iOiJwcm9tcHRfZmlsZV9taXNzaW5nIiwicmVzb3VyY2UiOiJhc3NldHMvc3R5bGVzL2NhbndheS1taWR5ZWFyLXJldmlldy9SRURFU0lHTi5tZCIsInNlbGVjdGVkX3N0eWxlX2lkIjoiY2Fud2F5LW1pZHllYXItcmV2aWV3Iiwic2xpZGVfaWQiOiJTMDciLCJzdGF0ZSI6InN0eWxlX3Byb21wdF91bmF2YWlsYWJsZSIsInN0YXR1cyI6ImFjdGl2ZSIsInRoZW1lX3NuYXBzaG90X2lkIjoic2hhMjU2OjllMTAyYzE3MWNhNjgwYjIwZDc0ZDExN2M0YzkzM2MwMTljZTViODQ4ZWNkZDNiNTc5NDVhZGRkYjI0ZjAwYTYiLCJ2aXN1YWxfYnJpZWZfc25hcHNob3RfaWQiOiJzaGEyNTY6NjliZDBiN2U5NmIxM2FkMjE1ZTM1MTE1NTYwNzIwMmU1MGM1OWJhZTllNDExNjk5MmZmNjJkODI0NGE3OGJjNSJ9fQo=",
+      "run_bytes_base64": "eyJhY3RpdmVfdmlzdWFsX2dlbmVyYXRpb25fYmF0Y2giOnsiYmF0Y2hfaWQiOiJtaWdyYXRpb24tOTU1ZjA5MGFhYWI5OWUyYWEzNDE3NmVkIiwibWFuaWZlc3RfcGF0aCI6Ii5wcHQtcGlsb3QvdmlzdWFsLWdlbmVyYXRpb24tYmF0Y2hlcy9taWdyYXRpb24tOTU1ZjA5MGFhYWI5OWUyYWEzNDE3NmVkLmpzb24iLCJzY2hlbWFfdmVyc2lvbiI6Mn0sImRpcnR5X3NsaWRlcyI6WyJTMDciXSwiaW50ZXJhY3Rpb25faGlzdG9yeSI6eyJ2aXN1YWwtcmV2aXNpb24tNCI6eyJhZmZlY3RlZF9zY29wZSI6InNsaWRlIiwia2luZCI6InZpc3VhbF9yZXZpc2lvbiIsInN0YWdlIjoicHJvZHVjdGlvbiIsInN0YXR1cyI6ImFwcGxpZWQifX0sIm1vZGUiOiJndWlkZWQiLCJzY2hlbWFfdmVyc2lvbiI6MSwic3RhZ2UiOiJwcm9kdWN0aW9uIn0K",
         "write_order": [
           "transaction",
           "manifest",

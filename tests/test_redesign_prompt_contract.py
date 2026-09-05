@@ -1,15 +1,29 @@
+from __future__ import annotations
+
 import base64
 import copy
 import hashlib
 import json
+import os
 import re
+import stat
 import sys
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(
+    0,
+    str(
+        Path(__file__).resolve().parents[1]
+        / "skills"
+        / "ppt-style-extract"
+        / "scripts"
+    ),
+)
 
 from helpers import read_text, repo_root, skill_root
 
@@ -20,15 +34,8 @@ HISTORICAL_STYLE_PROMPTS = (
     "canway-midyear-review/REDESIGN.md",
 )
 
-CANONICAL_GENERATION_TEMPLATE_PATH = "skills/ppt-start/references/generation-prompt-template.md"
-CANONICAL_NARRATIVE_BULLETS_TOKEN = b"[[CANONICAL_NARRATIVE_BULLETS]]\n"
-EFFECTIVE_PAGE_SPECIFICATION_TOKEN = b"[[EFFECTIVE_PAGE_SPECIFICATION]]\n"
+CANONICAL_STYLE_ID = "canway-midyear-review"
 VISIBLE_INTERNAL_SOURCE_ID = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
-DEFAULT_CANONICAL_NARRATIVE_BULLETS = (
-    "- **金字塔原理**: 严格遵循已批准的核心主标题与关键分论点。\n"
-    "- **精确表达**: 保留显示文案、事实、数字、单位、限定词与来源。\n"
-    "- **层级执行**: 严格遵循已批准的核心信息与支撑信息划分。\n"
-).encode("utf-8")
 
 
 class TemplateCreativeReformTest(unittest.TestCase):
@@ -67,13 +74,22 @@ class TemplateCreativeReformTest(unittest.TestCase):
         self.assertIn("不得重新选择叙事逻辑", template)
         self.assertIn("提纯", template)
         self.assertIn("改写", template)
-        self.assertIn("补充", template)
+        self.assertIn("展开", template)
 
-    def test_byte_grammar_specifies_three_domains(self):
+    def test_byte_grammar_specifies_single_narrative_domain(self):
         grammar = read_text(skill_root() / "references" / "generation-prompt-byte-grammar.md")
-        self.assertIn("[[CANONICAL_NARRATIVE_BULLETS]]", grammar)
-        self.assertIn("[[STYLE_BASELINE]]", grammar)
-        self.assertNotIn("[[EFFECTIVE_PAGE_SPECIFICATION]]", grammar)
+        self.assertIn("files.prompt_template", grammar)
+        self.assertIn("there is no runtime repository-template fallback", grammar)
+        self.assertIn("whole-line `{{NARRATIVE}}`", grammar)
+        self.assertIn("The only runtime dynamic replacement domain is the single narrative injection", grammar)
+        self.assertIn("never compiled-body injection", grammar)
+        for legacy_marker in (
+            "[[CANONICAL_NARRATIVE_BULLETS]]",
+            "[[STYLE_BASELINE]]",
+            "EFFECTIVE_PAGE_SPECIFICATION",
+        ):
+            self.assertIn(legacy_marker, grammar)
+        self.assertIn("are invalid for new canonical compilation", grammar)
         self.assertNotIn("Exactly two replacement domains", grammar)
 
     def test_byte_grammar_rule_count_wording_cannot_drift(self):
@@ -121,7 +137,7 @@ class TemplateCreativeReformTest(unittest.TestCase):
             with self.subTest(path=path):
                 text = read_text(path)
                 for token in (
-                    "唯一投影权威",
+                    "内容权威",
                     "已批准故事板",
                     "theme.json",
                     "visual_revision-<N>",
@@ -201,18 +217,18 @@ class TemplateCreativeReformTest(unittest.TestCase):
         # Output-layer generation contracts must NOT reference source IDs / citation
         # markup in the prompt body; evidence-layer contracts KEEP the machine trace
         # metadata convention (data-source-id / internal SRC-<digits>).
-        output_layer = (
-            skill_root() / "references" / "generation-prompt-template.md",
-            skill_root() / "references" / "generation-prompt-byte-grammar.md",
-        )
+        prompt_template = skill_root() / "references" / "generation-prompt-template.md"
+        byte_grammar = skill_root() / "references" / "generation-prompt-byte-grammar.md"
         evidence_layer = (
             skill_root() / "references" / "qa-and-revision.md",
             skill_root() / "references" / "svg-contract.md",
         )
-        for path in output_layer:
-            with self.subTest(path=path):
-                self.assertNotIn("SRC-<digits>", read_text(path))
-                self.assertNotIn("data-source-id", read_text(path))
+        self.assertNotIn("SRC-<digits>", read_text(prompt_template))
+        self.assertNotIn("data-source-id", read_text(prompt_template))
+        self.assertIn(
+            "carry no case-insensitive structured source annotation",
+            read_text(byte_grammar),
+        )
         for path in evidence_layer:
             with self.subTest(path=path):
                 self.assertIn("data-source-id", read_text(path))
@@ -302,7 +318,8 @@ class TemplateCreativeReformTest(unittest.TestCase):
         self.assertTrue("软参考" in lc or "自主" in lc)
 
 
-CANONICAL_REPLACEMENT_MARKER_RE = re.compile(rb"\[\[[^\[\]\r\n]+\]\]")
+CANONICAL_REPLACEMENT_MARKER_RE = re.compile(rb"\[\[.*?\]\]", re.DOTALL)
+DYNAMIC_TEMPLATE_MARKER_RE = re.compile(rb"\{\{.*?\}\}", re.DOTALL)
 
 NO_FOLLOW_TARGETS = {"link", "symlink", "junction", "reparse"}
 
@@ -531,25 +548,345 @@ def normalize_lf(raw: bytes) -> bytes:
 
 
 def _canonical_template_bytes() -> bytes:
-    return normalize_lf((repo_root() / CANONICAL_GENERATION_TEMPLATE_PATH).read_bytes())
+    return normalize_lf(
+        (
+            skill_root()
+            / "assets"
+            / "styles"
+            / CANONICAL_STYLE_ID
+            / "prompt.md"
+        ).read_bytes()
+    )
+
+
+def _path_has_reparse(path: Path) -> bool:
+    target_stat = os.lstat(path)
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return stat.S_ISLNK(target_stat.st_mode) or bool(
+        getattr(target_stat, "st_file_attributes", 0) & reparse_flag
+    )
+
+
+def _absolute_without_following(path: Path) -> Path:
+    return Path(os.path.abspath(os.fspath(path)))
+
+
+def _validate_directory_chain_no_follow(
+    path: Path, *, path_reason: str, missing_reason: str
+) -> Path:
+    """Validate every directory component without resolving a link target."""
+    absolute = _absolute_without_following(path)
+    current = Path(absolute.anchor)
+    relative_parts = absolute.parts[1:] if absolute.anchor else absolute.parts
+    for part in relative_parts:
+        current = current / part
+        try:
+            target_stat = os.lstat(current)
+        except FileNotFoundError as exc:
+            raise ValueError(missing_reason) from exc
+        except OSError as exc:
+            raise ValueError(path_reason) from exc
+        try:
+            if _path_has_reparse(current):
+                raise ValueError(path_reason)
+        except ValueError:
+            raise
+        except OSError as exc:
+            raise ValueError(path_reason) from exc
+        if not stat.S_ISDIR(target_stat.st_mode):
+            raise ValueError(path_reason)
+    return absolute
+
+
+def _validate_leaf_no_follow(
+    path: Path, *, path_reason: str, missing_reason: str
+) -> None:
+    try:
+        os.lstat(path)
+    except FileNotFoundError as exc:
+        raise ValueError(missing_reason) from exc
+    except OSError as exc:
+        raise ValueError(path_reason) from exc
+    try:
+        if _path_has_reparse(path):
+            raise ValueError(path_reason)
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError(path_reason) from exc
+
+
+def _read_regular_asset(
+    path: Path,
+    *,
+    path_reason: str,
+    missing_reason: str,
+    target_reason: str,
+    unreadable_reason: str,
+) -> bytes:
+    """Read one trusted asset without following a symlink/reparse target."""
+    absolute = _absolute_without_following(path)
+    _validate_directory_chain_no_follow(
+        absolute.parent,
+        path_reason=path_reason,
+        missing_reason=missing_reason,
+    )
+    try:
+        target_stat = os.lstat(absolute)
+    except FileNotFoundError as exc:
+        raise ValueError(missing_reason) from exc
+    except OSError as exc:
+        raise ValueError(unreadable_reason) from exc
+    try:
+        if _path_has_reparse(absolute):
+            raise ValueError(path_reason)
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError(path_reason) from exc
+    if not stat.S_ISREG(target_stat.st_mode):
+        raise ValueError(target_reason)
+
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = None
+    try:
+        descriptor = os.open(absolute, flags)
+    except FileNotFoundError as exc:
+        raise ValueError(missing_reason) from exc
+    except PermissionError as exc:
+        raise ValueError(unreadable_reason) from exc
+    except OSError as exc:
+        raise ValueError(path_reason) from exc
+    try:
+        opened_stat = os.fstat(descriptor)
+        if not stat.S_ISREG(opened_stat.st_mode):
+            raise ValueError(target_reason)
+        if (target_stat.st_dev, target_stat.st_ino) != (
+            opened_stat.st_dev,
+            opened_stat.st_ino,
+        ):
+            raise ValueError(path_reason)
+        with os.fdopen(descriptor, "rb", closefd=False) as stream:
+            return stream.read()
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError(unreadable_reason) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _decode_asset(raw: bytes, unreadable_reason: str) -> str:
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError(unreadable_reason) from exc
+
+
+def _load_json_asset(raw: bytes, malformed_reason: str, unreadable_reason: str) -> dict:
+    text = _decode_asset(raw, unreadable_reason)
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(malformed_reason) from exc
+    if not isinstance(value, dict):
+        raise ValueError(malformed_reason)
+    return value
 
 
 def style_template_path(style_id: str) -> str:
-    """Return the repo-relative path to the style pack's owned prompt template."""
-    manifest = json.loads(
-        (skill_root() / "assets" / "styles" / style_id / "manifest.json").read_text(encoding="utf-8")
+    """Resolve a required style-owned template through registry -> manifest."""
+    if not isinstance(style_id, str) or re.fullmatch(
+        r"[a-z0-9]+(?:-[a-z0-9]+)*", style_id
+    ) is None:
+        raise ValueError("style_not_registered")
+    style_root = skill_root() / "assets" / "styles"
+    registry_path = style_root / "registry.json"
+    registry_raw = _read_regular_asset(
+        registry_path,
+        path_reason="registry_path_unsafe",
+        missing_reason="registry_missing",
+        target_reason="registry_target_invalid",
+        unreadable_reason="registry_unreadable",
     )
-    template_rel = manifest["files"]["prompt_template"]
+    registry = _load_json_asset(
+        registry_raw, "registry_malformed", "registry_unreadable"
+    )
+    if registry.get("schema_version") != 1:
+        raise ValueError("registry_schema_unsupported")
+    styles = registry.get("styles")
+    if not isinstance(styles, list):
+        raise ValueError("registry_malformed")
+    if not all(isinstance(item, dict) for item in styles):
+        raise ValueError("registry_malformed")
+    if len({item.get("id") for item in styles}) != len(styles):
+        raise ValueError("registry_duplicate_style")
+    display_names = [item.get("display_name") for item in styles]
+    if len(set(display_names)) != len(styles):
+        raise ValueError("registry_duplicate_style")
+    style_root_absolute = _absolute_without_following(style_root)
+    for item in styles:
+        item_id = item.get("id")
+        if (
+            not isinstance(item_id, str)
+            or re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", item_id) is None
+            or not isinstance(item.get("display_name"), str)
+            or not item["display_name"]
+        ):
+            raise ValueError("registry_malformed")
+        if item.get("kind") != "style_pack":
+            continue
+        expected_item_entrypoint = f"{item_id}/manifest.json"
+        if item.get("entrypoint") != expected_item_entrypoint:
+            raise ValueError("entrypoint_path_unsafe")
+        item_pack_root = style_root_absolute / item_id
+        item_manifest_path = item_pack_root / "manifest.json"
+        if item_pack_root.parent != style_root_absolute:
+            raise ValueError("entrypoint_path_unsafe")
+        _validate_directory_chain_no_follow(
+            item_pack_root,
+            path_reason="entrypoint_path_unsafe",
+            missing_reason="entrypoint_missing",
+        )
+        _validate_leaf_no_follow(
+            item_manifest_path,
+            path_reason="entrypoint_path_unsafe",
+            missing_reason="entrypoint_missing",
+        )
+    matches = [item for item in styles if item.get("id") == style_id]
+    if len(matches) != 1:
+        raise ValueError("style_not_registered")
+    entry = matches[0]
+    if entry.get("kind") != "style_pack":
+        raise ValueError("style_kind_invalid")
+    expected_entrypoint = f"{style_id}/manifest.json"
+    if entry.get("entrypoint") != expected_entrypoint:
+        raise ValueError("entrypoint_path_unsafe")
+    pack_root = style_root_absolute / style_id
+    manifest_path = pack_root / "manifest.json"
+    manifest_raw = _read_regular_asset(
+        manifest_path,
+        path_reason="entrypoint_path_unsafe",
+        missing_reason="entrypoint_missing",
+        target_reason="entrypoint_target_invalid",
+        unreadable_reason="entrypoint_unreadable",
+    )
+    manifest = _load_json_asset(
+        manifest_raw, "manifest_malformed", "entrypoint_unreadable"
+    )
+    if manifest.get("schema_version") != 1:
+        raise ValueError("manifest_schema_unsupported")
+    if (
+        manifest.get("id") != style_id
+        or manifest.get("kind") != "style_pack"
+        or manifest.get("display_name") != entry.get("display_name")
+        or not isinstance(manifest.get("selection_aliases"), list)
+        or style_id not in manifest["selection_aliases"]
+    ):
+        raise ValueError("manifest_identity_mismatch")
+    if not _is_semver(manifest.get("version")):
+        raise ValueError("manifest_version_invalid")
+    compatibility = manifest.get("compatibility")
+    if not isinstance(compatibility, dict) or compatibility.get("office_safe_svg") is not True:
+        raise ValueError("manifest_schema_unsupported")
+    files = manifest.get("files")
+    if not isinstance(files, dict):
+        raise ValueError("style_asset_malformed")
+    required_files = {
+        "tokens": "tokens.json",
+        "guidance": "STYLE.md",
+        "prompt_template": "prompt.md",
+    }
+    if any(field not in files for field in required_files):
+        raise ValueError("style_asset_field_missing")
+    if files != required_files:
+        if files.get("prompt_template") != "prompt.md":
+            raise ValueError("prompt_path_unsafe")
+        raise ValueError("style_asset_path_unsafe")
+    template_rel = files["prompt_template"]
+    if (
+        template_rel != "prompt.md"
+        or _is_path_unsafe(template_rel)
+        or "\\" in template_rel
+    ):
+        raise ValueError("prompt_path_unsafe")
     return f"assets/styles/{style_id}/{template_rel}"
 
 
 def _style_template_bytes(style_id: str) -> bytes:
-    return normalize_lf((skill_root() / style_template_path(style_id)).read_bytes())
+    path = style_template_path(style_id)
+    template_path = skill_root() / path
+    scripts = repo_root() / "skills" / "ppt-style-extract" / "scripts"
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    from _style_extract.verify import (
+        verify_prompt,
+        verify_prompt_style_binding,
+        verify_rules,
+        verify_tokens,
+    )
+
+    pack_root = template_path.parent
+    tokens_path = pack_root / "tokens.json"
+    guidance_path = pack_root / "STYLE.md"
+    tokens_raw = _read_regular_asset(
+        tokens_path,
+        path_reason="style_asset_path_unsafe",
+        missing_reason="style_asset_target_invalid",
+        target_reason="style_asset_target_invalid",
+        unreadable_reason="style_asset_unreadable",
+    )
+    tokens = _load_json_asset(
+        tokens_raw, "style_asset_malformed", "style_asset_unreadable"
+    )
+    if tokens.get("schema_version") != 2:
+        raise ValueError("style_asset_schema_unsupported")
+    try:
+        verify_tokens(tokens)
+    except Exception as exc:
+        raise ValueError("style_asset_malformed") from exc
+    if tokens.get("id") != style_id:
+        raise ValueError("style_asset_malformed")
+
+    guidance_raw = _read_regular_asset(
+        guidance_path,
+        path_reason="style_asset_path_unsafe",
+        missing_reason="style_asset_target_invalid",
+        target_reason="style_asset_target_invalid",
+        unreadable_reason="style_asset_unreadable",
+    )
+    guidance = _decode_asset(guidance_raw, "style_asset_unreadable")
+    try:
+        verify_rules(guidance)
+    except Exception as exc:
+        raise ValueError("style_asset_malformed") from exc
+
+    raw = _read_regular_asset(
+        template_path,
+        path_reason="prompt_path_unsafe",
+        missing_reason="prompt_file_missing",
+        target_reason="prompt_target_invalid",
+        unreadable_reason="prompt_unreadable",
+    )
+    try:
+        normalized = normalize_lf(raw)
+    except ValueError as exc:
+        raise ValueError("prompt_unreadable") from exc
+    prompt_text = _decode_asset(normalized, "prompt_unreadable")
+    try:
+        verify_prompt(prompt_text)
+        verify_prompt_style_binding(tokens, prompt_text)
+    except Exception as exc:
+        raise ValueError("prompt_template_invalid") from exc
+    return normalized
 
 
 def _validate_canonical_template_path(snapshot_inputs: dict) -> None:
     style_id = snapshot_inputs.get("selected_style_id")
-    expected = style_template_path(style_id) if style_id else CANONICAL_GENERATION_TEMPLATE_PATH
+    if not style_id:
+        raise ValueError("prompt_snapshot_conflict")
+    expected = style_template_path(style_id)
     if snapshot_inputs.get("resolved_generation_prompt_template_path") != expected:
         raise ValueError("prompt_snapshot_conflict")
 
@@ -616,28 +953,101 @@ def _reject_unsafe_replacement(raw: bytes) -> bytes:
         or _contains_raw_json_block(text)
         or absolute_path_or_uri
         or external_instruction
+        or any(separator in normalized for separator in NON_LF_LINE_SEPARATORS)
     ):
         raise ValueError("prompt_preflight_invalid")
     return normalized
 
 
-STYLE_BASELINE_TOKEN = b"[[STYLE_BASELINE]]\n"
-
-
-def compile_prompt_body(narrative_bullets: bytes, style_baseline: bytes) -> bytes:
-    # 兼容层：范式已改为"style 模板 + 单 {{NARRATIVE}} 注点"。读取单注点模板并委托
-    # 新编译器注入叙事。旧范式的第二个注入域（style_baseline）不再存在，故忽略之；
-    # 若调用方仍传入它，仅当它不安全时由叙事预检拒绝。保留此函数以兼容旧调用点。
-    template = _canonical_template_bytes()
-    body = compile_style_prompt(narrative_bullets, template)
-    validate_compiled_prompt_body(body)
-    return body
-
-
 STYLE_NARRATIVE_TOKEN = b"{{NARRATIVE}}"
+SOURCE_ANNOTATION_RE = re.compile(
+    rb"(?:\bsource\s*=|\[claim\s*=|data-source-id|\bSRC-[0-9]+\b)",
+    re.IGNORECASE,
+)
+STYLE_REQUIRED_HEADINGS = (
+    b"# Role",
+    b"## Workflow",
+    "### 步骤 1".encode("utf-8"),
+    "### 步骤 2".encode("utf-8"),
+    "### 步骤 3".encode("utf-8"),
+    "### 兼容约束".encode("utf-8"),
+)
+NON_LF_LINE_SEPARATORS = (
+    b"\x0b",
+    b"\x0c",
+    b"\x1c",
+    b"\x1d",
+    b"\x1e",
+    b"\xc2\x85",
+    b"\xe2\x80\xa8",
+    b"\xe2\x80\xa9",
+)
+BLOCK_ID_LINE_RE = re.compile(rb"(?m)^- block_id: (S[0-9]+-B[1-9][0-9]*)$")
+DEFAULT_EXPECTED_BLOCK_IDS = (b"S01-B1",)
 
 
-def compile_style_prompt(narrative_bullets: bytes, template_bytes: bytes) -> bytes:
+def narrative_with_block(
+    content: bytes = b"- sample\n", block_id: bytes = b"S01-B1"
+) -> bytes:
+    return b"- block_id: " + block_id + b"\n" + content
+
+
+def _validate_narrative_block_ids(
+    narrative: bytes, expected_block_ids: tuple[bytes, ...]
+) -> None:
+    block_ids = tuple(BLOCK_ID_LINE_RE.findall(narrative))
+    if (
+        not block_ids
+        or len(block_ids) != len(set(block_ids))
+        or narrative.count(b"block_id") != len(block_ids)
+        or len({block_id.rsplit(b"-B", 1)[0] for block_id in block_ids}) != 1
+    ):
+        raise ValueError("prompt_preflight_invalid")
+    if (
+        not expected_block_ids
+        or len(expected_block_ids) != len(set(expected_block_ids))
+        or any(
+            re.fullmatch(rb"S[0-9]+-B[1-9][0-9]*", block_id) is None
+            for block_id in expected_block_ids
+        )
+        or block_ids != expected_block_ids
+    ):
+        raise ValueError("storyboard_fact_mismatch")
+
+
+def _validate_required_prompt_structure(body: bytes) -> None:
+    if any(separator in body for separator in NON_LF_LINE_SEPARATORS):
+        raise ValueError("prompt_template_invalid")
+    lines = body.split(b"\n")
+    positions = []
+    for heading in STYLE_REQUIRED_HEADINGS:
+        matches = []
+        for index, line in enumerate(lines):
+            if line == heading:
+                matches.append(index)
+                continue
+            if line.startswith(heading):
+                tail = line[len(heading) :]
+                if tail.startswith(
+                    (b":", "：".encode("utf-8"), b" ", b"\t", b"(", "（".encode("utf-8"))
+                ):
+                    matches.append(index)
+        if len(matches) != 1:
+            raise ValueError("prompt_template_invalid")
+        positions.append(matches[0])
+    if (
+        positions != sorted(positions)
+        or positions[0] != 0
+        or b"data-block-id" not in body
+    ):
+        raise ValueError("prompt_template_invalid")
+
+
+def compile_style_prompt(
+    narrative_bullets: bytes,
+    template_bytes: bytes,
+    expected_block_ids: tuple[bytes, ...] = DEFAULT_EXPECTED_BLOCK_IDS,
+) -> bytes:
     """Compile a style-owned complete prompt template by injecting the canonical
     narrative bullets at its single whole-line {{NARRATIVE}} token. The narrative
     carries no source-/source-annotation fields; those stay in the review layer.
@@ -645,25 +1055,51 @@ def compile_style_prompt(narrative_bullets: bytes, template_bytes: bytes) -> byt
     headings/steps; only the narrative replacement is run through the preflight
     safety check, and the template's injection-token structure is validated."""
     narrative = _reject_unsafe_replacement(narrative_bullets)
+    _validate_narrative_block_ids(narrative, expected_block_ids)
     template = normalize_lf(template_bytes)
-    if template.count(STYLE_NARRATIVE_TOKEN) != 1:
+    scripts = repo_root() / "skills" / "ppt-style-extract" / "scripts"
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    from _style_extract.verify import verify_prompt
+
+    try:
+        verify_prompt(template.decode("utf-8"))
+    except Exception as exc:
+        raise ValueError("prompt_template_invalid") from exc
+    _validate_required_prompt_structure(template)
+    if (
+        template.count(STYLE_NARRATIVE_TOKEN) != 1
+        or template.split(b"\n").count(STYLE_NARRATIVE_TOKEN) != 1
+        or DYNAMIC_TEMPLATE_MARKER_RE.findall(template) != [STYLE_NARRATIVE_TOKEN]
+        or CANONICAL_REPLACEMENT_MARKER_RE.search(template)
+    ):
+        raise ValueError("prompt_template_invalid")
+    template_without_narrative = template.replace(STYLE_NARRATIVE_TOKEN, b"", 1)
+    if (
+        b"{{" in template_without_narrative
+        or b"}}" in template_without_narrative
+        or b"[[" in template
+        or b"]]" in template
+    ):
         raise ValueError("prompt_template_invalid")
     # source-annotation fields must not leak into a style-owned prompt: statement
     # provenance stays in the review layer only, never in the generated prompt.
-    if b"source=" in narrative or b"[claim=" in narrative:
+    if SOURCE_ANNOTATION_RE.search(narrative):
         raise ValueError("prompt_preflight_invalid")
     body = normalize_lf(template.replace(STYLE_NARRATIVE_TOKEN, narrative))
     if not body.endswith(b"\n"):
         body += b"\n"
-    if b"[[STYLE_BASELINE]]" in body or b"[[CANONICAL_NARRATIVE_BULLETS]]" in body or b"{{NARRATIVE}}" in body:
+    if (
+        DYNAMIC_TEMPLATE_MARKER_RE.search(body)
+        or CANONICAL_REPLACEMENT_MARKER_RE.search(body)
+        or b"{{" in body
+        or b"}}" in body
+        or b"[[" in body
+        or b"]]" in body
+        or SOURCE_ANNOTATION_RE.search(body)
+    ):
         raise ValueError("prompt_preflight_invalid")
     return body
-
-
-def validate_compiled_prompt_body(body: bytes) -> None:
-    """Compatibility alias: the two-marker canonical validation is gone. Delegates to
-    the style-owned single-injection validator."""
-    validate_style_compiled_body(body)
 
 
 def validate_style_compiled_body(body: bytes) -> None:
@@ -673,19 +1109,22 @@ def validate_style_compiled_body(body: bytes) -> None:
     normalized = normalize_lf(body)
     if normalized != body:
         raise ValueError("prompt_preflight_invalid")
+    try:
+        _validate_required_prompt_structure(body)
+    except ValueError as exc:
+        raise ValueError("prompt_preflight_invalid") from exc
     if not body.startswith(b"# Role") or not body.endswith(b"\n"):
         raise ValueError("prompt_preflight_invalid")
-    for forbidden in (
-        b"[[STYLE_BASELINE]]",
-        b"[[CANONICAL_NARRATIVE_BULLETS]]",
-        b"{{NARRATIVE}}",
-        b"source=",
-        b"[claim=",
-        b"data-source-id",
-        b"SRC-",
+    if (
+        DYNAMIC_TEMPLATE_MARKER_RE.search(body)
+        or CANONICAL_REPLACEMENT_MARKER_RE.search(body)
+        or b"{{" in body
+        or b"}}" in body
+        or b"[[" in body
+        or b"]]" in body
+        or SOURCE_ANNOTATION_RE.search(body)
     ):
-        if forbidden in body:
-            raise ValueError("prompt_preflight_invalid")
+        raise ValueError("prompt_preflight_invalid")
 
 
 def sha256_id(data: bytes) -> str:
@@ -752,8 +1191,8 @@ def _revision_edge_sort_key(edge: str) -> tuple[int, str]:
 
 def project_active_visual_revisions(payload: dict) -> tuple[list[str], bytes]:
     """Return sorted provenance IDs and canonical projected JSON ending in one LF."""
-    brief = payload.get("brief") or {}
-    applied_ids = brief.get("applied_visual_revision_ids")
+    storyboard = payload.get("storyboard") or {}
+    applied_ids = storyboard.get("applied_visual_revision_ids")
     if not isinstance(applied_ids, list) or any(not isinstance(revision_id, str) for revision_id in applied_ids):
         _projection_conflict()
     if len(applied_ids) != len(set(applied_ids)):
@@ -767,7 +1206,7 @@ def project_active_visual_revisions(payload: dict) -> tuple[list[str], bytes]:
     if not isinstance(history, dict):
         _projection_conflict()
 
-    mirrors = brief.get("applied_visual_revision_mirrors", {})
+    mirrors = storyboard.get("applied_visual_revision_mirrors", {})
     if mirrors and (not isinstance(mirrors, dict) or set(mirrors) != set(sorted_ids)):
         _projection_conflict()
 
@@ -1001,13 +1440,18 @@ def _path_parts(value):
 def _is_path_unsafe(value):
     if not isinstance(value, str) or not value:
         return True
+    if any(ord(character) < 32 or ord(character) == 127 for character in value):
+        return True
     if value.startswith(("/", chr(92))):
         return True
     if len(value) >= 2 and value[1] == ":" and value[0].isalpha():
         return True
-    if "://" in value:
+    if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", value):
         return True
-    return any(part in ("", ".", "..") for part in _path_parts(value))
+    return any(
+        part in ("", ".", "..") or ":" in part
+        for part in _path_parts(value)
+    )
 
 
 def _is_semver(value):
@@ -1066,7 +1510,19 @@ def _resolve_registry_missing(case):
     selected = case.get("selected_style_id")
     if selected not in FALLBACK_IDENTITIES:
         return _failure("registry_missing")
-    return _resolved_style(case, f"assets/styles/{FALLBACK_IDENTITIES[selected]['entrypoint']}")
+    if case.get("resolution_purpose") != "identity_recovery":
+        return _failure("registry_missing")
+    result = _resolved_style(
+        case, f"assets/styles/{FALLBACK_IDENTITIES[selected]['entrypoint']}"
+    )
+    if result["ok"]:
+        result.update(
+            {
+                "resolution_scope": "identity_recovery",
+                "runtime_authority": False,
+            }
+        )
+    return result
 
 
 def resolve_style_case(case: dict) -> dict:
@@ -1176,7 +1632,7 @@ def resolve_style_case(case: dict) -> dict:
         if field == "tokens":
             if asset.get("json", "valid") != "valid":
                 return _failure("style_asset_malformed")
-            if asset.get("schema_version", 1) not in (1, 2):
+            if asset.get("schema_version") != 2:
                 return _failure("style_asset_schema_unsupported")
 
     return _resolved_style(case, f"assets/styles/{entrypoint}")
@@ -1198,19 +1654,63 @@ class RedesignPromptContractTests(unittest.TestCase):
         self.generation_prompt_template = skill_root() / "references" / "generation-prompt-template.md"
         self.generation_prompt_grammar = skill_root() / "references" / "generation-prompt-byte-grammar.md"
 
+    def _write_synthetic_runtime_style_tree(self, root: Path) -> dict:
+        style_extract_scripts = (
+            repo_root() / "skills" / "ppt-style-extract" / "scripts"
+        )
+        if str(style_extract_scripts) not in sys.path:
+            sys.path.insert(0, str(style_extract_scripts))
+        from _style_extract.builder import compose_style_pack
+
+        authored = compose_style_pack(
+            "synthetic", "Synthetic", "1.0.0", {}, None
+        )
+        temporary_skill_root = root / "skills" / "ppt-start"
+        pack_root = temporary_skill_root / "assets" / "styles" / "synthetic"
+        pack_root.mkdir(parents=True)
+        registry = {
+            "schema_version": 1,
+            "styles": [
+                {
+                    "id": "synthetic",
+                    "display_name": "Synthetic",
+                    "kind": "style_pack",
+                    "entrypoint": "synthetic/manifest.json",
+                }
+            ],
+        }
+        (temporary_skill_root / "assets" / "styles" / "registry.json").write_text(
+            json.dumps(registry), encoding="utf-8"
+        )
+        (pack_root / "manifest.json").write_text(
+            json.dumps(authored["manifest"]), encoding="utf-8"
+        )
+        (pack_root / "tokens.json").write_text(
+            json.dumps(authored["tokens"], ensure_ascii=False), encoding="utf-8"
+        )
+        (pack_root / "STYLE.md").write_text(authored["STYLE.md"], encoding="utf-8")
+        (pack_root / "prompt.md").write_text(authored["prompt"], encoding="utf-8")
+        return {
+            "authored": authored,
+            "skill_root": temporary_skill_root,
+            "pack_root": pack_root,
+        }
+
 
 
     def test_style_owned_prompt_template_compiles_and_carries_no_source(self):
         template_path = skill_root() / "assets" / "styles" / "jiawei-product" / "prompt.md"
         template_bytes = normalize_lf(template_path.read_bytes())
         narrative = (
+            "- block_id: S01-B1\n"
             "- **金字塔原理**: 核心主标题：嘉为自动化运维平台 · 产品能力全景；分论点：底座能力、AI 提效、专项交付、决策诉求。\n"
             "- **精确表达**: 保留显示文案、事实、数字、单位、限定词，来源映射只留在审查层。\n"
             "- **层级执行**: 核心信息放大展示；支撑信息缩小放置。\n"
         ).encode("utf-8")
         body = compile_style_prompt(narrative, template_bytes)
-        self.assertIn("# Role:产品经理& SVG 可视化编码专家".encode("utf-8"), body)
-        self.assertIn("### 步骤 2: 匹配 Bento Grid".encode("utf-8"), body)
+        self.assertIn("# Role: 高级信息架构师 & SVG 可视化编码专家".encode("utf-8"), body)
+        self.assertIn("### 步骤 2: 应用风格基线并设计视觉表达".encode("utf-8"), body)
+        self.assertIn(b"layout_family=\"asymmetric_modular\"", body)
         self.assertNotIn(b"{{NARRATIVE}}", body)
         self.assertNotIn(b"[[STYLE_BASELINE]]", body)
         self.assertNotIn(b"[[CANONICAL_NARRATIVE_BULLETS]]", body)
@@ -1223,14 +1723,451 @@ class RedesignPromptContractTests(unittest.TestCase):
         valid = normalize_lf(template_path.read_bytes())
         from_zero = valid.replace(STYLE_NARRATIVE_TOKEN, b"")
         with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
-            compile_style_prompt(b"- sample\n", from_zero)
+            compile_style_prompt(narrative_with_block(), from_zero)
+
+    def test_style_owned_template_rejects_noncanonical_dynamic_marker_shapes(self):
+        template_path = skill_root() / "assets" / "styles" / "jiawei-product" / "prompt.md"
+        valid = normalize_lf(template_path.read_bytes())
+        invalid_templates = (
+            valid.replace(STYLE_NARRATIVE_TOKEN, b"prefix {{NARRATIVE}}"),
+            valid.replace(STYLE_NARRATIVE_TOKEN, b"  {{NARRATIVE}}"),
+            valid.replace(STYLE_NARRATIVE_TOKEN, b"{{NARRATIVE}}\n{{LAYOUT}}"),
+            valid.replace(
+                STYLE_NARRATIVE_TOKEN,
+                b"{{NARRATIVE}}\n[[EFFECTIVE_PAGE_SPECIFICATION]]",
+            ),
+            valid.replace(STYLE_NARRATIVE_TOKEN, b"{{NARRATIVE}}\n[[UNRESOLVED_LAYOUT]]"),
+            valid.replace(STYLE_NARRATIVE_TOKEN, b"{{NARRATIVE}}\n{{UNRESOLVED_LAYOUT"),
+            valid.replace(STYLE_NARRATIVE_TOKEN, b"{{NARRATIVE}}\nUNRESOLVED_LAYOUT}}"),
+            valid.replace(STYLE_NARRATIVE_TOKEN, b"{{NARRATIVE}}\n[[UNRESOLVED_LAYOUT"),
+            valid.replace(STYLE_NARRATIVE_TOKEN, b"{{NARRATIVE}}\nUNRESOLVED_LAYOUT]]"),
+        )
+        for template in invalid_templates:
+            with self.subTest(template=template[-120:]):
+                with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
+                    compile_style_prompt(narrative_with_block(), template)
+
+    def test_style_template_heading_and_line_boundaries_are_strict(self):
+        template_path = skill_root() / "assets" / "styles" / "jiawei-product" / "prompt.md"
+        valid = normalize_lf(template_path.read_bytes())
+        step_1 = "### 步骤 1".encode("utf-8")
+        step_2 = "### 步骤 2".encode("utf-8")
+        invalid_templates = (
+            b"PREAMBLE\n" + valid,
+            b"\n" + valid,
+            valid.replace(step_2, b"### omitted", 1),
+            valid.replace(b"\n" + step_2, b" " + step_2, 1),
+            valid.replace(step_1, b"### __STEP__", 1)
+            .replace(step_2, step_1, 1)
+            .replace(b"### __STEP__", step_2, 1),
+        )
+        for template in invalid_templates:
+            with self.subTest(template=template[:80]):
+                with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
+                    compile_style_prompt(narrative_with_block(), template)
+
+        for separator in NON_LF_LINE_SEPARATORS:
+            malformed = valid.replace(
+                b"\n" + STYLE_NARRATIVE_TOKEN + b"\n",
+                separator + STYLE_NARRATIVE_TOKEN + separator,
+                1,
+            )
+            with self.subTest(template_separator=separator):
+                with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
+                    compile_style_prompt(narrative_with_block(), malformed)
+            with self.subTest(narrative_separator=separator):
+                with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
+                    compile_style_prompt(
+                        narrative_with_block(b"- sample" + separator + b"detail\n"),
+                        valid,
+                    )
+
+        for newline in (b"\r\n", b"\r"):
+            with self.subTest(accepted_newline=newline):
+                compile_style_prompt(
+                    narrative_with_block(b"- sample" + newline),
+                    valid.replace(b"\n", newline),
+                )
+
+        fullwidth_colon = valid.replace(
+            step_1 + b":",
+            step_1 + "：".encode("utf-8"),
+            1,
+        )
+        with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
+            compile_style_prompt(narrative_with_block(), fullwidth_colon)
+
+    def test_compiled_body_rejects_every_residual_dynamic_marker(self):
+        template_path = skill_root() / "assets" / "styles" / "jiawei-product" / "prompt.md"
+        valid = compile_style_prompt(
+            narrative_with_block(), normalize_lf(template_path.read_bytes())
+        )
+        for marker in (
+            b"{{LAYOUT}}",
+            b"[[EFFECTIVE_PAGE_SPECIFICATION]]",
+            b"[[UNRESOLVED_LAYOUT]]",
+            b"{{UNRESOLVED_LAYOUT",
+            b"UNRESOLVED_LAYOUT}}",
+            b"[[UNRESOLVED_LAYOUT",
+            b"UNRESOLVED_LAYOUT]]",
+        ):
+            body = valid.replace(b"# Role", b"# Role\n" + marker, 1)
+            with self.subTest(marker=marker):
+                with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
+                    validate_style_compiled_body(body)
+
+    def test_style_owned_template_resolution_is_strict_end_to_end(self):
+        narrative = narrative_with_block(b"- synthetic narrative\n")
+        style_extract_scripts = (
+            repo_root() / "skills" / "ppt-style-extract" / "scripts"
+        )
+        if str(style_extract_scripts) not in sys.path:
+            sys.path.insert(0, str(style_extract_scripts))
+        from _style_extract.builder import compose_style_pack
+        from _style_extract.verify import verify_style_pack
+
+        authored = compose_style_pack(
+            "synthetic", "Synthetic", "1.0.0", {}, None
+        )
+        manifest = authored["manifest"]
+        valid_template = authored["prompt"].encode("utf-8")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            temporary_skill_root = root / "skills" / "ppt-start"
+            pack_root = temporary_skill_root / "assets" / "styles" / "synthetic"
+            template_path = pack_root / "prompt.md"
+            pack_root.mkdir(parents=True)
+            registry = {
+                "schema_version": 1,
+                "styles": [
+                    {
+                        "id": "synthetic",
+                        "display_name": "Synthetic",
+                        "kind": "style_pack",
+                        "entrypoint": "synthetic/manifest.json",
+                    }
+                ],
+            }
+            (temporary_skill_root / "assets" / "styles" / "registry.json").write_text(
+                json.dumps(registry), encoding="utf-8"
+            )
+            (pack_root / "manifest.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+            (pack_root / "tokens.json").write_bytes(
+                (json.dumps(authored["tokens"], ensure_ascii=False, indent=2) + "\n").encode(
+                    "utf-8"
+                )
+            )
+            (pack_root / "STYLE.md").write_text(
+                authored["STYLE.md"], encoding="utf-8"
+            )
+            template_path.write_bytes(valid_template)
+
+            verify_style_pack(pack_root)
+
+            with (
+                mock.patch(f"{__name__}.repo_root", return_value=root),
+                mock.patch(f"{__name__}.skill_root", return_value=temporary_skill_root),
+            ):
+                resolved_path = style_template_path("synthetic")
+                template_bytes = _style_template_bytes("synthetic")
+                body = compile_style_prompt(narrative, template_bytes)
+                self.assertEqual(resolved_path, "assets/styles/synthetic/prompt.md")
+                self.assertEqual(template_bytes, normalize_lf(valid_template))
+                self.assertIn(narrative.rstrip(b"\n"), body)
+                self.assertNotIn(STYLE_NARRATIVE_TOKEN, body)
+
+                template_path.write_bytes(
+                    valid_template.replace(STYLE_NARRATIVE_TOKEN, b"prefix {{NARRATIVE}}")
+                )
+                with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
+                    _style_template_bytes("synthetic")
+
+                template_path.write_bytes(valid_template)
+                template_path.unlink()
+                with self.assertRaisesRegex(ValueError, "^prompt_file_missing$"):
+                    _style_template_bytes("synthetic")
+
+                template_path.mkdir()
+                with self.assertRaisesRegex(ValueError, "^prompt_target_invalid$"):
+                    _style_template_bytes("synthetic")
+                template_path.rmdir()
+
+                template_path.write_bytes(b"\xff\xfe\xfa")
+                with self.assertRaisesRegex(ValueError, "^prompt_unreadable$"):
+                    _style_template_bytes("synthetic")
+                template_path.write_bytes(valid_template)
+
+                original_os_open = os.open
+
+                def deny_prompt_open(path, *args, **kwargs):
+                    if Path(path).name == "prompt.md":
+                        raise PermissionError
+                    return original_os_open(path, *args, **kwargs)
+
+                with mock.patch(
+                    f"{__name__}.os.open", side_effect=deny_prompt_open
+                ):
+                    with self.assertRaisesRegex(ValueError, "^prompt_unreadable$"):
+                        _style_template_bytes("synthetic")
+
+                with mock.patch(
+                    f"{__name__}._path_has_reparse",
+                    side_effect=lambda path: path.name == "prompt.md",
+                ):
+                    with self.assertRaisesRegex(ValueError, "^prompt_path_unsafe$"):
+                        _style_template_bytes("synthetic")
+
+                with mock.patch(
+                    f"{__name__}._path_has_reparse",
+                    side_effect=lambda path: path.name == "synthetic",
+                ):
+                    with self.assertRaisesRegex(ValueError, "^entrypoint_path_unsafe$"):
+                        style_template_path("synthetic")
+
+                invalid_manifest_contracts = (
+                    ("schema_version", 999, "manifest_schema_unsupported"),
+                    ("version", "01.0.0", "manifest_version_invalid"),
+                    ("compatibility", {"office_safe_svg": False}, "manifest_schema_unsupported"),
+                )
+                for key, value, reason in invalid_manifest_contracts:
+                    invalid_manifest = copy.deepcopy(manifest)
+                    invalid_manifest[key] = value
+                    (pack_root / "manifest.json").write_text(
+                        json.dumps(invalid_manifest), encoding="utf-8"
+                    )
+                    with self.subTest(invalid_manifest_key=key):
+                        with self.assertRaisesRegex(ValueError, f"^{reason}$"):
+                            style_template_path("synthetic")
+
+                (pack_root / "manifest.json").write_text(
+                    json.dumps(manifest), encoding="utf-8"
+                )
+
+                registry_path = temporary_skill_root / "assets" / "styles" / "registry.json"
+                for raw_registry, reason in (
+                    (b"{", "registry_malformed"),
+                    (b"null", "registry_malformed"),
+                    (b"\xff", "registry_unreadable"),
+                ):
+                    registry_path.write_bytes(raw_registry)
+                    with self.subTest(registry_reason=reason):
+                        with self.assertRaisesRegex(ValueError, f"^{reason}$"):
+                            style_template_path("synthetic")
+                registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+                manifest_path = pack_root / "manifest.json"
+                for raw_manifest, reason in (
+                    (b"{", "manifest_malformed"),
+                    (b"null", "manifest_malformed"),
+                    (b"\xff", "entrypoint_unreadable"),
+                ):
+                    manifest_path.write_bytes(raw_manifest)
+                    with self.subTest(manifest_reason=reason):
+                        with self.assertRaisesRegex(ValueError, f"^{reason}$"):
+                            style_template_path("synthetic")
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+                tokens_path = pack_root / "tokens.json"
+                original_tokens = tokens_path.read_bytes()
+                for raw_tokens, reason in (
+                    (b"{", "style_asset_malformed"),
+                    (b"null", "style_asset_malformed"),
+                    (b"\xff", "style_asset_unreadable"),
+                    (
+                        json.dumps({**authored["tokens"], "schema_version": 3}).encode(
+                            "utf-8"
+                        ),
+                        "style_asset_schema_unsupported",
+                    ),
+                ):
+                    tokens_path.write_bytes(raw_tokens)
+                    with self.subTest(tokens_reason=reason):
+                        with self.assertRaisesRegex(ValueError, f"^{reason}$"):
+                            _style_template_bytes("synthetic")
+                tokens_path.write_bytes(original_tokens)
+
+                template_path.unlink()
+                tokens_path.unlink()
+                with self.assertRaisesRegex(ValueError, "^style_asset_target_invalid$"):
+                    _style_template_bytes("synthetic")
+                tokens_path.write_bytes(original_tokens)
+                template_path.write_bytes(valid_template)
+
+                for declared_invalid in (
+                    None,
+                    "",
+                    "../prompt.md",
+                    "nested/prompt.md",
+                    "file:prompt.md",
+                    "mailto:owner@example.com",
+                    "https:relative",
+                    "prompt.md:ads",
+                    "prompt\x00.md",
+                ):
+                    invalid_manifest = copy.deepcopy(manifest)
+                    invalid_manifest["files"]["prompt_template"] = declared_invalid
+                    (pack_root / "manifest.json").write_text(
+                        json.dumps(invalid_manifest), encoding="utf-8"
+                    )
+                    with self.subTest(declared_invalid=declared_invalid):
+                        with self.assertRaisesRegex(ValueError, "^prompt_path_unsafe$"):
+                            style_template_path("synthetic")
+
+                missing_field_manifest = copy.deepcopy(manifest)
+                del missing_field_manifest["files"]["prompt_template"]
+                (pack_root / "manifest.json").write_text(
+                    json.dumps(missing_field_manifest), encoding="utf-8"
+                )
+                with self.assertRaisesRegex(ValueError, "^style_asset_field_missing$"):
+                    style_template_path("synthetic")
+                with self.assertRaisesRegex(Exception, "^manifest_files_invalid$"):
+                    verify_style_pack(pack_root)
+
+                with self.assertRaisesRegex(ValueError, "^style_not_registered$"):
+                    style_template_path("../synthetic")
+
+    def test_on_disk_style_resolver_never_uses_following_path_predicates(self):
+        trusted_skill_root = skill_root()
+        forbidden = AssertionError("runtime resolver called a following path API")
+        with (
+            mock.patch(f"{__name__}.skill_root", return_value=trusted_skill_root),
+            mock.patch.object(Path, "resolve", side_effect=forbidden),
+            mock.patch.object(Path, "is_file", side_effect=forbidden),
+            mock.patch.object(Path, "stat", side_effect=forbidden),
+            mock.patch.object(Path, "is_symlink", side_effect=forbidden),
+        ):
+            self.assertEqual(
+                style_template_path(CANONICAL_STYLE_ID),
+                f"assets/styles/{CANONICAL_STYLE_ID}/prompt.md",
+            )
+
+    def test_on_disk_manifest_failures_precede_files_and_assets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self._write_synthetic_runtime_style_tree(Path(directory))
+            manifest_path = tree["pack_root"] / "manifest.json"
+            valid_manifest = tree["authored"]["manifest"]
+            cases = (
+                (
+                    {
+                        "schema_version": 999,
+                        "id": "wrong-style",
+                        "version": "v1",
+                        "files": {},
+                    },
+                    "manifest_schema_unsupported",
+                ),
+                (
+                    {"id": "wrong-style", "version": "v1", "files": {}},
+                    "manifest_identity_mismatch",
+                ),
+                (
+                    {"version": "v1", "files": {}},
+                    "manifest_version_invalid",
+                ),
+            )
+            with mock.patch(
+                f"{__name__}.skill_root", return_value=tree["skill_root"]
+            ):
+                for mutations, expected_reason in cases:
+                    invalid_manifest = copy.deepcopy(valid_manifest)
+                    invalid_manifest.update(mutations)
+                    manifest_path.write_text(
+                        json.dumps(invalid_manifest), encoding="utf-8"
+                    )
+                    with self.subTest(expected_reason=expected_reason):
+                        with self.assertRaisesRegex(
+                            ValueError, f"^{expected_reason}$"
+                        ):
+                            style_template_path("synthetic")
+
+    def test_on_disk_style_resolver_stops_before_later_asset_reads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self._write_synthetic_runtime_style_tree(Path(directory))
+            original_reader = _read_regular_asset
+            observed_reads = []
+
+            def recording_reader(path, **reasons):
+                observed_reads.append(path.name)
+                return original_reader(path, **reasons)
+
+            with (
+                mock.patch(f"{__name__}.skill_root", return_value=tree["skill_root"]),
+                mock.patch(
+                    f"{__name__}._read_regular_asset",
+                    side_effect=recording_reader,
+                ),
+            ):
+                _style_template_bytes("synthetic")
+                self.assertEqual(
+                    observed_reads,
+                    ["registry.json", "manifest.json", "tokens.json", "STYLE.md", "prompt.md"],
+                )
+
+                observed_reads.clear()
+                invalid_manifest = copy.deepcopy(tree["authored"]["manifest"])
+                invalid_manifest["id"] = "wrong-style"
+                (tree["pack_root"] / "manifest.json").write_text(
+                    json.dumps(invalid_manifest), encoding="utf-8"
+                )
+                (tree["pack_root"] / "tokens.json").unlink()
+                with self.assertRaisesRegex(ValueError, "^manifest_identity_mismatch$"):
+                    _style_template_bytes("synthetic")
+                self.assertEqual(observed_reads, ["registry.json", "manifest.json"])
+
+    def test_on_disk_style_resolver_rejects_pack_and_manifest_reparse_before_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self._write_synthetic_runtime_style_tree(Path(directory))
+            original_reader = _read_regular_asset
+            for unsafe_name in ("synthetic", "manifest.json"):
+                observed_reads = []
+
+                def recording_reader(path, **reasons):
+                    observed_reads.append(path.name)
+                    return original_reader(path, **reasons)
+
+                with (
+                    self.subTest(unsafe_name=unsafe_name),
+                    mock.patch(
+                        f"{__name__}.skill_root", return_value=tree["skill_root"]
+                    ),
+                    mock.patch(
+                        f"{__name__}._path_has_reparse",
+                        side_effect=lambda path: path.name == unsafe_name,
+                    ),
+                    mock.patch(
+                        f"{__name__}._read_regular_asset",
+                        side_effect=recording_reader,
+                    ),
+                ):
+                    with self.assertRaisesRegex(ValueError, "^entrypoint_path_unsafe$"):
+                        style_template_path("synthetic")
+                    self.assertEqual(observed_reads, ["registry.json"])
 
     def test_style_owned_template_rejects_narrative_with_source_annotation(self):
         template_path = skill_root() / "assets" / "styles" / "jiawei-product" / "prompt.md"
         valid = normalize_lf(template_path.read_bytes())
-        with_source = '- 块 P1（core，1）：底座能力   [claim=B1 source=["SRC-002"]]\n'.encode("utf-8")
-        with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
-            compile_style_prompt(with_source, valid)
+        source_annotations = (
+            '- 块 P1：[claim=B1 source=["SRC-002"]]\n'.encode("utf-8"),
+            b'- Block P1: [CLAIM = B1 SOURCE = ["src-002"]]\n',
+            b'- Block P1: data-SOURCE-id="SRC-002"\n',
+            b'- Block P1: SRC-002\n',
+        )
+        for with_source in source_annotations:
+            with self.subTest(with_source=with_source):
+                with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
+                    compile_style_prompt(with_source, valid)
+
+        polluted_template = valid.replace(
+            STYLE_NARRATIVE_TOKEN,
+            STYLE_NARRATIVE_TOKEN + b'\ndata-SOURCE-id="SRC-002"',
+        )
+        with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
+            compile_style_prompt(
+                narrative_with_block(b"- clean narrative\n"), polluted_template
+            )
 
 
 
@@ -1300,7 +2237,9 @@ class RedesignPromptContractTests(unittest.TestCase):
             "- hierarchy: core/support\n",
         ):
             with self.subTest(display_copy=display_copy):
-                compiled = compile_style_prompt(display_copy.encode("utf-8"), template)
+                compiled = compile_style_prompt(
+                    narrative_with_block(display_copy.encode("utf-8")), template
+                )
                 self.assertIn(display_copy.encode("utf-8"), compiled)
 
         for absolute_path in (
@@ -1320,13 +2259,11 @@ class RedesignPromptContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
                     compile_style_prompt((absolute_path + "\n").encode("utf-8"), template)
 
-    def test_preflight_rejects_setext_headings_in_either_replacement(self):
+    def test_preflight_rejects_setext_headings_in_narrative_replacement(self):
         template = _canonical_template_bytes()
         invalid_values = (
             b"Injected narrative heading\n===\n",
             b"Injected narrative heading\n---\n",
-            b"Injected specification heading\n===\n",
-            b"Injected specification heading\n---\n",
         )
         for value in invalid_values:
             with self.subTest(value=value):
@@ -1406,7 +2343,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             "不得重新选择叙事逻辑",
             "提纯",
             "改写",
-            "补充",
+            "展开",
             "限定词",
             "来源",
             "风格基线",
@@ -1496,7 +2433,25 @@ class RedesignPromptContractTests(unittest.TestCase):
         style_id = payload["snapshot_inputs"]["selected_style_id"]
         template_bytes = _style_template_bytes(style_id)
         narrative_bullets = normalize_lf(payload["narrative_bullets"].encode("utf-8"))
-        body = compile_style_prompt(narrative_bullets, template_bytes)
+        expected_values = payload.get("expected_block_ids")
+        if not isinstance(expected_values, list) or not all(
+            isinstance(value, str) for value in expected_values
+        ):
+            raise ValueError("storyboard_fact_mismatch")
+        try:
+            expected_block_ids = tuple(value.encode("ascii") for value in expected_values)
+        except UnicodeEncodeError as exc:
+            raise ValueError("storyboard_fact_mismatch") from exc
+        slide_prefix = f"{payload['slide_id']}-B".encode("ascii")
+        if not expected_block_ids or not all(
+            block_id.startswith(slide_prefix) for block_id in expected_block_ids
+        ):
+            raise ValueError("storyboard_fact_mismatch")
+        body = compile_style_prompt(
+            narrative_bullets,
+            template_bytes,
+            expected_block_ids=expected_block_ids,
+        )
         template_snapshot_id = sha256_id(template_bytes)
         compiled_prompt_sha256 = sha256_id(body)
         canonical_payload = copy.deepcopy(payload["snapshot_inputs"])
@@ -1549,6 +2504,34 @@ class RedesignPromptContractTests(unittest.TestCase):
             self.assertNotIn(payload["raw_answer_sentinel"], surface)
             self.assertNotIn(raw_history_json, surface)
             self.assertNotIn("USER_WORDING", surface)
+
+    def test_generation_prompt_fixture_binds_exact_frozen_storyboard_block_order(self):
+        payload = self._load_generation_prompt_snapshot_payload()
+        rendered = self._render_generation_prompt_fixture(payload)
+        self.assertIn(b"- block_id: S05-B1", rendered["body"])
+
+        mutations = []
+        wrong_slide = copy.deepcopy(payload)
+        wrong_slide["narrative_bullets"] = wrong_slide["narrative_bullets"].replace(
+            "S05-B1", "S99-B1"
+        )
+        mutations.append(wrong_slide)
+        missing_expected = copy.deepcopy(payload)
+        missing_expected["expected_block_ids"] = []
+        mutations.append(missing_expected)
+        wrong_expected = copy.deepcopy(payload)
+        wrong_expected["expected_block_ids"] = ["S05-B2"]
+        mutations.append(wrong_expected)
+        reordered = copy.deepcopy(payload)
+        reordered["expected_block_ids"] = ["S05-B2", "S05-B1"]
+        reordered["narrative_bullets"] = (
+            "- block_id: S05-B1\n- first\n- block_id: S05-B2\n- second"
+        )
+        mutations.append(reordered)
+        for mutation in mutations:
+            with self.subTest(expected=mutation.get("expected_block_ids")):
+                with self.assertRaisesRegex(ValueError, "^storyboard_fact_mismatch$"):
+                    self._render_generation_prompt_fixture(mutation)
 
     def test_compiled_prompt_separator_is_exactly_two_lf(self):
         payload = self._load_generation_prompt_snapshot_payload()
@@ -1673,9 +2656,8 @@ class RedesignPromptContractTests(unittest.TestCase):
                 else:
                     self.assertEqual(changed["compiled_prompt_sha256"], baseline["compiled_prompt_sha256"])
 
-    def test_template_snapshot_mutation_invalidates_prompt_and_transaction(self):
+    def test_unbound_template_snapshot_mutation_is_rejected_before_transaction(self):
         payload = self._load_generation_prompt_snapshot_payload()
-        baseline = self._render_generation_prompt_fixture(payload)
         style_id = payload["snapshot_inputs"]["selected_style_id"]
         mutated_template = _style_template_bytes(style_id).replace(
             b"# Role:", b"# Role: changed ", 1
@@ -1685,14 +2667,8 @@ class RedesignPromptContractTests(unittest.TestCase):
             "_style_template_bytes",
             return_value=mutated_template,
         ):
-            changed = self._render_generation_prompt_fixture(copy.deepcopy(payload))
-        self.assertNotEqual(
-            changed["generation_prompt_template_snapshot_id"],
-            baseline["generation_prompt_template_snapshot_id"],
-        )
-        self.assertNotEqual(changed["compiled_prompt_sha256"], baseline["compiled_prompt_sha256"])
-        self.assertNotEqual(changed["prompt_snapshot_id"], baseline["prompt_snapshot_id"])
-        self.assertNotEqual(changed["transaction_id"], baseline["transaction_id"])
+            with self.assertRaisesRegex(ValueError, "^prompt_template_invalid$"):
+                self._render_generation_prompt_fixture(copy.deepcopy(payload))
 
     def test_active_revision_projection_rejects_unsorted_source_ids(self):
         payload = self._load_active_revision_projection_payload()
@@ -1835,7 +2811,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             "compile_full_prompt: false",
             "ordinary stale",
             "prompt_snapshot_conflict",
-            "fallback identity table",
+            "identity-recovery table",
             "legacy_seed",
             "missing fields",
             "旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert",
@@ -1978,7 +2954,7 @@ class RedesignPromptContractTests(unittest.TestCase):
                 self.assertIn(token, visual)
 
         for token in (
-            "fallback identity table",
+            "identity-recovery table",
             "selected_style_id",
             "selected_style_display_name",
             "style_kind",
@@ -1994,7 +2970,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             "旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert",
             "所有新生成统一写入 `.ppt-pilot/generation-prompts/`",
             "`.ppt-pilot/generation-prompts/<slide-id>.md`",
-            "repository bytes 唯一派生",
+            "所选风格必须声明的完整 `files.prompt_template`",
             "prompt_snapshot_conflict",
             "Transaction 创建前的无副作用 preflight",
             "确定性 preflight 或 capability 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入",
@@ -2018,6 +2994,36 @@ class RedesignPromptContractTests(unittest.TestCase):
         skill = read_text(self.skill)
         self.assertIn("redesign-prompt.md", skill)
         self.assertLess(skill.index("redesign-prompt.md"), skill.index("SVG 契约"))
+
+    def test_narrative_requires_unique_storyboard_block_ids_in_order(self):
+        template = _canonical_template_bytes()
+        invalid = (
+            b"- narrative without a block id\n",
+            narrative_with_block() + b"- block_id: S01-B1\n",
+            narrative_with_block() + b"- block_id: S02-B2\n",
+            b"- block_id: malformed\n- narrative\n",
+        )
+        for narrative in invalid:
+            with self.subTest(narrative=narrative):
+                with self.assertRaisesRegex(ValueError, "^prompt_preflight_invalid$"):
+                    compile_style_prompt(narrative, template)
+
+        narrative = (
+            b"- block_id: S01-B1\n- first\n"
+            b"- block_id: S01-B2\n- second\n"
+        )
+        compiled = compile_style_prompt(
+            narrative,
+            template,
+            expected_block_ids=(b"S01-B1", b"S01-B2"),
+        )
+        self.assertIn(narrative.rstrip(b"\n"), compiled)
+        with self.assertRaisesRegex(ValueError, "^storyboard_fact_mismatch$"):
+            compile_style_prompt(
+                narrative,
+                template,
+                expected_block_ids=(b"S01-B2", b"S01-B1"),
+            )
 
     def test_explicit_redesign_triggers_are_observable(self):
         text = read_text(self.reference)
@@ -2222,6 +3228,43 @@ class RedesignPromptContractTests(unittest.TestCase):
         ):
             self.assertIn(token, combined)
 
+    def test_initial_brand_override_is_materialized_in_a_new_style_pack(self):
+        from _style_extract.builder import compose_style_pack
+
+        derived = compose_style_pack(
+            "minimal-business-brand-7a1fa2",
+            "极简商务·品牌 7A1FA2",
+            "1.0.0",
+            {
+                "colors": {
+                    "brand_primary": "#7A1FA2",
+                    "accent_palette": ["#7A1FA2", "#C98BE3"],
+                },
+                "typography": {
+                    "font_stack": ["Microsoft YaHei", "Arial", "sans-serif"]
+                },
+            },
+            None,
+        )
+        compiled = compile_style_prompt(
+            narrative_with_block(),
+            normalize_lf(derived["prompt"].encode("utf-8")),
+        ).decode("utf-8")
+        self.assertIn("#7A1FA2", compiled)
+        self.assertIn("Microsoft YaHei", compiled)
+
+        design = read_text(skill_root() / "references" / "design-system.md")
+        for token in (
+            "brand_override_requires_derived_style_pack",
+            "ppt-style-extract",
+            "新的 immutable style ID",
+            "registry pointer-last",
+            "theme.json.selected_style_id",
+            "首次生成前",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, design)
+
     def test_generation_prompt_is_required_visual_artifact(self):
         text = read_text(self.artifact)
         self.assertIn("- `generation-prompts/`", text)
@@ -2235,14 +3278,19 @@ class RedesignPromptContractTests(unittest.TestCase):
             "theme",
             "generation-prompts/S07.md",
             "recompose",
+            "style-owned",
+            "{{NARRATIVE}}",
             "path + A",
             "only fenced SVG",
+            "slides/.candidates/S07-<tx64>.svg",
+            "candidate_written",
+            "validated",
             "slides/S07.svg",
         ):
             self.assertIn(token, text)
         self.assertNotIn("visual-briefs/S07.md", text)
 
-    def test_active_style_contract_has_no_style_owned_prompt_authority(self):
+    def test_active_style_contract_uses_manifest_prompt_authority(self):
         combined = "\n".join(
             read_text(path)
             for path in (
@@ -2259,18 +3307,18 @@ class RedesignPromptContractTests(unittest.TestCase):
             "resolved_redesign_prompt_path",
             "style_prompt_snapshot_id",
             "prompt_field_missing",
-            "prompt_path_unsafe",
-            "prompt_file_missing",
-            "prompt_target_invalid",
-            "prompt_unreadable",
             "companion prompt",
             "STYLE_ID == selected_style_id",
             "PROMPT_SCHEMA_VERSION: 1",
         ):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, combined)
+        self.assertIn("files.prompt_template", combined)
+        self.assertIn("{{NARRATIVE}}", combined)
+        self.assertIn("prompt_path_unsafe", combined)
+        self.assertIn("prompt_template_invalid", combined)
         self.assertIn("generation-prompt-template.md", combined)
-        self.assertIn("身份、令牌与指导", combined)
+        self.assertIn("身份、令牌、指导与模板", combined)
 
     def test_shared_reference_is_resolver_only(self):
         text = read_text(self.reference)
@@ -2505,6 +3553,20 @@ class RedesignPromptContractTests(unittest.TestCase):
                 case["fallback_files"][style_id]["seed"].update(mutation)
                 with self.subTest(style_id=style_id, mutation=mutation):
                     self.assertEqual(resolve_style_case(case), _failure("registry_missing"))
+
+    def test_registry_missing_identity_recovery_never_authorizes_generation(self):
+        identity_case = copy.deepcopy(
+            self._resolution_case_by_id("fallback-missing-registry-valid-legacy-seeds")
+        )
+        identity_case["resolution_purpose"] = "identity_recovery"
+        identity_result = resolve_style_case(identity_case)
+        self.assertTrue(identity_result["ok"])
+        self.assertEqual(identity_result.get("resolution_scope"), "identity_recovery")
+        self.assertIs(identity_result.get("runtime_authority"), False)
+
+        generation_case = copy.deepcopy(identity_case)
+        generation_case["resolution_purpose"] = "generation"
+        self.assertEqual(resolve_style_case(generation_case), _failure("registry_missing"))
 
     def test_registry_duplicate_ids_and_display_names_are_rejected(self):
         for duplicate_field in ("id", "display_name"):

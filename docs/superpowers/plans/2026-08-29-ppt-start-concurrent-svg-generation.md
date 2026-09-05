@@ -1,5 +1,7 @@
 # PPT Start Concurrent SVG Generation Implementation Plan
 
+> **SUPERSEDED（历史记录）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`skills/ppt-start/references/artifact-contract.md` 与 `skills/ppt-start/references/workflow.md`。本文中的旧模板、marker、runtime fallback、来源注入、visual-brief 与恢复规则仅保留作审计历史，不得用于新运行。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 将 PPT Start 收敛为故事板 + theme 的 direct-compile 单一路径，并以 schema-v2 的每页 transaction、batch manifest 和宿主隔离任务能力实现默认四路并发 SVG 生成，同时保持字节级 Prompt、一致恢复、确定 promotion 与可解释 telemetry。

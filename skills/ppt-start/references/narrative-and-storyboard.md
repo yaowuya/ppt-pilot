@@ -127,7 +127,7 @@ Q 是否显式成页会改变核心叙事，属于故事板冲突，按"大纲�
 - `priority`：枚举严格为 `core|support`，不得使用近义值；
 - `reading_order`：从 1 开始、页面内唯一且连续的 positive integer；JSON 字符串、布尔值与小数都无效；
 - `claim_id`：non-empty stable string；只有不表达主张的导航文案可使用 literal `none`；
-- `source_ids`：ordered unique string list；当且仅当 `claim_id` 为 `none` 时使用 `[]`，否则至少包含一个直接来源 ID，不能含重复项；
+- `source_ids`：ordered unique list；每项必须精确匹配大写 ASCII `SRC-[0-9]+`，小写、混合大小写、非 ASCII 数字或其他前缀均非法；当且仅当 `claim_id` 为 `none` 时使用 `[]`，否则至少包含一个直接来源 ID，不能含重复项；
 - `qualifiers`：ordered qualifier objects；无限定时使用 `[]`。每个对象恰好包含 `display_text`、`confidence`、`scope`、`causality`；`display_text` 为页面可显示原文，`confidence` 枚举严格为 `high|medium|low|unverified`，`scope` 与 `causality` 是非空字符串，不适用时使用 literal `none`；
 - `metric`：无指标时为 literal `none`；有指标时为对象，恰好包含 `display_value`、`number_text`、`unit`、`period`、`comparator`、`baseline`。`display_value` 与 `number_text` 必须是非空原文字符串；其余可选标量不适用时使用 literal `none`；
 - 页面级 `forbidden_claims`：ordered string list；每项为非空字符串且保持批准顺序，无禁止主张时使用 `[]`。
@@ -154,7 +154,7 @@ special-page exception：cover／封面、section／章节和 single-assertion�
 - 保留 `研究.md` 中的限定条件；
 - 在受众需要时展示重要反方观点或风险；
 - 来源与主张不匹配时明确标记，不得悄然弱化引用；
-- 图表必须说明指标、期间、单位和来源 ID。
+- 图表故事板记录必须给出指标、期间、单位，并以机器 `source_ids` 映射证据；内部 ID 不得进入可见图表文字。
 
 没有来源 ID，就不能出现未加限定的重要事实主张。
 

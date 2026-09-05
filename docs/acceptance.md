@@ -2,7 +2,7 @@
 
 本文档给出标准 `skills/ppt-start/` 与 `skills/ppt-editable/` 在 Claude Code、OpenAI Codex 与 DeepSeek Harness 中的可重复验收矩阵。自动一致性测试验证书面契约，但不能代替真实宿主、浏览器、PowerPoint 或 FY26H1 集成证据。
 
-未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前活动架构是**故事板 + `theme.json` 直接编译**：唯一仓库 `generation-prompt-template.md` 只替换 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`，持久格式为 `creative-brief-v1`；新运行使用 schema-v2 per-slide transaction/batch manifest 与 `active_visual_generation_batch`，默认 width 4 isolated generation、per-slide validation 并发、coordinator ordered serial publication。Canway manifest 版本为 `1.3.0`。历史 style-owned prompts、visual briefs 与 singular v1 transaction 只作 inert migration evidence。
+未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前活动架构是**故事板 + `theme.json` 直接编译**：每个可选择 `style_pack` 都必须由 manifest `files.prompt_template` 声明并携带经过 tokens 精确绑定验证的 style-owned 完整模板；字段缺失立即 fail closed。运行时固定执行 manifest → tokens → guidance → prompt traversal；所有模板 hard prefix/suffix 字节相同，只有 Step 2 的七条 closed typed 风格指令由同包 tokens 确定性变化。仓库 `generation-prompt-template.md` 仅是建包 authoring seed，运行时不可执行。模板只有一个 whole-line `{{NARRATIVE}}` 注点，编译器只注入已批准、逐块带稳定 `block_id` 且不含来源注解的叙事／素材，持久格式为 `creative-brief-v1`。generator 仅可把每个 `block_id` 临时回显一次于规范 `data-block-id` 精确属性值；text／tail／其他属性泄漏以 `fact_source_mismatch` 零 candidate write 阻断。`tokens.json.prompt_baseline` 只作为闭合类型风格数据、QA 与 snapshot provenance，不是第二个正文注入域。早期 legacy `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃，新运行必须拒绝。新运行使用 schema-v2 per-slide transaction/batch manifest 与 `active_visual_generation_batch`，默认 width 4 isolated generation、per-slide validation 并发、coordinator ordered serial publication。Canway manifest 版本为 `1.3.0`。历史 visual briefs 与 singular v1 transaction 只作 inert migration evidence。
 
 ## 前置条件
 
@@ -35,14 +35,18 @@
 
 ## 快速视觉机制验证
 
-本次机制改造要求本地契约测试与 SVG 静态检查验证：故事板/theme direct projection、唯一 repository prompt template 的两个 replacement 和 byte-exact envelope、schema-v2 per-slide transaction/batch manifest、pointer-last、host capability、prompt-by-value isolation、并发 generation/validation、ordered publication，以及 Office-safe SVG。
+本次机制改造要求本地契约测试与 SVG 静态检查验证：故事板/theme direct projection、必需且无运行时 fallback 的 style-owned `files.prompt_template`、唯一 whole-line `{{NARRATIVE}}` 注入和 byte-exact envelope、schema-v2 per-slide transaction/batch manifest、pointer-last、host capability、prompt-by-value isolation、并发 generation/validation、ordered publication，以及 Office-safe SVG。
 
 本次不把未执行的 Claude Code／Codex 现场运行、完整生成页面浏览器视觉检查或 Microsoft PowerPoint 行描述成通过。历史验收台账保持原状态；WPS `wpp.exe` 不等同于 Microsoft `POWERPNT.EXE`，只能产生明确降级证据。
 
 静态验证还检查：
 
-- storyboard + `theme.json` 只投影 `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]`，format 精确为 `creative-brief-v1`；
+- storyboard + `theme.json` 只向解析模板的唯一 whole-line `{{NARRATIVE}}` 注点投影已批准叙事／素材，并拒绝来源注解；`tokens.json.prompt_baseline` 只参与风格数据、QA 与 snapshot provenance，format 精确为 `creative-brief-v1`；
+- style resolver 必须按 manifest → tokens → guidance → prompt 的 no-follow traversal 执行，前序资产失败不得触碰后序资产；每个 manifest 必须恰好声明 tokens、guidance、prompt 三个固定目标；
+- 每份 style-owned prompt 的 hard prefix/suffix 必须字节一致，只有 Step 2 七条 closed typed 行可随 tokens 改变，且整份 prompt 必须与同包 tokens 的确定性合成结果精确相等；
+- 每个 `block_id` 只能临时出现一次于规范 `<g data-block-id>` 精确属性值，禁止进入 text／tail／其他属性名值；任何泄漏以 `fact_source_mismatch` 在 candidate write/hash 前失败且 candidate writes 为 0；
 - deterministic preflight 与 fresh-isolation capability negotiation 在任何 prompt／transaction／candidate write 前完成；
+- active `visual_generation_blocker` 修复且 preflight 成功后，必须先原子移除 blocker、原样保留可能存在的 schema-v1 owner并重新进入全局顺序；不得跨过 v1 零模型迁移创建新 transaction；
 - transaction→manifest→`run.json.active_visual_generation_batch` pointer-last，manifest 不复制页面 state，cursor 不能授权；
 - native/remote isolated task 只收完整 `prompt_by_value`、fresh history、filesystem none、tools none；无 fresh isolation 零生产写入，缺 concurrency/lookup 降为 width 1，非 Git 不降级；
 - generator 与 per-slide validation 可重叠；coordinator 按 `ordered_slide_ids` 串行 promotion，并只发布最低 visible blocker；
@@ -69,7 +73,7 @@
 本轮验收必须按证据类别记录，不得互相冒充：
 
 - `static package`：本地测试和文件检查只证明包结构、书面契约和 fixture oracle，并验证 direct compile、单一活动 prompt template、schema-v2 per-slide transactions／batch manifest、host capability、ordered publication 与文档一致；测试中的 resolver／hash oracle 不是运行时代码，也不能证明宿主 Agent 会按这些规则执行。
-- `EVIDENCE_CLASS: DIAGNOSTIC`：诊断压力提示（例如 style isolation、registry fallback、style blocker）只暴露风险或辅助复测，不得作为 Claude Code、Codex、fresh generator、浏览器或 PowerPoint 验收通过依据。
+- `EVIDENCE_CLASS: DIAGNOSTIC`：诊断压力提示（例如 style isolation、registry identity-recovery、style blocker）只暴露风险或辅助复测，不得作为 Claude Code、Codex、fresh generator、浏览器或 PowerPoint 验收通过依据。
 - `deployment hash`：只证明部署的 `skills/ppt-start/` 与仓库源一致；`ppt-editable` 也必须以独立 per-Skill 摘要证明其安装树与 `skills/ppt-editable/` 一致。它不证明运行行为，且任何 `*.bak-*` 都必须位于 `skills/` 扫描根之外。
 - `real host`：只有记录真实宿主版本、启动命令、transcript／协作日志、运行目录和必要截图／PPTX 的证据，才能更新当前 Claude Code、Codex、fresh、浏览器或 PowerPoint 行。
 
@@ -160,9 +164,9 @@ python -m unittest discover -s tests -v
 对内置示例和代表性生成页面执行：
 
 1. 在当前浏览器中直接打开 SVG，并记录浏览器名称／版本；
-2. 确认画布为 16:9，标题和正文全部可见，没有裁切或意外换行；内部 `SRC-<digits>` 不得成为可见文字，只有明确请求的人类可读来源名称/URL 可显示；
+2. 确认画布为 16:9，标题和正文全部可见，没有裁切或意外换行；内部 source ID、人类可读来源名称、URL 与 citation 均不得成为可见文字，可见引用请求必须在生成前阻断并改选机器 trace 或单独来源报告；
 3. 确认没有远程资源缺失、控制台资源错误、重叠、不安全元素或超出安全区域的内容；
-4. 如果生成演示文稿包含这些页面，至少检查一个低密度结论页、一个高密度数据／流程页，以及一个明确请求人类可读引用的页面（如有）；
+4. 如果生成演示文稿包含这些页面，至少检查一个低密度结论页、一个高密度数据／流程页，以及一个来源可追溯页面；后者只允许 canonical `data-source-id="SRC-<digits>"`／trace 机器元数据，不允许可见引用；
 5. 把截图或录屏保存到证据路径。
 
 只做 XML 源文件检查而没有实际渲染，不能记录为视觉批准。

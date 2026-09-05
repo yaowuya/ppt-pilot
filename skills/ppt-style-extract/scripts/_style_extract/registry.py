@@ -2,10 +2,55 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
+import os
 from pathlib import Path
+import threading
+from uuid import uuid4
 
 from .errors import PptStyleExtractError
+
+
+_registry_locks_guard = threading.Lock()
+_registry_thread_locks: dict[str, threading.Lock] = {}
+
+
+@contextmanager
+def _registry_lock(path: Path):
+    """Serialize registry read/modify/replace across threads and processes."""
+    canonical_path = str(path.resolve())
+    with _registry_locks_guard:
+        thread_lock = _registry_thread_locks.setdefault(
+            canonical_path, threading.Lock()
+        )
+    with thread_lock:
+        lock_path = path.with_name(path.name + ".lock")
+        handle = lock_path.open("a+b")
+        handle.seek(0, os.SEEK_END)
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                handle.close()
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                handle.close()
 
 
 def read_registry(path: Path) -> dict:
@@ -36,13 +81,8 @@ def register_style(payload: dict, style: dict) -> dict:
     return {"schema_version": 1, "styles": updated}
 
 
-def update_registry_idempotent(path: Path, manifest: dict) -> int:
-    """Register `manifest` into `path` and write it back atomically.
-
-    Returns the number of entries after the write. Manifest-last semantics:
-    this is the final durable action; the caller should have already written
-    the pack files and verified them.
-    """
+def prepare_registry_update(path: Path, manifest: dict) -> dict:
+    """Validate and materialize the next registry payload without writing it."""
     payload = read_registry(path)
     entry = {
         "id": manifest["id"],
@@ -50,12 +90,33 @@ def update_registry_idempotent(path: Path, manifest: dict) -> int:
         "kind": "style_pack",
         "entrypoint": f"{manifest['id']}/manifest.json",
     }
-    updated = register_style(payload, entry)
+    return register_style(payload, entry)
 
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(
-        json.dumps(updated, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    tmp.replace(path)
-    return len(updated["styles"])
+
+def commit_registry_payload(path: Path, payload: dict) -> int:
+    """Atomically replace the registry with a previously validated payload."""
+    tmp = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        tmp.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        tmp.replace(path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+    return len(payload["styles"])
+
+
+def update_registry_idempotent(path: Path, manifest: dict) -> int:
+    """Register `manifest` into `path` and write it back atomically.
+
+    Returns the number of entries after the write. Manifest-last semantics:
+    this is the final durable action; the caller should have already written
+    the pack files and verified them.
+    """
+    with _registry_lock(path):
+        # Reload while holding the lock so a stale preflight cannot overwrite a
+        # registration committed by another writer.
+        updated = prepare_registry_update(path, manifest)
+        return commit_registry_payload(path, updated)

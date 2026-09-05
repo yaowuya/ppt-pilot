@@ -1,21 +1,21 @@
-# Synthetic style-registry fallback pressure input
+# Synthetic style-registry identity-recovery pressure input
 
 selected_style_id: minimal-business
-scenario: registry fallback
+scenario: registry missing
 operation: initial_generation
 
 expected_artifacts:
-- Full-install diagnostic: when all six fallback files are present, record the complete six-file fallback set and the assembled generation prompt.
-- Partial-install diagnostic: when exactly one required companion file is missing, record the missing companion and the resulting incomplete-install decision without treating the remaining five files as a complete fallback.
+- An identity-recovery diagnostic may restore only the selected style identity from the closed built-in table.
+- A durable `style_assets_unavailable: registry_missing` blocker with zero prompt, transaction, candidate, SVG, and generator side effects.
 
 expected_state:
-- A complete six-file fallback installation is accepted for `minimal-business` only when every required fallback file and companion is present and safe.
-- A partial install with one missing companion is explicitly distinguished from the complete six-file fallback and remains observable as incomplete.
+- Identity recovery never authorizes generation and never supplies runtime assets.
+- Generation remains fail closed until the registry and selected manifest → tokens → guidance → prompt traversal verify successfully.
 
 forbidden_behavior:
-- Do not report a five-file partial install as a complete six-file fallback.
-- Do not silently invent, copy, or substitute the missing companion.
-- Do not cross-load style-owned prompt content from another style.
+- Do not treat the identity-recovery table as a complete registry or runtime fallback.
+- Do not assemble a prompt from repository templates, legacy dual markers, or guessed companion files.
+- Do not cross-load style-owned prompt content from another style or write any generation artifact.
 
 EVIDENCE_CLASS: DIAGNOSTIC
 不得作为 Claude Code、Codex、浏览器或 PowerPoint 验收

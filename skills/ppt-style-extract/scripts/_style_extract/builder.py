@@ -3,16 +3,26 @@
 from __future__ import annotations
 
 import json
+import math
 import re
+import shutil
 from pathlib import Path
+from uuid import uuid4
 
 from .errors import PptStyleExtractError
-from .verify import verify_composed, verify_style_pack
-from .registry import update_registry_idempotent
+from .verify import (
+    canonicalize_font_stack,
+    compose_prompt,
+    verify_composed,
+    verify_style_pack,
+)
+from .registry import prepare_registry_update, update_registry_idempotent
 
 
 def _slug(style_id: str) -> None:
-    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", style_id):
+    if not isinstance(style_id, str) or not re.fullmatch(
+        r"[a-z0-9]+(?:-[a-z0-9]+)*", style_id
+    ):
         raise PptStyleExtractError("style_id_invalid")
 
 
@@ -37,6 +47,17 @@ def _compose_manifest(style_id: str, display_name: str, version: str) -> dict:
     }
 
 
+def _bounded_number(value: object, default: float, minimum: float, maximum: float) -> float:
+    if (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and minimum <= value <= maximum
+    ):
+        return value
+    return default
+
+
 def _compose_tokens(style_id: str, display_name: str, extract: dict, semantic: dict | None) -> dict:
     colors = extract.get("colors", {})
     palette = colors.get("accent_palette", []) or []
@@ -44,9 +65,16 @@ def _compose_tokens(style_id: str, display_name: str, extract: dict, semantic: d
     secondary = palette[1] if len(palette) > 1 else _shade(primary)
 
     typography = extract.get("typography", {})
-    font_stack = typography.get("font_stack", ["Arial", "sans-serif"])
-    spacing = extract.get("spacing", {"outer_margin": 64, "standard_gap": 24})
-    shape = extract.get("shape", {"primary_radius": 20.0, "stroke_width": 1.2})
+    if not isinstance(typography, dict):
+        typography = {}
+    font_stack, font_fallback_applied = canonicalize_font_stack(
+        typography.get("font_stack", ["Arial", "sans-serif"])
+    )
+    shape = extract.get("shape", {})
+    if not isinstance(shape, dict):
+        shape = {}
+    primary_radius = _bounded_number(shape.get("primary_radius"), 20.0, 1, 128)
+    stroke_width = _bounded_number(shape.get("stroke_width"), 1.2, 0.1, 16)
 
     composition_rules = dict(semantic.get("composition_rules", {})) if semantic else {}
     composition_rules.setdefault("card_coverage", "40%-60%")
@@ -54,25 +82,37 @@ def _compose_tokens(style_id: str, display_name: str, extract: dict, semantic: d
     composition_rules.setdefault("max_shadowed_objects", 1)
 
     prohibited = list(semantic.get("prohibited_motifs", [])) if semantic else []
-    prohibited = prohibited or ["无语义装饰线", "用颜色替代必要文字"]
+    prohibited = prohibited or ["decorative_lines", "color_only_semantics"]
 
     baseline = {
         "palette_roles": [
-            {"token": "brand_primary", "role": "结论强调", "use": "仅用于最高价值结论、行动或选中状态"},
-            {"token": "brand_secondary", "role": "次级关系", "use": "用于次级关系或过渡"},
-            {"token": "canvas", "role": "背景画布", "use": "每页默认为画布色"},
+            {
+                "token": "brand_primary",
+                "role": "primary_emphasis",
+                "use": "highest_value_only",
+            },
+            {
+                "token": "brand_secondary",
+                "role": "secondary_relationship",
+                "use": "secondary_relationship",
+            },
+            {
+                "token": "canvas",
+                "role": "page_canvas",
+                "use": "page_canvas",
+            },
         ],
         "font_stack": font_stack,
         "spacing_rhythm": {
-            "outer_margin": spacing.get("outer_margin", 64),
-            "standard_gap": spacing.get("standard_gap", 24),
+            "outer_margin": 64,
+            "standard_gap": 24,
             "card_gap": 20,
             "card_padding": 24,
         },
         "shape_language": {
-            "primary_radius": shape.get("primary_radius", 20.0),
-            "secondary_radius": max(round(shape.get("primary_radius", 20.0) * 0.7, 0), 8),
-            "stroke_width": shape.get("stroke_width", 1.2),
+            "primary_radius": primary_radius,
+            "secondary_radius": max(round(primary_radius * 0.7, 0), 8),
+            "stroke_width": stroke_width,
             "connector_width": 2,
         },
         "composition_rules": composition_rules,
@@ -93,31 +133,34 @@ def _compose_tokens(style_id: str, display_name: str, extract: dict, semantic: d
         "schema_version": 2,
         "id": style_id,
         "display_name": display_name,
+        "font_resolution": {"fallback_applied": font_fallback_applied},
         "colors": colors,
         "typography": {
             "font_stack": font_stack,
-            "slide_title": typography.get("slide_title", 40),
-            "primary_proposition": typography.get("primary_proposition", 30),
-            "section_title": typography.get("section_title", 24),
-            "body": typography.get("body", 20),
-            "support": typography.get("support", 16),
-            "micro_label": typography.get("micro_label", 14),
+            "slide_title": max(typography.get("slide_title", 40), 20),
+            "primary_proposition": max(
+                typography.get("primary_proposition", 30), 20
+            ),
+            "section_title": max(typography.get("section_title", 24), 20),
+            "body": max(typography.get("body", 20), 20),
+            "support": max(typography.get("support", 16), 14),
+            "micro_label": max(typography.get("micro_label", 14), 14),
             "title_weight": 700,
             "emphasis_weight": 700,
             "body_weight": 400,
         },
         "spacing": {
-            "outer_margin": spacing.get("outer_margin", 64),
-            "standard_gap": spacing.get("standard_gap", 24),
+            "outer_margin": 64,
+            "standard_gap": 24,
             "card_gap": 20,
             "compact_gap": 16,
             "micro_gap": 8,
             "card_padding": 24,
         },
         "shape": {
-            "primary_radius": shape.get("primary_radius", 20.0),
+            "primary_radius": primary_radius,
             "secondary_radius": baseline["shape_language"]["secondary_radius"],
-            "stroke_width": shape.get("stroke_width", 1.2),
+            "stroke_width": stroke_width,
             "connector_width": 2,
             "shadow_offset": 6,
         },
@@ -134,46 +177,6 @@ def _shade(hex_color: str) -> str:
     # lighten toward white by 35%
     r, g, b = (c + int((255 - c) * 0.35) for c in (r, g, b))
     return "#%02X%02X%02X" % (r, g, b)
-
-
-_PROMPT_TEMPLATE = """# Role: 高级信息架构师 & SVG 可视化编码专家
-
-你的任务是基于叙事要点与内容素材，自主设计一页布局合理、逻辑清晰、视觉美观、可直接用于演示文稿的 Office-safe SVG。
-
-## Workflow: 执行步骤
-
-### 步骤 1: 组织叙事与内容 (Narrative and Content)
-
-不得重新选择叙事逻辑。严格按照下列叙事要点组织信息：
-{{NARRATIVE}}
-
-内容处理边界：
-- 允许对素材进行提纯、改写、重排与补充；补充内容必须来自已批准的研究/来源，仅无事实内容的过渡句可自由撰写。
-- 不得改变数字、单位、期间、限定词（待确认、待验收等）、因果、来源映射。
-- 不得把推断或新增内容冒充为已批准事实。
-
-### 步骤 2: 应用风格基线并设计视觉表达 (Style Baseline and Visual Design)
-
-风格基线是软参考方向，不是逐项锁定令牌。在保持整套演示文稿风格一致性的前提下，布局、层级、卡片组织、信息密度、配色用法与装饰由你自主决定。
-
-### 步骤 3: 编码 SVG（输出硬契约）
-
-- **画布**: 根元素必须使用 `<svg viewBox="0 0 1280 720">`。
-- **安全区与节奏**: 所有可见内容位于 64px 安全区内；间距使用 24px 节奏。
-- **圆角卡片**: 仅使用 `<path>` 与 SVG 弧线命令 `A` 绘制圆角卡片；禁止为 `<rect>` 添加 `rx` 或 `ry`。
-- **文本**: 每个文本对象使用显式 `<text>`；每一行使用简单、非嵌套的 `<tspan>`，并保证文本不越界；文字保持为文字，不转轮廓。
-- **字号**: 正文 ≥20px，次级/来源 ≥14px；关键数字可用大字号或强调色突出，全页至多一个主强调焦点。
-- **Office-safe 子集**: 仅使用 `svg`、`g`、`path`、`rect`（仅直角）、`circle`、`line`、`polyline`、`polygon`、`text`、`tspan`、`title`、`desc`；禁止 `foreignObject`、脚本、远程资源、滤镜、渐变、动画、`defs`、`use`、`clipPath`、`mask`、`image`。
-- **根节点**: 包含 `<title>`（本页结论）与 `<desc>`（视觉关系）。
-
-### 兼容约束
-
-SVG 必须在 PowerPoint、Word 等 Office 软件中保持几何、文本和颜色稳定。所有图形、字体栈、颜色与文字内容必须自包含，不依赖外部文件、URL 或工具调用。
-
----
-
-只返回一个 ```xml 代码围栏，围栏内必须是完整 SVG；围栏外不得输出解释、Markdown 标题或其它文本。
-"""
 
 
 def _compose_style_md(style_id: str, display_name: str, extract: dict, semantic: dict | None) -> str:
@@ -214,7 +217,7 @@ def compose_style_pack(style_id: str, display_name: str, version: str, extract: 
     _slug(style_id)
     manifest = _compose_manifest(style_id, display_name, version)
     tokens = _compose_tokens(style_id, display_name, extract, semantic)
-    prompt = _PROMPT_TEMPLATE
+    prompt = compose_prompt(tokens)
     rules = _compose_style_md(style_id, display_name, extract, semantic)
     return {
         "manifest": manifest,
@@ -229,35 +232,78 @@ def write_style_pack(
     out_root: Path,
     registry_path: Path,
 ) -> dict:
-    """Write the four files atomically under out_root/<style-id>/, verify, then
-    register. Returns a result dict. Raises on verification failure."""
+    """Stage and verify a pack, then commit pack and registry as one transaction."""
     style_id = pack["manifest"]["id"]
-    pack_dir = (out_root / style_id)
+    # Defense in depth: callers can mutate a composed dict before write, so the
+    # write boundary must revalidate identity and containment before any I/O.
+    _slug(style_id)
+    resolved_out_root = out_root.resolve()
+    pack_dir = (out_root / style_id).resolve()
+    if not pack_dir.is_relative_to(resolved_out_root):
+        raise PptStyleExtractError("style_id_invalid")
 
     # Pre-write hard gate: verify composed payloads BEFORE any durable write.
     verify_composed(pack["manifest"], pack["tokens"], pack["prompt"], pack["STYLE.md"])
 
-    pack_dir.mkdir(parents=True, exist_ok=True)
+    # Registry uniqueness/schema errors are preflight failures: they must not
+    # create or alter a pack directory.
+    prepare_registry_update(registry_path, pack["manifest"])
 
-    def _atomic_write(path: Path, text: str) -> None:
-        tmp = path.with_name(path.name + ".tmp")
-        tmp.write_text(text, encoding="utf-8")
-        tmp.replace(path)
+    expected_files = {
+        "manifest.json": json.dumps(
+            pack["manifest"], ensure_ascii=False, indent=2
+        ).encode("utf-8")
+        + b"\n",
+        "tokens.json": json.dumps(
+            pack["tokens"], ensure_ascii=False, indent=2
+        ).encode("utf-8")
+        + b"\n",
+        "prompt.md": pack["prompt"].encode("utf-8"),
+        "STYLE.md": pack["STYLE.md"].encode("utf-8"),
+    }
 
-    manifest_path = pack_dir / "manifest.json"
-    tokens_path = pack_dir / "tokens.json"
-    prompt_path = pack_dir / "prompt.md"
-    rules_path = pack_dir / "STYLE.md"
+    # Published pack IDs are immutable. A byte-identical orphan left by a
+    # crash can be adopted by the pointer-last registry commit; any differing
+    # payload must use a new style ID.
+    if pack_dir.exists():
+        verify_style_pack(pack_dir)
+        actual_names = {path.name for path in pack_dir.iterdir() if path.is_file()}
+        if actual_names != set(expected_files) or any(
+            (pack_dir / name).read_bytes() != expected
+            for name, expected in expected_files.items()
+        ):
+            raise PptStyleExtractError("style_pack_immutable_conflict")
+        count = update_registry_idempotent(registry_path, pack["manifest"])
+        return {
+            "result": "PASS",
+            "style_id": style_id,
+            "output_dir": str(pack_dir),
+            "registry_entries": count,
+            "note": "风格包已固化并注册；在 ppt-start 中可用 style id 或显示名选择。",
+        }
 
-    _atomic_write(manifest_path, json.dumps(pack["manifest"], ensure_ascii=False, indent=2) + "\n")
-    _atomic_write(tokens_path, json.dumps(pack["tokens"], ensure_ascii=False, indent=2) + "\n")
-    _atomic_write(prompt_path, pack["prompt"])
-    _atomic_write(rules_path, pack["STYLE.md"])
+    out_root.mkdir(parents=True, exist_ok=True)
+    transaction_id = uuid4().hex
+    staging_dir = out_root / f".{style_id}.staging-{transaction_id}"
+    staging_dir.mkdir()
+    committed_pack = False
+    try:
+        for name, content in expected_files.items():
+            (staging_dir / name).write_bytes(content)
+        verify_style_pack(staging_dir)
 
-    # Post-write integrity: on-disk verification must also pass.
-    verify_style_pack(pack_dir)
+        try:
+            staging_dir.replace(pack_dir)
+            committed_pack = True
+            count = update_registry_idempotent(registry_path, pack["manifest"])
+        except Exception:
+            if committed_pack and pack_dir.exists():
+                shutil.rmtree(pack_dir)
+            raise
+    finally:
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir, ignore_errors=True)
 
-    count = update_registry_idempotent(registry_path, pack["manifest"])
     return {
         "result": "PASS",
         "style_id": style_id,

@@ -1,5 +1,7 @@
 # Generation Prompt 创意化重构实施计划
 
+> **SUPERSEDED（历史记录）：** 当前执行权威是 `skills/ppt-start/references/generation-prompt-byte-grammar.md`、`skills/ppt-start/references/artifact-contract.md` 与 `skills/ppt-start/references/workflow.md`。本文中的旧模板、marker、runtime fallback、来源注入、visual-brief 与恢复规则仅保留作审计历史，不得用于新运行。
+
 > **面向 Agent 执行者：** 必需子技能：使用 superpower-subagent-driven-development（推荐）或 superpower-executing-plans 按任务逐项执行本计划。步骤使用复选框（`- [ ]`）语法进行跟踪。
 
 **目标：** 把页面生成 prompt 从"执行锁定视觉规格"重构为"创意产出"：叙事要点 + 内容素材 + 软风格基线 + 输出硬契约，取消逐页 visual brief 阶段。

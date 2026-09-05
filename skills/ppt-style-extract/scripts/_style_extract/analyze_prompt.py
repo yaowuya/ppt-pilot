@@ -16,32 +16,32 @@ _DIRECTION_MARKERS = {
     "minimal": {
         "keywords": ["minimal", "极简", "简洁", "留白"],
         "composition_rules": {"card_coverage": "20%-40%"},
-        "prohibited": ["多余装饰", "高饱和亮色"],
+        "prohibited": ["redundant_decoration", "high_saturation_multicolor"],
     },
     "bento": {
         "keywords": ["bento", "bento 布局", "模块化", "卡片墙"],
         "composition_rules": {"card_coverage": "40%-60%"},
-        "prohibited": ["等权卡片墙"],
+        "prohibited": ["equal_weight_card_wall"],
     },
     "dark": {
         "keywords": ["dark", "深色", "暗色", "夜间"],
         "composition_rules": {},
-        "prohibited": ["浅色背景"],
+        "prohibited": ["bright_white_background"],
     },
     "data": {
         "keywords": ["data", "数据", "指标", "大屏"],
         "composition_rules": {},
-        "prohibited": ["无数据标注的图表", "把阶段交付写成最终验收"],
+        "prohibited": ["no_data_labels", "premature_acceptance_claim"],
     },
     "tech": {
         "keywords": ["tech", "科技", "数字化", "智能"],
         "composition_rules": {},
-        "prohibited": ["渐变背景"],
+        "prohibited": ["gradient_background"],
     },
     "business": {
         "keywords": ["business", "商务", "企业", "汇报"],
         "composition_rules": {},
-        "prohibited": ["左侧长蓝条"],
+        "prohibited": ["left_blue_bar"],
     },
 }
 
@@ -70,7 +70,7 @@ def analyze_prompt(text: str) -> dict:
             _merge(seed, spec)
     # Defaults kept conservative; never invent color evidence from prompt text.
     seed["prohibited_motifs"] = list(dict.fromkeys(
-        seed["prohibited_motifs"] or ["无语义装饰线", "用颜色替代必要文字"]
+        seed["prohibited_motifs"] or ["decorative_lines", "color_only_semantics"]
     ))
     seed.setdefault("composition_rules", {}).setdefault("max_shadowed_objects", 1)
     seed.setdefault("composition_rules", {}).setdefault("primary_secondary_ratio", 1.5)

@@ -13,15 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from helpers import read_text, repo_root, skill_root
 
 
-STYLE_IDENTITY_FIELDS = (
-    "selected_style_id",
-    "selected_style_display_name",
-    "style_kind",
-    "style_manifest_version",
-)
-
-
-STABLE_RESOLVER_REASONS = (
+STYLE_ASSET_BLOCKER_REASONS = (
     "registry_missing",
     "registry_path_unsafe",
     "registry_target_invalid",
@@ -34,6 +26,7 @@ STABLE_RESOLVER_REASONS = (
     "entrypoint_missing",
     "entrypoint_path_unsafe",
     "entrypoint_target_invalid",
+    "entrypoint_unreadable",
     "legacy_entrypoint_malformed",
     "legacy_identity_mismatch",
     "manifest_malformed",
@@ -44,14 +37,38 @@ STABLE_RESOLVER_REASONS = (
     "style_asset_path_unsafe",
     "style_asset_target_invalid",
     "style_asset_unreadable",
-    "prompt_field_missing",
+    "style_asset_malformed",
+    "style_asset_schema_unsupported",
+)
+
+
+GENERATION_PROMPT_BLOCKER_REASONS = (
     "prompt_path_unsafe",
     "prompt_file_missing",
     "prompt_target_invalid",
     "prompt_unreadable",
     "prompt_template_invalid",
+    "prompt_preflight_invalid",
     "prompt_snapshot_conflict",
 )
+
+
+STABLE_RESOLVER_REASONS = (
+    *STYLE_ASSET_BLOCKER_REASONS,
+    *GENERATION_PROMPT_BLOCKER_REASONS,
+)
+
+
+VISUAL_GENERATION_BLOCKER_FIELDS = {
+    "state",
+    "slide_id",
+    "reason",
+    "selected_style_id",
+    "resource",
+    "storyboard_snapshot_id",
+    "theme_snapshot_id",
+    "status",
+}
 
 
 BLOCKER_CASE_IDS = {
@@ -60,28 +77,138 @@ BLOCKER_CASE_IDS = {
     "refresh-same-slide-blocker",
     "serialize-other-slide-blocker-first",
     "still-failing-skips-generator-and-svg",
-    "durable-prompt-keeps-compiling-blocker-before-commit",
-    "compiling-crash-recovers-by-compiled-and-clears-blocker",
+    "active-blocker-precedes-durable-prompt-recovery",
+    "active-blocker-precedes-v1-compiling-crash-recovery",
     "precedence-unselected-pack-root-before-selected-prompt",
     "precedence-selected-tokens-before-prompt",
 }
 
 
-DUAL_DEFECT_EXPECTATIONS = {
-    "precedence-unselected-pack-root-before-selected-prompt": {
-        "defects": {"unselected_pack_root_invalid", "selected_prompt_invalid"},
-        "reason": "entrypoint_path_unsafe",
-    },
-    "precedence-selected-tokens-before-prompt": {
-        "defects": {"selected_tokens_target_invalid", "selected_prompt_invalid"},
-        "reason": "style_asset_target_invalid",
-    },
-}
-
-
 SAFE_RESOURCE_PREFIX = "assets/styles/"
+_STYLE_ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+_PACK_RESOURCE_NAMES = {"manifest.json", "tokens.json", "STYLE.md", "prompt.md"}
 
-REQUIRED_TRANSACTION_FIELDS = {
+
+def is_safe_blocker_resource(resource: object, selected_style_id: object) -> bool:
+    if (
+        not isinstance(selected_style_id, str)
+        or _STYLE_ID_RE.fullmatch(selected_style_id) is None
+    ):
+        return False
+    if resource == "none":
+        return True
+    if (
+        not isinstance(resource, str)
+        or not resource.startswith(SAFE_RESOURCE_PREFIX)
+        or "\\" in resource
+        or ":" in resource
+        or any(ord(character) < 32 or ord(character) == 127 for character in resource)
+    ):
+        return False
+    parts = resource.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        return False
+    if parts == ["assets", "styles", "registry.json"]:
+        return True
+    if parts == ["assets", "styles", f"{selected_style_id}.json"]:
+        return True
+    return (
+        len(parts) == 4
+        and parts[:2] == ["assets", "styles"]
+        and parts[2] == selected_style_id
+        and parts[3] in _PACK_RESOURCE_NAMES
+    )
+
+
+def is_closed_blocker_tuple(blocker: dict) -> bool:
+    """Validate state/reason/resource as one closed semantic tuple."""
+    reason = blocker.get("reason")
+    state = blocker.get("state")
+    resource = blocker.get("resource")
+    style_id = blocker.get("selected_style_id")
+    if not is_safe_blocker_resource(resource, style_id):
+        return False
+    if reason in STYLE_ASSET_BLOCKER_REASONS:
+        if state != "style_assets_unavailable":
+            return False
+    elif reason in GENERATION_PROMPT_BLOCKER_REASONS:
+        if state != "generation_prompt_unavailable":
+            return False
+    else:
+        return False
+
+    registry_path = "assets/styles/registry.json"
+    seed_path = f"assets/styles/{style_id}.json"
+    manifest_path = f"assets/styles/{style_id}/manifest.json"
+    tokens_path = f"assets/styles/{style_id}/tokens.json"
+    guidance_path = f"assets/styles/{style_id}/STYLE.md"
+    prompt_path = f"assets/styles/{style_id}/prompt.md"
+
+    none_reasons = {
+        "registry_missing",
+        "registry_path_unsafe",
+        "entrypoint_missing",
+        "entrypoint_path_unsafe",
+        "style_asset_field_missing",
+        "style_asset_path_unsafe",
+        "prompt_path_unsafe",
+        "prompt_snapshot_conflict",
+    }
+    registry_reasons = {
+        "registry_target_invalid",
+        "registry_unreadable",
+        "registry_malformed",
+        "registry_schema_unsupported",
+        "registry_duplicate_style",
+        "style_not_registered",
+        "style_kind_invalid",
+    }
+    if reason in none_reasons:
+        return resource == "none"
+    if reason in registry_reasons:
+        return resource == registry_path
+    if reason in {"entrypoint_target_invalid", "entrypoint_unreadable"}:
+        return resource in {seed_path, manifest_path}
+    if reason in {"legacy_entrypoint_malformed", "legacy_identity_mismatch"}:
+        return resource == seed_path
+    if reason in {
+        "manifest_malformed",
+        "manifest_schema_unsupported",
+        "manifest_identity_mismatch",
+        "manifest_version_invalid",
+    }:
+        return resource == manifest_path
+    if reason in {"style_asset_target_invalid", "style_asset_unreadable"}:
+        return resource in {tokens_path, guidance_path}
+    if reason in {"style_asset_malformed", "style_asset_schema_unsupported"}:
+        return resource == tokens_path
+    return resource == prompt_path
+
+V1_MIGRATION_STATES = (
+    "compiling",
+    "compiled",
+    "generating",
+    "candidate_written",
+    "validated",
+    "promoted",
+    "failed",
+)
+
+V1_MIGRATION_FAILURE_REASONS = (
+    "generator_unavailable",
+    "generator_refused",
+    "generator_timeout",
+    "generator_output_malformed",
+    "candidate_write_failed",
+    "candidate_hash_mismatch",
+    "svg_contract_failed",
+    "locked_content_mismatch",
+    "visual_qa_failed",
+    "final_promotion_conflict",
+    "transaction_state_conflict",
+)
+
+V1_TRANSACTION_FIELDS = {
     "transaction_id",
     "slide_id",
     "generation_intent",
@@ -97,71 +224,49 @@ REQUIRED_TRANSACTION_FIELDS = {
     "failure_reason",
 }
 
-TRANSACTION_STATES = (
-    "compiling",
-    "compiled",
-    "generating",
-    "candidate_written",
-    "validated",
-    "promoted",
-    "failed",
-)
-
-TRANSACTION_FAILURE_REASONS = (
-    "generator_unavailable",
-    "generator_refused",
-    "generator_timeout",
-    "generator_output_malformed",
-    "candidate_write_failed",
-    "candidate_hash_mismatch",
-    "svg_contract_failed",
-    "locked_content_mismatch",
-    "visual_qa_failed",
-    "final_promotion_conflict",
-    "transaction_state_conflict",
-)
-
-NORMAL_TRANSACTION_EDGES = (
-    ("compiling", "compiled"),
-    ("compiled", "generating"),
-    ("generating", "candidate_written"),
-    ("candidate_written", "validated"),
-    ("validated", "promoted"),
-)
-
-FAILURE_TRANSACTION_EDGES = (
-    ("generating", "failed"),
-    ("candidate_written", "failed"),
-    ("validated", "failed"),
-)
-
-RECOVERY_TRANSACTION_EDGES = (
-    ("failed", "generating"),
-    ("failed", "validated"),
-)
-
-TRANSACTION_CRASH_CASE_IDS = {
-    "compiling-durable-prompt-match-commits-compiled",
-    "compiling-durable-prompt-mismatch-recompiles",
-    "generating-orphan-candidate-is-never-adopted",
-    "candidate-written-hash-match-continues-validation",
-    "candidate-written-hash-mismatch-fails",
-    "validated-final-hash-match-promotes",
-    "validated-final-conflict-fails",
-    "illegal-recovery-transition-fails",
-    "promoted-final-qa-cleans-transaction-and-dirty-slide",
-}
-
 EXPECTED_OPERATION_FIELDS = (
     "first_action",
     "stop",
     "resolver_calls",
     "generator_calls",
+    "prompt_writes",
+    "transaction_writes",
+    "candidate_writes",
     "svg_writes",
     "stage_scan_calls",
     "style_fallback_calls",
     "patch_downgrade_calls",
 )
+
+ZERO_SIDE_EFFECT_FIELDS = (
+    "generator_calls",
+    "prompt_writes",
+    "transaction_writes",
+    "candidate_writes",
+    "svg_writes",
+    "stage_scan_calls",
+    "style_fallback_calls",
+    "patch_downgrade_calls",
+)
+
+
+def validate_blocker_operation_expectation(expected: object) -> None:
+    if not isinstance(expected, dict) or not set(EXPECTED_OPERATION_FIELDS).issubset(
+        expected
+    ):
+        raise ValueError("blocker operation expectation is incomplete")
+    if not isinstance(expected["first_action"], str) or not expected["first_action"]:
+        raise ValueError("blocker first action is invalid")
+    if expected["stop"] is not True:
+        raise ValueError("active blocker must stop")
+    if type(expected["resolver_calls"]) is not int or expected["resolver_calls"] not in {
+        0,
+        1,
+    }:
+        raise ValueError("blocker resolver call count is invalid")
+    for field in ZERO_SIDE_EFFECT_FIELDS:
+        if type(expected[field]) is not int or expected[field] != 0:
+            raise ValueError("blocker side effect must be zero")
 
 
 V2_TRANSACTION_FIELDS = {
@@ -482,10 +587,25 @@ def validate_v2_manifest(manifest: dict, transactions: dict[str, dict]) -> None:
     for key in ("promotion_cursor", "blocker_cursor"):
         if type(manifest[key]) is not int or not 0 <= manifest[key] <= len(slide_ids):
             raise ValueError("manifest cursor is untrusted")
-    blocker_ref = manifest["active_blocker_ref"]
-    if blocker_ref is not None and blocker_ref not in refs:
-        raise ValueError("active blocker ref is invalid")
     if manifest["state"] not in V2_MANIFEST_STATES:
+        raise ValueError("manifest state is invalid")
+    rebuilt_promotion_cursor, rebuilt_blocker_cursor = rebuild_batch_cursors(
+        manifest, transactions
+    )
+    if (
+        manifest["promotion_cursor"] != rebuilt_promotion_cursor
+        or manifest["blocker_cursor"] != rebuilt_blocker_cursor
+    ):
+        raise ValueError("manifest cursor is untrusted")
+    expected_blocker_ref = (
+        refs[rebuilt_blocker_cursor]
+        if rebuilt_blocker_cursor < len(refs)
+        else None
+    )
+    blocker_ref = manifest["active_blocker_ref"]
+    if blocker_ref != expected_blocker_ref:
+        raise ValueError("active blocker ref is invalid")
+    if (manifest["state"] == "blocked") != (expected_blocker_ref is not None):
         raise ValueError("manifest state is invalid")
     for key in ("created_at", "updated_at"):
         if not isinstance(manifest[key], str) or not manifest[key]:
@@ -577,6 +697,62 @@ def _migration_conflict(run: dict) -> dict:
     }
 
 
+def clear_repaired_blocker_before_v1_migration(run: dict) -> dict:
+    """Commit only blocker removal; the legacy owner remains for next resume."""
+    if not {
+        "visual_generation_blocker",
+        "visual_generation_transaction",
+    }.issubset(run):
+        raise ValueError("visual_generation_state_conflict")
+    cleared = copy.deepcopy(run)
+    del cleared["visual_generation_blocker"]
+    return cleared
+
+
+def validate_v1_migration_transaction(legacy: dict) -> None:
+    if not isinstance(legacy, dict) or set(legacy) != V1_TRANSACTION_FIELDS:
+        raise ValueError("v1 transaction schema differs")
+    transaction_id = _require_sha256(legacy["transaction_id"], "transaction_id")
+    if legacy["prompt_snapshot_id"] != legacy["transaction_id"]:
+        raise ValueError("transaction and prompt identities differ")
+    _require_sha256(legacy["compiled_prompt_sha256"], "compiled_prompt_sha256")
+    slide_id = legacy["slide_id"]
+    if not isinstance(slide_id, str) or re.fullmatch(r"S[0-9]+", slide_id) is None:
+        raise ValueError("slide id is invalid")
+    if legacy["generation_intent"] not in {
+        "initial_generation",
+        "user_recompose",
+        "deterministic_fallback",
+    }:
+        raise ValueError("generation intent is invalid")
+    if not isinstance(legacy["generation_trigger_id"], str) or not legacy[
+        "generation_trigger_id"
+    ]:
+        raise ValueError("generation trigger is invalid")
+    if legacy["prompt_path"] != f"generation-prompts/{slide_id}.md":
+        raise ValueError("prompt path differs")
+    if legacy["candidate_path"] != (
+        f"slides/.candidates/{slide_id}-{transaction_id.removeprefix('sha256:')}.svg"
+    ):
+        raise ValueError("candidate path differs")
+    if legacy["final_path"] != f"slides/{slide_id}.svg":
+        raise ValueError("final path differs")
+    if legacy["state"] not in V1_MIGRATION_STATES:
+        raise ValueError("transaction state is invalid")
+    attempt = legacy["generation_attempt"]
+    if isinstance(attempt, bool) or not isinstance(attempt, int) or not 0 <= attempt <= 3:
+        raise ValueError("generation attempt is invalid")
+    candidate_sha256 = legacy["candidate_sha256"]
+    if candidate_sha256 is not None:
+        _require_sha256(candidate_sha256, "candidate_sha256")
+    failure_reason = legacy["failure_reason"]
+    if legacy["state"] == "failed":
+        if failure_reason not in V1_MIGRATION_FAILURE_REASONS:
+            raise ValueError("failure reason is invalid")
+    elif failure_reason is not None:
+        raise ValueError("nonfailed transaction has a failure reason")
+
+
 def migrate_v1_run_to_v2(run: dict, corpus_case: dict) -> dict:
     source_run = copy.deepcopy(run)
     has_v1 = "visual_generation_transaction" in source_run
@@ -629,6 +805,10 @@ def migrate_v1_run_to_v2(run: dict, corpus_case: dict) -> dict:
         return _migration_conflict(source_run)
 
     legacy = source_run["visual_generation_transaction"]
+    try:
+        validate_v1_migration_transaction(legacy)
+    except (KeyError, TypeError, ValueError):
+        return _migration_conflict(source_run)
     transaction_id = legacy["transaction_id"]
     batch_id = "migration-" + transaction_id.removeprefix("sha256:")[:24]
     candidate_sha256 = legacy["candidate_sha256"]
@@ -973,13 +1153,119 @@ def promote_in_order(
 
 
 _VISIBLE_INTERNAL_SOURCE_ID = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
+_BLOCK_ID = re.compile(r"S[0-9]+-B[1-9][0-9]*")
+_BLOCK_ID_LEAK = re.compile(r"S[0-9]+-B[1-9][0-9]*", re.IGNORECASE)
+_SOURCE_ID = re.compile(r"SRC-[0-9]+")
+_SOURCE_ID_LEAK = re.compile(r"SRC-[0-9]+", re.IGNORECASE)
 
 
-def fact_source_visible_text_result(
+def _is_source_attribute(name: str) -> bool:
+    local_name = name.rsplit("}", 1)[-1]
+    normalized = re.sub(r"[^a-z0-9]", "", local_name.casefold())
+    return "source" in normalized
+
+
+def enrich_candidate_source_metadata(
     svg_text: str,
+    ordered_source_ids_by_block: dict[str, list[str]],
+) -> bytes:
+    """Join transient block IDs to frozen source mappings before candidate I/O."""
+    try:
+        root = ET.fromstring(svg_text)
+    except ET.ParseError as exc:
+        raise ValueError("svg_contract_failed") from exc
+
+    block_nodes: dict[str, ET.Element] = {}
+    for element in root.iter():
+        for name, value in element.attrib.items():
+            if (
+                _is_source_attribute(name)
+                or _SOURCE_ID_LEAK.search(value or "") is not None
+                or (
+                    name != "data-block-id"
+                    and _BLOCK_ID_LEAK.search(value or "") is not None
+                )
+            ):
+                raise ValueError("fact_source_mismatch")
+        if (
+            _SOURCE_ID_LEAK.search(element.text or "") is not None
+            or _SOURCE_ID_LEAK.search(element.tail or "") is not None
+            or _BLOCK_ID_LEAK.search(element.text or "") is not None
+            or _BLOCK_ID_LEAK.search(element.tail or "") is not None
+        ):
+            raise ValueError("fact_source_mismatch")
+        if any(
+            name.casefold() == "data-block-id" and name != "data-block-id"
+            for name in element.attrib
+        ):
+            raise ValueError("fact_source_mismatch")
+        block_id = element.attrib.get("data-block-id")
+        if block_id is None:
+            continue
+        if element.tag.rsplit("}", 1)[-1] != "g" or _BLOCK_ID.fullmatch(block_id) is None:
+            raise ValueError("fact_source_mismatch")
+        if block_id in block_nodes:
+            raise ValueError("fact_source_mismatch")
+        block_nodes[block_id] = element
+
+    if set(block_nodes) != set(ordered_source_ids_by_block):
+        raise ValueError("fact_source_mismatch")
+
+    namespace = "http://www.w3.org/2000/svg"
+    if root.tag.startswith("{"):
+        namespace = root.tag[1:].split("}", 1)[0]
+    ET.register_namespace("", namespace)
+    group_tag = f"{{{namespace}}}g" if namespace else "g"
+
+    for block_id, node in block_nodes.items():
+        source_ids = ordered_source_ids_by_block[block_id]
+        if (
+            not isinstance(source_ids, list)
+            or len(source_ids) != len(set(source_ids))
+            or any(
+                not isinstance(source_id, str)
+                or _SOURCE_ID.fullmatch(source_id) is None
+                for source_id in source_ids
+            )
+        ):
+            raise ValueError("fact_source_mismatch")
+        del node.attrib["data-block-id"]
+        if not source_ids:
+            continue
+        node.set("data-source-id", source_ids[0])
+        current = node
+        for source_id in source_ids[1:]:
+            children = list(current)
+            wrapper = ET.Element(group_tag, {"data-source-id": source_id})
+            for child in children:
+                current.remove(child)
+                wrapper.append(child)
+            current.append(wrapper)
+            current = wrapper
+
+    return ET.tostring(root, encoding="utf-8", xml_declaration=False) + b"\n"
+
+
+def coordinator_enrich_hash_write(
+    svg_text: str,
+    ordered_source_ids_by_block: dict[str, list[str]],
     *,
-    human_readable_citation_requested: bool = False,
-):
+    enrich,
+    write_candidate,
+    read_candidate,
+    digest,
+) -> tuple[bytes, str]:
+    """Model the only authorized coordinator order before candidate persistence."""
+    enriched = enrich(svg_text, ordered_source_ids_by_block)
+    write_candidate(enriched)
+    persisted = read_candidate()
+    if persisted != enriched:
+        raise ValueError("candidate_hash_mismatch")
+    candidate_sha256 = digest(persisted)
+    return persisted, candidate_sha256
+
+
+def fact_source_visible_text_result(svg_text: str):
     try:
         root = ET.fromstring(svg_text)
     except ET.ParseError:
@@ -996,7 +1282,7 @@ def fact_source_visible_text_result(
         r"(?i)(?:来源\s*[:：]|source\s*:)",
         visible,
     ) is not None
-    if human_citation_visible and not human_readable_citation_requested:
+    if human_citation_visible:
         return "fact_source_mismatch"
     return None
 
@@ -1187,54 +1473,13 @@ def evaluate_telemetry_non_authoritatively(
     }
 
 
-def parse_brief_fields(path: Path) -> dict[str, str]:
-    fields: dict[str, str] = {}
-    for section_fields in parse_brief_sections(path).values():
-        fields.update(section_fields)
-    return fields
-
-
-def parse_brief_sections(path: Path) -> dict[str, dict[str, str]]:
-    sections: dict[str, dict[str, str]] = {}
-    current: str | None = None
-    for line in read_text(path).splitlines():
-        if line.startswith("## "):
-            current = line.removeprefix("## ").strip()
-            sections[current] = {}
-            continue
-        stripped = line.strip()
-        if current is None or not stripped.startswith("- ") or ":" not in stripped:
-            continue
-        key, value = stripped.removeprefix("- ").split(":", 1)
-        sections[current][key.strip()] = value.strip()
-    return sections
-
-
 class VisualGenerationContractTests(unittest.TestCase):
-    REQUIRED_BRIEF_HEADINGS = {
-        "来源与版本",
-        "锁定内容",
-        "信息层级",
-        "构图",
-        "视觉系统",
-        "修订模式",
-        "输出与质量要求",
-    }
-
     def setUp(self) -> None:
         self.reference = skill_root() / "references" / "visual-brief-and-generation.md"
         self.skill = skill_root() / "SKILL.md"
         self.workflow = skill_root() / "references" / "workflow.md"
         self.artifact = skill_root() / "references" / "artifact-contract.md"
         self.qa = skill_root() / "references" / "qa-and-revision.md"
-        self.brief = repo_root() / "tests" / "fixtures" / "visual-briefs" / "S05.md"
-        self.style_manifest = (
-            skill_root()
-            / "assets"
-            / "styles"
-            / "canway-midyear-review"
-            / "manifest.json"
-        )
         self.precedence = repo_root() / "tests" / "fixtures" / "visual-revision-precedence.json"
         self.blocker = repo_root() / "tests" / "fixtures" / "style-prompt-blocker-cases.json"
         self.transaction = repo_root() / "tests" / "fixtures" / "visual-generation-transaction-cases.json"
@@ -1745,6 +1990,45 @@ class VisualGenerationContractTests(unittest.TestCase):
         )
         self.assertEqual(case["expected"]["promotion_order"], ["S03", "S05"])
         self.assertEqual(case["expected"]["visible_blocker"], "S04")
+        refs = case["manifest"]["transaction_refs"]
+        self.assertEqual(case["manifest"]["active_blocker_ref"], refs[1])
+        tampered = copy.deepcopy(case["manifest"])
+        tampered["active_blocker_ref"] = refs[0]
+        with self.assertRaisesRegex(ValueError, "active blocker ref is invalid"):
+            validate_v2_manifest(tampered, case["transactions"])
+
+    def test_v2_manifest_rejects_rebuilt_cursor_ref_and_blocked_state_drift(self):
+        payload = json.loads(read_text(self.batch_v2))
+        prepared = payload["cases"]["four-slide-active"]
+        mixed = payload["cases"]["four-way-out-of-order-two-pass-two-fail"]
+
+        prepared_mutations = []
+        wrong_promotion_cursor = copy.deepcopy(prepared["manifest"])
+        wrong_promotion_cursor["promotion_cursor"] = 1
+        prepared_mutations.append(wrong_promotion_cursor)
+
+        wrong_blocker_cursor = copy.deepcopy(prepared["manifest"])
+        wrong_blocker_cursor["blocker_cursor"] = 0
+        prepared_mutations.append(wrong_blocker_cursor)
+
+        blocked_without_failure = copy.deepcopy(prepared["manifest"])
+        blocked_without_failure["state"] = "blocked"
+        prepared_mutations.append(blocked_without_failure)
+
+        for manifest in prepared_mutations:
+            with self.subTest(prepared_mutation=manifest):
+                with self.assertRaises(ValueError):
+                    validate_v2_manifest(manifest, prepared["transactions"])
+
+        failure_not_blocked = copy.deepcopy(mixed["manifest"])
+        failure_not_blocked["state"] = "active"
+        with self.assertRaises(ValueError):
+            validate_v2_manifest(failure_not_blocked, mixed["transactions"])
+
+        missing_lowest_failure_ref = copy.deepcopy(mixed["manifest"])
+        missing_lowest_failure_ref["active_blocker_ref"] = None
+        with self.assertRaisesRegex(ValueError, "active blocker ref is invalid"):
+            validate_v2_manifest(missing_lowest_failure_ref, mixed["transactions"])
 
     def test_out_of_order_completion_uses_ordered_promotion_and_lowest_blocker(self):
         payload = json.loads(read_text(self.batch_v2))
@@ -1790,8 +2074,10 @@ class VisualGenerationContractTests(unittest.TestCase):
         untrusted = copy.deepcopy(manifest)
         untrusted["promotion_cursor"] = len(untrusted["ordered_slide_ids"])
         untrusted["blocker_cursor"] = len(untrusted["ordered_slide_ids"])
-        self.assertEqual(eligible_promotions(untrusted, transactions), ["S03", "S05"])
-        self.assertEqual(lowest_eligible_blocker(untrusted, transactions), "S04")
+        with self.assertRaisesRegex(ValueError, "manifest cursor is untrusted"):
+            eligible_promotions(untrusted, transactions)
+        with self.assertRaisesRegex(ValueError, "manifest cursor is untrusted"):
+            lowest_eligible_blocker(untrusted, transactions)
 
     def test_visible_internal_source_ids_fail_before_validation_commit(self):
         payload = json.loads(read_text(self.batch_v2))
@@ -1800,19 +2086,14 @@ class VisualGenerationContractTests(unittest.TestCase):
             "visible-internal-source-en",
             "visible-internal-source-only",
             "machine-metadata-only",
-            "explicit-human-readable-source",
+            "explicit-human-readable-source-is-blocked",
         ]
         self.assertEqual(payload["fact_source_cases"], expected_ids)
         for case_id in expected_ids:
             case = payload["cases"][case_id]
             transaction = copy.deepcopy(case["transaction"])
             before = copy.deepcopy(transaction)
-            reason = fact_source_visible_text_result(
-                case["svg"],
-                human_readable_citation_requested=case[
-                    "human_readable_citation_requested"
-                ],
-            )
+            reason = fact_source_visible_text_result(case["svg"])
             with self.subTest(case=case_id):
                 self.assertEqual(reason, case["expected"]["failure_reason"])
                 self.assertTrue(case["expected"]["preserve_previous_final"])
@@ -1831,14 +2112,122 @@ class VisualGenerationContractTests(unittest.TestCase):
                     for check in transaction["validation"]["checks"]:
                         transaction["validation"]["checks"][check] = "passed"
                 self.assertEqual(transaction["state"], case["expected"]["next_state"])
-        explicit = payload["cases"]["explicit-human-readable-source"]
+        explicit = payload["cases"]["explicit-human-readable-source-is-blocked"]
         self.assertEqual(
-            fact_source_visible_text_result(
-                explicit["svg"],
-                human_readable_citation_requested=False,
-            ),
+            fact_source_visible_text_result(explicit["svg"]),
             "fact_source_mismatch",
         )
+
+    def test_source_metadata_is_joined_before_candidate_write_and_hash(self):
+        raw = (
+            '<svg xmlns="http://www.w3.org/2000/svg">'
+            '<g data-block-id="S03-B1"><text>88%</text></g>'
+            '<g data-block-id="S03-B2"><text>下一步</text></g>'
+            '</svg>'
+        )
+        mapping = {
+            "S03-B1": ["SRC-001", "SRC-002"],
+            "S03-B2": [],
+        }
+        events = []
+        writes = []
+        persisted = []
+
+        def enrich_spy(svg_text, source_mapping):
+            events.append("enrich")
+            return enrich_candidate_source_metadata(svg_text, source_mapping)
+
+        def digest_spy(data):
+            events.append("hash")
+            return "sha256:" + hashlib.sha256(data).hexdigest()
+
+        def write_spy(data):
+            events.append("write")
+            persisted[:] = [data]
+
+        def read_spy():
+            events.append("reread")
+            return persisted[0]
+
+        enriched, candidate_sha256 = coordinator_enrich_hash_write(
+            raw,
+            mapping,
+            enrich=enrich_spy,
+            write_candidate=write_spy,
+            read_candidate=read_spy,
+            digest=digest_spy,
+        )
+        self.assertEqual(events, ["enrich", "write", "reread", "hash"])
+        self.assertEqual(persisted, [enriched])
+        self.assertNotIn(b"data-block-id", enriched)
+        self.assertEqual(enriched.count(b'data-source-id="SRC-001"'), 1)
+        self.assertEqual(enriched.count(b'data-source-id="SRC-002"'), 1)
+        self.assertNotEqual(
+            hashlib.sha256(raw.encode("utf-8")).digest(),
+            hashlib.sha256(enriched).digest(),
+        )
+
+        invalid_cases = (
+            ({"S03-B1": ["SRC-001"]}, raw),
+            ({**mapping, "S03-B3": ["SRC-003"]}, raw),
+            (mapping, raw.replace("S03-B2", "S03-B1")),
+            (
+                mapping,
+                raw.replace(
+                    "data-block-id",
+                    'data-source-id="SRC-999" data-block-id',
+                    1,
+                ),
+            ),
+            (
+                mapping,
+                raw.replace(
+                    "data-block-id",
+                    'data-SOURCE-id="SRC-999" data-block-id',
+                    1,
+                ),
+            ),
+            (mapping, raw.replace("<svg ", '<svg id="SRC-999" ', 1)),
+            (mapping, raw.replace(">", "><desc>SRC-999</desc>", 1)),
+            (mapping, raw.replace("<svg ", '<svg id="S03-B1" ', 1)),
+            (mapping, raw.replace("<text>88%", "<text>S03-B1 88%", 1)),
+            (mapping, raw.replace("</g>", "</g>S03-B1", 1)),
+            (mapping, raw.replace("data-block-id", "data-BLOCK-id", 1)),
+            (mapping, raw.replace("data-block-id", 'source="annual-report" data-block-id', 1)),
+            (mapping, raw.replace("data-block-id", 'source-id="annual-report" data-block-id', 1)),
+            (mapping, raw.replace("data-block-id", 'data-source-ref="annual-report" data-block-id', 1)),
+            ({"S03-B1": ["SRC-001", "SRC-001"], "S03-B2": []}, raw),
+            ({"S03-B1": ["src-001"], "S03-B2": []}, raw),
+            ({"S03-B1": ["Src-001"], "S03-B2": []}, raw),
+            ({"S03-B1": ["来源-001"], "S03-B2": []}, raw),
+            ({"S03-B1": ["SOURCE-001"], "S03-B2": []}, raw),
+        )
+        for invalid_mapping, invalid_svg in invalid_cases:
+            invalid_writes = []
+            with self.subTest(
+                invalid_mapping=invalid_mapping,
+                invalid_svg=invalid_svg[:90],
+            ):
+                with self.assertRaisesRegex(ValueError, "^fact_source_mismatch$"):
+                    coordinator_enrich_hash_write(
+                        invalid_svg,
+                        invalid_mapping,
+                        enrich=enrich_candidate_source_metadata,
+                        write_candidate=lambda data: invalid_writes.append(data),
+                        read_candidate=lambda: invalid_writes[-1],
+                        digest=lambda data: "sha256:" + hashlib.sha256(data).hexdigest(),
+                    )
+                self.assertEqual(invalid_writes, [])
+
+        with self.assertRaisesRegex(ValueError, "^candidate_hash_mismatch$"):
+            coordinator_enrich_hash_write(
+                raw,
+                mapping,
+                enrich=enrich_candidate_source_metadata,
+                write_candidate=lambda data: None,
+                read_candidate=lambda: b"truncated",
+                digest=lambda data: "sha256:" + hashlib.sha256(data).hexdigest(),
+            )
 
     def test_parallel_validation_and_serial_publication_are_documented_exactly(self):
         qa = read_text(self.qa)
@@ -1906,6 +2295,98 @@ class VisualGenerationContractTests(unittest.TestCase):
                 result[result_key],
                 None if encoded is None else base64.b64decode(encoded),
             )
+
+    def test_v1_fixture_is_read_only_migration_evidence_not_runtime_authority(self):
+        payload = json.loads(read_text(self.transaction))
+        self.assertEqual(
+            set(payload),
+            {
+                "schema_version",
+                "fixture_role",
+                "runtime_authority",
+                "allowed_operation",
+                "states",
+                "failure_reasons",
+                "recovery_order_cases",
+            },
+        )
+        self.assertEqual(payload["fixture_role"], "schema-v1-read-only-migration-evidence")
+        self.assertFalse(payload["runtime_authority"])
+        self.assertEqual(
+            payload["allowed_operation"],
+            "deterministic-pointer-last-v2-migration",
+        )
+        self.assertEqual(tuple(payload["states"]), V1_MIGRATION_STATES)
+        self.assertEqual(
+            tuple(payload["failure_reasons"]),
+            V1_MIGRATION_FAILURE_REASONS,
+        )
+        self.assertNotIn("visual-briefs/", json.dumps(payload, ensure_ascii=False))
+        for case in payload["recovery_order_cases"]:
+            with self.subTest(case=case["id"]):
+                self.assertEqual(case["expected_calls"]["generator"], 0)
+
+    def test_repaired_blocker_clears_only_blocker_then_v1_migrates_zero_calls(self):
+        payload = json.loads(read_text(self.batch_v2))
+        migration_case = payload["cases"]["v1-only-migrates"]
+        before = copy.deepcopy(migration_case["before_run"])
+        legacy_transaction = copy.deepcopy(before["visual_generation_transaction"])
+        before["visual_generation_blocker"] = {
+            "state": "generation_prompt_unavailable",
+            "slide_id": "S07",
+            "reason": "prompt_file_missing",
+            "selected_style_id": "canway-midyear-review",
+            "resource": "assets/styles/canway-midyear-review/prompt.md",
+            "storyboard_snapshot_id": "sha256:" + "1" * 64,
+            "theme_snapshot_id": "sha256:" + "2" * 64,
+            "status": "active",
+        }
+
+        cleared = clear_repaired_blocker_before_v1_migration(before)
+        self.assertNotIn("visual_generation_blocker", cleared)
+        self.assertEqual(cleared["visual_generation_transaction"], legacy_transaction)
+        self.assertEqual(cleared["dirty_slides"], before["dirty_slides"])
+
+        migrated = migrate_v1_run_to_v2(
+            cleared,
+            migration_case["corpus_case"],
+        )
+        self.assertEqual(migrated["status"], "migrated")
+        self.assertEqual(migrated["generator_calls"], 0)
+        self.assertEqual(migrated["write_order"], ["transaction", "manifest", "run"])
+
+    def test_v1_migration_rejects_nonclosed_or_malformed_legacy_owner(self):
+        payload = json.loads(read_text(self.batch_v2))
+        migration_case = payload["cases"]["v1-only-migrates"]
+        base_run = migration_case["before_run"]
+        corpus_case = migration_case["corpus_case"]
+
+        def mutate(field, value, *, remove=False):
+            run = copy.deepcopy(base_run)
+            legacy = run["visual_generation_transaction"]
+            if remove:
+                del legacy[field]
+            else:
+                legacy[field] = value
+            return run
+
+        malformed = (
+            mutate("unexpected", "field"),
+            mutate("prompt_path", None, remove=True),
+            mutate("state", "unknown"),
+            mutate("transaction_id", "sha256:not-a-digest"),
+            mutate("prompt_snapshot_id", "sha256:" + "f" * 64),
+            mutate("prompt_path", "../generation-prompts/S07.md"),
+            mutate("candidate_path", "slides/.candidates/S08-wrong.svg"),
+            mutate("generation_attempt", True),
+            mutate("failure_reason", "generator_timeout"),
+        )
+        for run in malformed:
+            with self.subTest(legacy=run["visual_generation_transaction"]):
+                result = migrate_v1_run_to_v2(run, corpus_case)
+                self.assertEqual(result["status"], "visual_generation_state_conflict")
+                self.assertEqual(result["writes"], 0)
+                self.assertEqual(result["generator_calls"], 0)
 
     def test_v1_migration_matrix(self):
         v1 = json.loads(read_text(self.transaction))
@@ -2031,28 +2512,345 @@ class VisualGenerationContractTests(unittest.TestCase):
 
     def test_generation_blocker_lifecycle_is_atomic_and_preflight_has_zero_dispatch(self):
         payload = json.loads(read_text(self.blocker))
+        self.assertEqual(tuple(payload["stable_resolver_reasons"]), STABLE_RESOLVER_REASONS)
         self.assertEqual({case["id"] for case in payload["blocker_cases"]}, BLOCKER_CASE_IDS)
-        for case in payload["blocker_cases"]:
+
+        def collect_lifecycle_cases(node):
+            found = []
+            if isinstance(node, dict):
+                if all(key in node for key in ("after_run", "expected")) and (
+                    "active_blocker" in node["expected"]
+                ):
+                    found.append(node)
+                for value in node.values():
+                    found.extend(collect_lifecycle_cases(value))
+            elif isinstance(node, list):
+                for value in node:
+                    found.extend(collect_lifecycle_cases(value))
+            return found
+
+        fixture_paths = (
+            self.blocker,
+            repo_root() / "tests" / "fixtures" / "style-asset-blocker-cases.json",
+            self.batch_v2,
+        )
+        cases = []
+        for fixture_path in fixture_paths:
+            cases.extend(
+                collect_lifecycle_cases(json.loads(read_text(fixture_path)))
+            )
+        self.assertTrue(cases)
+        for case in cases:
             expected = case["expected"]
-            if not expected["active_blocker"]:
-                continue
+            after = case["after_run"]
+            active = expected["active_blocker"]
+            with self.subTest(case=case.get("id", "nested")):
+                self.assertEqual("visual_generation_blocker" in after, active)
+                if not active:
+                    continue
+                validate_blocker_operation_expectation(expected)
+                self.assertEqual(expected["prompt_writes"], 0)
+                self.assertEqual(expected["transaction_writes"], 0)
+                self.assertEqual(expected["candidate_writes"], 0)
+                if "before_run" in case:
+                    before = case["before_run"]
+                    self.assertEqual(after["stage"], before["stage"])
+                    if "interaction_history" in before:
+                        self.assertEqual(
+                            after.get("interaction_history"),
+                            before["interaction_history"],
+                        )
+                self.assertNotIn("active_visual_generation_batch", after)
+                resolver = case.get("resolver", {})
+                if resolver.get("result") == "failure":
+                    blocker = after["visual_generation_blocker"]
+                    self.assertEqual(blocker["reason"], resolver["reason"])
+                    self.assertEqual(blocker["resource"], resolver["resource"])
+
+    def test_blocker_operation_expectation_rejects_missing_or_nonzero_side_effects(self):
+        payload = json.loads(read_text(self.blocker))
+        expected = payload["blocker_cases"][0]["expected"]
+
+        for field in EXPECTED_OPERATION_FIELDS:
+            missing = copy.deepcopy(expected)
+            del missing[field]
+            with self.subTest(missing_field=field):
+                with self.assertRaises(ValueError):
+                    validate_blocker_operation_expectation(missing)
+
+        for field in ZERO_SIDE_EFFECT_FIELDS:
+            nonzero = copy.deepcopy(expected)
+            nonzero[field] = 1
+            with self.subTest(nonzero_side_effect=field):
+                with self.assertRaises(ValueError):
+                    validate_blocker_operation_expectation(nonzero)
+
+    def test_style_asset_recovery_order_cases_are_executed(self):
+        fixture = json.loads(
+            read_text(
+                repo_root()
+                / "tests"
+                / "fixtures"
+                / "style-asset-blocker-cases.json"
+            )
+        )
+
+        def first_action(run):
+            if "pending_interaction" in run:
+                return "pending_interaction", True, {"resolver": 0, "generator": 0, "stage_scan": 0}
+            review = run.get("manuscript_review", {})
+            if "pending_round" in review:
+                return "manuscript_review.pending_round", True, {"resolver": 0, "generator": 0, "stage_scan": 0}
+            if "visual_generation_blocker" in run:
+                return "visual_generation_blocker", True, {"resolver": 1, "generator": 0, "stage_scan": 0}
+            if "visual_generation_transaction" in run:
+                return "visual_generation_transaction", True, {"resolver": 0, "generator": 0, "stage_scan": 0}
+            if "active_visual_generation_batch" in run:
+                return "active_visual_generation_batch", True, {"resolver": 0, "generator": 1, "stage_scan": 0}
+            return "stage scan", False, {"resolver": 0, "generator": 0, "stage_scan": 1}
+
+        cases = fixture["recovery_order_cases"]
+        self.assertTrue(cases)
+        for case in cases:
+            action, stop, calls = first_action(case["before_run"])
             with self.subTest(case=case["id"]):
-                self.assertEqual(expected["generator_calls"], 0)
-                self.assertEqual(expected["svg_writes"], 0)
-                self.assertEqual(expected["stage_scan_calls"], 0)
-                self.assertTrue(expected["stop"])
-                self.assertEqual(
-                    case["after_run"]["stage"],
-                    case["before_run"]["stage"],
+                self.assertEqual(action, case["expected_first_action"])
+                self.assertEqual(stop, case["stop"])
+                self.assertEqual(calls, case["expected_calls"])
+                if action == "visual_generation_blocker":
+                    self.assertEqual(calls["generator"], 0)
+                    self.assertEqual(calls["stage_scan"], 0)
+
+    def test_generation_blocker_schema_state_reason_and_resource_are_closed(self):
+        payload = json.loads(read_text(self.blocker))
+        style_reasons = set(STYLE_ASSET_BLOCKER_REASONS)
+        prompt_reasons = set(GENERATION_PROMPT_BLOCKER_REASONS)
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertFalse(style_reasons & prompt_reasons)
+        self.assertNotIn("prompt_field_missing", payload["stable_resolver_reasons"])
+        selected_style_id = "canway-midyear-review"
+        self.assertTrue(
+            is_safe_blocker_resource(
+                "assets/styles/canway-midyear-review/prompt.md",
+                selected_style_id,
+            )
+        )
+        self.assertFalse(is_safe_blocker_resource("none", "../other-style"))
+        for unsafe in (
+            "assets/styles/../../secret",
+            "assets/styles/canway-midyear-review/../prompt.md",
+            "assets\\styles\\canway-midyear-review\\prompt.md",
+            "https://example.com/prompt.md",
+            "assets/styles/canway-midyear-review/./prompt.md",
+            "assets/styles//canway-midyear-review/prompt.md",
+            "assets/styles/canway-midyear-review/nested/prompt.md",
+            "assets/styles/canway-midyear-review/prompt.md\x00",
+            "assets/styles/canway-midyear-review/prompt.md\nforged",
+            "assets/styles/other-style/prompt.md",
+        ):
+            with self.subTest(unsafe_resource=unsafe):
+                self.assertFalse(
+                    is_safe_blocker_resource(unsafe, selected_style_id)
                 )
-                self.assertEqual(
-                    case["after_run"]["interaction_history"],
-                    case["before_run"]["interaction_history"],
+
+        def collect_blockers(node, label):
+            found = []
+            if isinstance(node, dict):
+                blocker = node.get("visual_generation_blocker")
+                if blocker is not None:
+                    found.append((label, node, blocker))
+                for key, value in node.items():
+                    found.extend(collect_blockers(value, f"{label}.{key}"))
+            elif isinstance(node, list):
+                for index, value in enumerate(node):
+                    found.extend(collect_blockers(value, f"{label}[{index}]"))
+            return found
+
+        blocker_fixtures = (
+            self.blocker,
+            repo_root() / "tests" / "fixtures" / "style-asset-blocker-cases.json",
+            self.batch_v2,
+        )
+        blockers = []
+        for fixture_path in blocker_fixtures:
+            fixture = json.loads(read_text(fixture_path))
+            blockers.extend(collect_blockers(fixture, fixture_path.name))
+
+        self.assertTrue(blockers)
+        for label, run_state, blocker in blockers:
+            with self.subTest(blocker=label):
+                self.assertEqual(set(blocker), VISUAL_GENERATION_BLOCKER_FIELDS)
+                self.assertEqual(blocker["status"], "active")
+                self.assertIn(blocker["slide_id"], run_state["dirty_slides"])
+                self.assertRegex(blocker["storyboard_snapshot_id"], r"^sha256:[0-9a-f]{64}$")
+                self.assertRegex(blocker["theme_snapshot_id"], r"^sha256:[0-9a-f]{64}$")
+                self.assertTrue(
+                    is_safe_blocker_resource(
+                        blocker["resource"], blocker["selected_style_id"]
+                    ),
+                    label,
+                )
+                self.assertTrue(is_closed_blocker_tuple(blocker), label)
+
+                reason = blocker["reason"]
+                if reason in prompt_reasons:
+                    self.assertEqual(blocker["state"], "generation_prompt_unavailable")
+                    if blocker["resource"] == "none":
+                        self.assertIn(reason, {"prompt_path_unsafe", "prompt_snapshot_conflict"})
+                    else:
+                        self.assertTrue(
+                            blocker["resource"].endswith("/prompt.md"), label
+                        )
+                elif reason in style_reasons:
+                    self.assertEqual(blocker["state"], "style_assets_unavailable")
+                else:
+                    self.fail(f"{label} has unclosed blocker reason: {reason}")
+
+        tuple_mutations = (
+            ("style_assets_unavailable", "registry_missing", "assets/styles/canway-midyear-review/tokens.json"),
+            ("style_assets_unavailable", "manifest_malformed", "assets/styles/canway-midyear-review/STYLE.md"),
+            ("style_assets_unavailable", "style_asset_target_invalid", "assets/styles/canway-midyear-review/prompt.md"),
+            ("generation_prompt_unavailable", "prompt_template_invalid", "assets/styles/canway-midyear-review/tokens.json"),
+            ("generation_prompt_unavailable", "prompt_file_missing", "none"),
+        )
+        for state, reason, resource in tuple_mutations:
+            with self.subTest(invalid_tuple=(state, reason, resource)):
+                self.assertFalse(
+                    is_closed_blocker_tuple(
+                        {
+                            "state": state,
+                            "reason": reason,
+                            "resource": resource,
+                            "selected_style_id": selected_style_id,
+                        }
+                    )
+                )
+
+        for case in payload["blocker_cases"]:
+            resolver = case.get("resolver", {})
+            after_blocker = case["after_run"].get("visual_generation_blocker")
+            if resolver.get("result") == "failure" and after_blocker is not None:
+                with self.subTest(resolver_closure=case["id"]):
+                    self.assertEqual(after_blocker["reason"], resolver["reason"])
+                    self.assertEqual(after_blocker["resource"], resolver["resource"])
+
+        def collect_split_brain_cases(node, label):
+            found = []
+            if isinstance(node, dict):
+                before = node.get("before_run")
+                after = node.get("after_run")
+                if (
+                    isinstance(before, dict)
+                    and isinstance(after, dict)
+                    and {
+                        "visual_generation_blocker",
+                        "visual_generation_transaction",
+                    }.issubset(before)
+                ):
+                    found.append((label, node, before, after))
+                for key, value in node.items():
+                    found.extend(collect_split_brain_cases(value, f"{label}.{key}"))
+            elif isinstance(node, list):
+                for index, value in enumerate(node):
+                    found.extend(collect_split_brain_cases(value, f"{label}[{index}]"))
+            return found
+
+        for fixture_path in blocker_fixtures:
+            fixture = json.loads(read_text(fixture_path))
+            for label, case, before, after in collect_split_brain_cases(
+                fixture, fixture_path.name
+            ):
+                with self.subTest(legacy_split_brain=label):
+                    self.assertEqual(
+                        case["expected"]["first_action"],
+                        "revalidate_active_blocker_before_v1_recovery",
+                    )
+                    self.assertTrue(case["expected"]["active_blocker"])
+                    self.assertIn("visual_generation_blocker", after)
+                    self.assertEqual(
+                        after.get("visual_generation_transaction"),
+                        before["visual_generation_transaction"],
+                    )
+
+        style_asset_fixture = json.loads(
+            read_text(repo_root() / "tests" / "fixtures" / "style-asset-blocker-cases.json")
+        )
+        prompt_reason_by_phase = {
+            "read": "prompt_unreadable",
+            "shape": "prompt_template_invalid",
+            "preflight": "prompt_preflight_invalid",
+            "path_safety": "prompt_path_unsafe",
+        }
+        self.assertEqual(
+            {
+                case["id"]
+                for case in style_asset_fixture["canonical_blocker_cases"]
+            },
+            {
+                "style-owned-prompt-unreadable",
+                "style-owned-prompt-shape-invalid",
+                "style-owned-prompt-preflight-invalid",
+                "style-owned-prompt-path-unsafe",
+            },
+        )
+        for case in style_asset_fixture["canonical_blocker_cases"]:
+            failure = case["canonical_failure"]
+            expected_reason = prompt_reason_by_phase[failure["phase"]]
+            with self.subTest(style_owned_prompt=case["id"]):
+                self.assertIn("visual_generation_blocker", case["after_run"])
+                blocker = case["after_run"]["visual_generation_blocker"]
+                self.assertEqual(failure["reason"], expected_reason)
+                self.assertEqual(case["expected"]["reason"], expected_reason)
+                self.assertEqual(blocker["reason"], expected_reason)
+                self.assertEqual(failure["resource"], case["expected"]["resource"])
+                self.assertEqual(blocker["resource"], case["expected"]["resource"])
+                self.assertTrue(case["expected"]["stop"])
+                for field in (
+                    "generator_calls",
+                    "svg_writes",
+                    "style_fallback_calls",
+                    "alternate_style_selection_calls",
+                    "transaction_writes",
+                ):
+                    self.assertIn(field, case["expected"])
+                    self.assertEqual(case["expected"][field], 0)
+
+    def test_baseline_failures_use_existing_style_asset_reasons(self):
+        grammar = read_text(skill_root() / "references" / "generation-prompt-byte-grammar.md")
+        artifact = read_text(self.artifact)
+        design = read_text(skill_root() / "references" / "design-system.md")
+        redesign = read_text(skill_root() / "references" / "redesign-prompt.md")
+        pressure = read_text(repo_root() / "tests" / "prompts" / "style-prompt-blocker-pressure.md")
+        combined = "\n".join((grammar, artifact, design, redesign, pressure))
+
+        self.assertNotIn("style_baseline_unavailable", combined)
+        self.assertNotIn("prompt_field_missing", combined)
+        for reason in (
+            "style_asset_target_invalid",
+            "style_asset_unreadable",
+            "style_asset_malformed",
+            "style_asset_schema_unsupported",
+        ):
+            self.assertIn(reason, grammar)
+        for reason in STABLE_RESOLVER_REASONS:
+            self.assertIn(f"`{reason}`", artifact)
+        self.assertIn("generation_prompt_unavailable", pressure)
+        self.assertIn("style_assets_unavailable", pressure)
+        self.assertNotIn("style_prompt_unavailable", pressure)
+
+        for name, document in (("design-system", design), ("redesign-prompt", redesign)):
+            with self.subTest(prompt_snapshot_state=name):
+                self.assertRegex(
+                    document,
+                    r"`prompt_snapshot_conflict`[^。\n]{0,160}`generation_prompt_unavailable`",
                 )
                 self.assertNotIn(
-                    "active_visual_generation_batch",
-                    case["after_run"],
+                    "`prompt_snapshot_conflict` 并写 `style_assets_unavailable` blocker",
+                    document,
                 )
+
+        self.assertIn("tokens schema 非 2", redesign)
+        self.assertNotIn("tokens schema 非 1", redesign)
 
     def test_v1_prompt_and_transaction_migration_is_read_only_deterministic_and_zero_call(self):
         payload = json.loads(read_text(self.batch_v2))
@@ -2120,295 +2918,12 @@ class VisualGenerationContractTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, combined)
 
-    def test_skill_requires_visual_brief_contract_before_svg(self):
+    def test_skill_requires_generation_prompt_contract_before_svg(self):
         self.assertTrue(self.reference.exists())
         skill = read_text(self.skill)
         self.assertIn("visual-brief-and-generation.md", skill)
+        self.assertIn("generation-prompts/<slide-id>.md", skill)
         self.assertLess(skill.index("visual-brief-and-generation.md"), skill.index("SVG 契约"))
-
-    def test_fixture_has_every_required_brief_section(self):
-        text = read_text(self.brief)
-        headings = {
-            line.removeprefix("## ").strip()
-            for line in text.splitlines()
-            if line.startswith("## ")
-        }
-        self.assertEqual(headings, self.REQUIRED_BRIEF_HEADINGS)
-        for token in (
-            "storyboard_snapshot_id",
-            "theme_snapshot_id",
-            "applied_visual_revision_ids",
-            "selected_style_id",
-            "selected_style_display_name",
-            "style_manifest_version",
-            "style_token_path",
-            "style_guidance_path",
-            "primary_message",
-            "reading_order",
-            "layout_family",
-            "focal_object",
-            "typography_ladder",
-            "prohibited_motifs",
-            "mode: recompose",
-            "office_safe_svg",
-        ):
-            self.assertIn(token, text)
-        self.assertNotIn("style_reference_path", text)
-        manifest = json.loads(read_text(self.style_manifest))
-        self.assertIn(f"style_manifest_version: {manifest['version']}", text)
-
-    def test_fixture_has_complete_style_identity_and_generation_owner(self):
-        sections = parse_brief_sections(self.brief)
-        source = sections["来源与版本"]
-        revision = sections["修订模式"]
-        expected_identity = {
-            "selected_style_id": "canway-midyear-review",
-            "selected_style_display_name": "嘉为年中总结风格",
-            "style_kind": "style_pack",
-            "style_manifest_version": "1.3.0",
-        }
-        expected_owner = {
-            "generation_intent": "user_recompose",
-            "generation_trigger_id": "interaction:visual-revision-3",
-        }
-        self.assertEqual({field: source.get(field) for field in STYLE_IDENTITY_FIELDS}, expected_identity)
-        for field in expected_owner:
-            self.assertNotIn(field, source)
-        for field, value in expected_owner.items():
-            with self.subTest(field=field):
-                self.assertEqual(revision.get(field), value)
-        for field in STYLE_IDENTITY_FIELDS:
-            self.assertNotIn(field, revision)
-
-    def test_s05_and_theme_fixture_share_style_identity(self):
-        theme_fixture = repo_root() / "tests" / "fixtures" / "theme-canway-S05.json"
-        self.assertTrue(theme_fixture.is_file(), f"missing fixture: {theme_fixture}")
-        brief_fields = parse_brief_fields(self.brief)
-        theme = json.loads(read_text(theme_fixture))
-        self.assertEqual(theme["schema_version"], 1)
-        for field in STYLE_IDENTITY_FIELDS:
-            with self.subTest(field=field):
-                self.assertEqual(theme.get(field), brief_fields.get(field))
-
-    def test_visual_generation_transaction_fixture_models_legal_transitions_and_crashes(self):
-        self.assertTrue(self.transaction.is_file(), f"missing fixture: {self.transaction}")
-        payload = json.loads(read_text(self.transaction))
-        self.assertEqual(payload["schema_version"], 1)
-        self.assertEqual(tuple(payload["states"]), TRANSACTION_STATES)
-        self.assertEqual(tuple(payload["failure_reasons"]), TRANSACTION_FAILURE_REASONS)
-        self.assertEqual(set(payload["transaction_schema"]), REQUIRED_TRANSACTION_FIELDS)
-
-        legal = payload["legal_transitions"]
-        self.assertEqual(
-            tuple((edge["from"], edge["to"]) for edge in legal["normal"]),
-            NORMAL_TRANSACTION_EDGES,
-        )
-        self.assertEqual(
-            tuple((edge["from"], edge["to"]) for edge in legal["failure"]),
-            FAILURE_TRANSACTION_EDGES,
-        )
-        self.assertEqual(
-            tuple((edge["from"], edge["to"]) for edge in legal["recovery"]),
-            RECOVERY_TRANSACTION_EDGES,
-        )
-        self.assertEqual(
-            payload["replacement_rules"],
-            [
-                {
-                    "from_state": "failed",
-                    "to_new_state": "compiling",
-                    "same_transaction_edge": False,
-                    "when": "authoritative_inputs_changed_or_deterministic_fallback",
-                }
-            ],
-        )
-
-        crash_cases = {case["id"]: case for case in payload["transaction_cases"]}
-        self.assertEqual(set(crash_cases), TRANSACTION_CRASH_CASE_IDS)
-
-        def assert_transaction_schema(transaction: dict, label: str) -> None:
-            self.assertEqual(set(transaction), REQUIRED_TRANSACTION_FIELDS, label)
-            self.assertEqual(transaction["transaction_id"], transaction["prompt_snapshot_id"], label)
-            self.assertRegex(transaction["transaction_id"], r"^sha256:[0-9a-f]{64}$", label)
-            candidate_hex = transaction["transaction_id"].removeprefix("sha256:")
-            self.assertEqual(
-                transaction["candidate_path"],
-                f"slides/.candidates/{transaction['slide_id']}-{candidate_hex}.svg",
-                label,
-            )
-            self.assertEqual(transaction["prompt_path"], f"generation-prompts/{transaction['slide_id']}.md", label)
-            self.assertEqual(transaction["final_path"], f"slides/{transaction['slide_id']}.svg", label)
-            self.assertIn(transaction["state"], TRANSACTION_STATES, label)
-            if transaction["state"] == "failed":
-                self.assertIn(transaction["failure_reason"], TRANSACTION_FAILURE_REASONS, label)
-            else:
-                self.assertIsNone(transaction["failure_reason"], label)
-            if transaction["state"] in {"compiling", "compiled", "generating"}:
-                self.assertIsNone(transaction["candidate_sha256"], label)
-            if transaction["state"] in {"candidate_written", "validated", "promoted"}:
-                self.assertRegex(transaction["candidate_sha256"], r"^sha256:[0-9a-f]{64}$", label)
-
-        for case in crash_cases.values():
-            before_tx = case["before_run"].get("visual_generation_transaction")
-            after_tx = case["after_run"].get("visual_generation_transaction")
-            if before_tx is not None:
-                assert_transaction_schema(before_tx, f"{case['id']} before transaction")
-            if after_tx is not None:
-                assert_transaction_schema(after_tx, f"{case['id']} after transaction")
-
-            slide_id = case["slide_id"]
-            if before_tx and before_tx["state"] != "promoted":
-                self.assertIn(
-                    slide_id,
-                    case["after_run"].get("dirty_slides", []),
-                    f"{case['id']} clears dirty before promoted final QA",
-                )
-
-        compiling_match = crash_cases["compiling-durable-prompt-match-commits-compiled"]
-        self.assertEqual(compiling_match["before_run"]["visual_generation_transaction"]["state"], "compiling")
-        self.assertEqual(compiling_match["after_run"]["visual_generation_transaction"]["state"], "compiled")
-        self.assertNotIn("visual_generation_blocker", compiling_match["after_run"])
-        self.assertEqual(
-            compiling_match["durable_prompt"],
-            {
-                "path": compiling_match["before_run"]["visual_generation_transaction"]["prompt_path"],
-                "prompt_snapshot_id": compiling_match["before_run"]["visual_generation_transaction"]["prompt_snapshot_id"],
-                "compiled_prompt_sha256": compiling_match["before_run"]["visual_generation_transaction"]["compiled_prompt_sha256"],
-            },
-        )
-
-        compiling_mismatch = crash_cases["compiling-durable-prompt-mismatch-recompiles"]
-        self.assertEqual(compiling_mismatch["expected"]["first_action"], "recompile_prompt")
-        self.assertEqual(compiling_mismatch["expected"]["generator_calls"], 0)
-        self.assertNotEqual(
-            compiling_mismatch["durable_prompt"]["compiled_prompt_sha256"],
-            compiling_mismatch["before_run"]["visual_generation_transaction"]["compiled_prompt_sha256"],
-        )
-
-        generating_orphan = crash_cases["generating-orphan-candidate-is-never-adopted"]
-        self.assertEqual(generating_orphan["before_run"]["visual_generation_transaction"]["state"], "generating")
-        self.assertEqual(generating_orphan["orphan_candidate"]["path"], generating_orphan["before_run"]["visual_generation_transaction"]["candidate_path"])
-        self.assertFalse(generating_orphan["expected"]["adopt_orphan_candidate"])
-        self.assertIn(generating_orphan["expected"]["orphan_candidate_action"], {"delete", "isolate"})
-        self.assertEqual(generating_orphan["expected"]["generator_calls"], 1)
-
-        candidate_match = crash_cases["candidate-written-hash-match-continues-validation"]
-        self.assertEqual(candidate_match["observed_candidate_sha256"], candidate_match["before_run"]["visual_generation_transaction"]["candidate_sha256"])
-        self.assertEqual(candidate_match["after_run"]["visual_generation_transaction"]["state"], "validated")
-
-        candidate_mismatch = crash_cases["candidate-written-hash-mismatch-fails"]
-        self.assertNotEqual(candidate_mismatch["observed_candidate_sha256"], candidate_mismatch["before_run"]["visual_generation_transaction"]["candidate_sha256"])
-        self.assertEqual(candidate_mismatch["after_run"]["visual_generation_transaction"]["state"], "failed")
-        self.assertEqual(candidate_mismatch["after_run"]["visual_generation_transaction"]["failure_reason"], "candidate_hash_mismatch")
-
-        final_match = crash_cases["validated-final-hash-match-promotes"]
-        self.assertEqual(final_match["observed_final_sha256"], final_match["before_run"]["visual_generation_transaction"]["candidate_sha256"])
-        self.assertEqual(final_match["after_run"]["visual_generation_transaction"]["state"], "promoted")
-
-        final_conflict = crash_cases["validated-final-conflict-fails"]
-        self.assertNotEqual(final_conflict["observed_final_sha256"], final_conflict["before_run"]["visual_generation_transaction"]["candidate_sha256"])
-        self.assertEqual(final_conflict["after_run"]["visual_generation_transaction"]["state"], "failed")
-        self.assertEqual(final_conflict["after_run"]["visual_generation_transaction"]["failure_reason"], "final_promotion_conflict")
-
-        illegal = crash_cases["illegal-recovery-transition-fails"]
-        self.assertEqual(illegal["requested_transition"], {"from": "compiled", "to": "promoted"})
-        self.assertEqual(illegal["after_run"]["visual_generation_transaction"]["state"], "failed")
-        self.assertEqual(illegal["after_run"]["visual_generation_transaction"]["failure_reason"], "transaction_state_conflict")
-
-        cleanup = crash_cases["promoted-final-qa-cleans-transaction-and-dirty-slide"]
-        self.assertEqual(cleanup["before_run"]["visual_generation_transaction"]["state"], "promoted")
-        self.assertTrue(cleanup["expected"]["final_qa_passed"])
-        self.assertNotIn("visual_generation_transaction", cleanup["after_run"])
-        self.assertNotIn(cleanup["slide_id"], cleanup["after_run"].get("dirty_slides", []))
-
-    def test_failed_transaction_reasons_have_one_complete_consumer(self):
-        self.assertTrue(self.transaction.is_file(), f"missing fixture: {self.transaction}")
-        payload = json.loads(read_text(self.transaction))
-        self.assertEqual(tuple(payload["failure_reasons"]), TRANSACTION_FAILURE_REASONS)
-        self.assertEqual(tuple(payload["covered_failure_reasons"]), TRANSACTION_FAILURE_REASONS)
-
-        consumer_cases = payload["failed_consumer_cases"]
-        reasons = [case["reason"] for case in consumer_cases]
-        self.assertEqual(set(reasons), set(TRANSACTION_FAILURE_REASONS))
-        self.assertEqual(len(reasons), len(set(reasons)), "each reason must have exactly one consumer case")
-
-        retry_reasons = {
-            "generator_unavailable",
-            "generator_refused",
-            "generator_timeout",
-            "generator_output_malformed",
-            "candidate_write_failed",
-            "candidate_hash_mismatch",
-        }
-        qa_reasons = {"svg_contract_failed", "locked_content_mismatch", "visual_qa_failed"}
-        conflict_reasons = {"final_promotion_conflict", "transaction_state_conflict"}
-
-        for case in consumer_cases:
-            with self.subTest(reason=case["reason"]):
-                before_tx = case["before_run"]["visual_generation_transaction"]
-                after_tx = case["after_run"].get("visual_generation_transaction")
-                self.assertEqual(before_tx["state"], "failed")
-                self.assertEqual(before_tx["failure_reason"], case["reason"])
-                self.assertIn(case["slide_id"], case["after_run"].get("dirty_slides", []))
-
-                if case["reason"] in retry_reasons:
-                    self.assertEqual(case["consumer"], "explicit_resume_retry_same_transaction")
-                    self.assertIsNotNone(after_tx)
-                    self.assertEqual(after_tx["transaction_id"], before_tx["transaction_id"])
-                    self.assertEqual(after_tx["state"], "generating")
-                    self.assertIsNone(after_tx["failure_reason"])
-                    self.assertEqual(after_tx["generation_attempt"], before_tx["generation_attempt"] + 1)
-                    self.assertEqual(after_tx["generation_trigger_id"], before_tx["generation_trigger_id"])
-                    self.assertEqual(case["expected"]["generator_calls"], 1)
-                    self.assertEqual(case["expected"]["max_generator_calls_per_host_call"], 1)
-                    self.assertIn(case["expected"]["orphan_candidate_action"], {"delete", "isolate"})
-                elif case["reason"] in qa_reasons:
-                    self.assertIn(case["consumer"], {"persist_defect_then_patch", "persist_defect_then_deterministic_fallback"})
-                    self.assertTrue(case["expected"]["defect_persisted_before_next_action"])
-                    self.assertIn(case["expected"]["next_action"], {"patch", "new_deterministic_fallback_transaction"})
-                    if case["expected"]["next_action"] == "new_deterministic_fallback_transaction":
-                        self.assertIsNotNone(after_tx)
-                        self.assertNotEqual(after_tx["transaction_id"], before_tx["transaction_id"])
-                        self.assertEqual(after_tx["state"], "compiling")
-                        self.assertEqual(after_tx["generation_intent"], "deterministic_fallback")
-                else:
-                    self.assertIn(case["reason"], conflict_reasons)
-                    self.assertEqual(case["consumer"], "production_blocker_then_user_resolution")
-                    self.assertIsNotNone(after_tx)
-                    self.assertEqual(after_tx, before_tx)
-                    blocker = case["after_run"]["pending_interaction"]
-                    self.assertEqual(blocker["stage"], "production")
-                    self.assertEqual(blocker["kind"], "blocker")
-                    self.assertEqual(blocker["status"], "pending")
-                    self.assertTrue(case["expected"]["retain_failed_transaction_until_user_resolution"])
-
-                    branches = {branch["id"]: branch for branch in case["post_user_resolution_branches"]}
-                    self.assertEqual(set(branches), {"unchanged-valid-candidate", "authoritative-inputs-changed"})
-
-                    unchanged = branches["unchanged-valid-candidate"]
-                    unchanged_pending = unchanged["before_run"]["pending_interaction"]
-                    self.assertEqual(unchanged_pending["status"], "answered")
-                    self.assertTrue(unchanged_pending["answer"].strip())
-                    self.assertEqual(unchanged_pending["decision"], "accept_candidate_after_review")
-                    unchanged_after = unchanged["after_run"]["visual_generation_transaction"]
-                    self.assertEqual(unchanged["before_run"]["visual_generation_transaction"], before_tx)
-                    self.assertEqual(unchanged_after["transaction_id"], before_tx["transaction_id"])
-                    self.assertEqual(unchanged_after["state"], "validated")
-                    self.assertIsNone(unchanged_after["failure_reason"])
-                    self.assertEqual(unchanged_after["candidate_sha256"], before_tx["candidate_sha256"])
-                    self.assertTrue(unchanged["expected"]["promotion_retry"])
-
-                    changed = branches["authoritative-inputs-changed"]
-                    changed_pending = changed["before_run"]["pending_interaction"]
-                    self.assertEqual(changed_pending["status"], "answered")
-                    self.assertTrue(changed_pending["answer"].strip())
-                    self.assertEqual(changed_pending["decision"], "restart_from_updated_inputs")
-                    self.assertEqual(changed["before_run"]["visual_generation_transaction"], before_tx)
-                    self.assertTrue(changed["durable_choice"]["old_failed_transaction_retained_until_choice"])
-                    changed_after = changed["after_run"]["visual_generation_transaction"]
-                    self.assertNotEqual(changed_after["transaction_id"], before_tx["transaction_id"])
-                    self.assertEqual(changed_after["state"], "compiling")
-                    self.assertIsNone(changed_after["failure_reason"])
 
     def test_precedence_fixture_keeps_history_and_one_active_value(self):
 
@@ -2419,138 +2934,33 @@ class VisualGenerationContractTests(unittest.TestCase):
         self.assertEqual(payload["expected_active_contract"]["layout_family"], "hierarchical-bento")
         self.assertIn("visual-revision-1:title_rail", payload["expected_superseded_rules"])
 
-    def test_transaction_negative_invariants_preserve_final_dirty_and_active_owner(self):
-        self.assertTrue(self.transaction.is_file(), f"missing fixture: {self.transaction}")
-        payload = json.loads(read_text(self.transaction))
-        cases = {case["id"]: case for case in payload["negative_invariant_cases"]}
-        self.assertEqual(
-            set(cases),
-            {
-                "generation-failure-preserves-pre-existing-final",
-                "qa-failure-preserves-pre-existing-final",
-                "promotion-failure-preserves-pre-existing-final",
-                "promoted-page-qa-pending-retains-transaction-and-dirty",
-                "promoted-page-qa-failing-retains-transaction-and-dirty",
-                "promoted-deck-qa-pending-retains-transaction-and-dirty",
-                "promoted-deck-qa-failing-retains-transaction-and-dirty",
-                "new-operation-nonterminal-transaction-recovers-stops-no-replace",
-                "arbitrary-cancel-delete-request-rejected",
-            },
-        )
-
-        final_preserving = {
-            "generation-failure-preserves-pre-existing-final",
-            "qa-failure-preserves-pre-existing-final",
-            "promotion-failure-preserves-pre-existing-final",
-            "arbitrary-cancel-delete-request-rejected",
-        }
-        for case_id in final_preserving:
-            case = cases[case_id]
-            with self.subTest(case=case_id):
-                self.assertEqual(case["after_run"]["final_svg"], case["before_run"]["final_svg"])
-                self.assertEqual(case["after_run"]["final_svg"], case["expected"]["retained_final_svg"])
-                self.assertIn(case["slide_id"], case["after_run"].get("dirty_slides", []))
-                self.assertFalse(case["expected"].get("final_overwritten"))
-
-        for case_id in (
-            "promoted-page-qa-pending-retains-transaction-and-dirty",
-            "promoted-page-qa-failing-retains-transaction-and-dirty",
-            "promoted-deck-qa-pending-retains-transaction-and-dirty",
-            "promoted-deck-qa-failing-retains-transaction-and-dirty",
-        ):
-            case = cases[case_id]
-            with self.subTest(case=case_id):
-                before_tx = case["before_run"]["visual_generation_transaction"]
-                after_tx = case["after_run"]["visual_generation_transaction"]
-                self.assertEqual(before_tx["state"], "promoted")
-                self.assertEqual(after_tx, before_tx)
-                self.assertIn(case["slide_id"], case["after_run"].get("dirty_slides", []))
-                self.assertIn(case["expected"]["qa_status"], {"pending", "failed"})
-                self.assertIn(case["expected"]["qa_scope"], {"page", "deck"})
-                self.assertTrue(case["expected"]["retain_transaction"])
-
-        active = cases["new-operation-nonterminal-transaction-recovers-stops-no-replace"]
-        before_tx = active["before_run"]["visual_generation_transaction"]
-        after_tx = active["after_run"]["visual_generation_transaction"]
-        self.assertNotEqual(before_tx["state"], "promoted")
-        self.assertNotEqual(before_tx["state"], "failed")
-        self.assertEqual(after_tx["transaction_id"], before_tx["transaction_id"])
-        self.assertEqual(after_tx["generation_trigger_id"], before_tx["generation_trigger_id"])
-        self.assertTrue(active["expected"]["recover_or_stop_before_new_operation"])
-        self.assertFalse(active["expected"]["replace_active_transaction"])
-
-        cancel = cases["arbitrary-cancel-delete-request-rejected"]
-        self.assertEqual(cancel["after_run"]["visual_generation_transaction"], cancel["before_run"]["visual_generation_transaction"])
-        self.assertEqual(cancel["after_run"]["final_svg"], cancel["before_run"]["final_svg"])
-        self.assertIn(cancel["slide_id"], cancel["after_run"].get("dirty_slides", []))
-        self.assertFalse(cancel["expected"]["cancelled"])
-        self.assertFalse(cancel["expected"]["deleted_transaction"])
-
-    def test_qa_failure_consumers_persist_structured_defect_before_next_action(self):
-        self.assertTrue(self.transaction.is_file(), f"missing fixture: {self.transaction}")
-        payload = json.loads(read_text(self.transaction))
-        cases = {
-            case["reason"]: case
-            for case in payload["failed_consumer_cases"]
-            if case["reason"] in {"svg_contract_failed", "locked_content_mismatch", "visual_qa_failed"}
-        }
-        self.assertEqual(set(cases), {"svg_contract_failed", "locked_content_mismatch", "visual_qa_failed"})
-
-        for reason, case in cases.items():
-            with self.subTest(reason=reason):
-                before_tx = case["before_run"]["visual_generation_transaction"]
-                defect = case["expected"]["durable_defect"]
-                self.assertRegex(defect["id"], rf"^{case['slide_id']}-{reason}-[0-9a-f]{{12}}$")
-                self.assertIn(defect["artifact_owner"], {f"visual-briefs/{case['slide_id']}.md", f"qa/{case['slide_id']}.md"})
-                self.assertEqual(defect["slide_id"], case["slide_id"])
-                self.assertEqual(defect["failure_reason"], reason)
-                self.assertEqual(defect["candidate_sha256"], before_tx["candidate_sha256"])
-                self.assertEqual(defect["transaction_id"], before_tx["transaction_id"])
-                self.assertTrue(case["expected"]["defect_persisted_before_next_action"])
-                self.assertIn(case["expected"]["next_action"], {"patch", "new_deterministic_fallback_transaction"})
-
-    def test_references_define_recoverable_transaction_contract_and_consumers(self):
+    def test_references_define_schema_v2_generation_and_qa_owned_defects(self):
         combined = "\n".join(
             read_text(path)
             for path in (self.artifact, self.reference, self.workflow, self.qa, skill_root() / "references" / "redesign-prompt.md")
             if path.exists()
         )
-        required_tokens = (
-            "visual_generation_transaction",
+        for token in (
+            "新运行只使用 schema-v2",
+            "active_visual_generation_batch",
+            ".ppt-pilot/visual-generation-transactions/<slide-id>-<tx64>.json",
+            ".ppt-pilot/generation-prompts/<slide-id>.md",
             "transaction_id == prompt_snapshot_id",
-            "compiling -> compiled -> generating -> candidate_written -> validated -> promoted",
-            "generating | candidate_written | validated -> failed",
-            "failed -> generating",
-            "failed -> validated",
-            "failed transaction -> new compiling transaction",
-            "slides/.candidates/<slide-id>-<64hex>.svg",
+            "transaction_refs",
+            "pointer-last",
             "candidate_sha256",
-            "generator_unavailable",
-            "generator_refused",
-            "generator_timeout",
-            "generator_output_malformed",
-            "candidate_write_failed",
-            "candidate_hash_mismatch",
-            "svg_contract_failed",
-            "locked_content_mismatch",
-            "visual_qa_failed",
-            "final_promotion_conflict",
-            "transaction_state_conflict",
-            "generation_attempt + 1",
-            "每次宿主调用最多 generator 1 次",
-            "orphan candidate",
-            "never adopted",
             "previous final SVG",
             "dirty_slides",
-            "promoted transaction",
-            "production `blocker`",
-            "unchanged valid candidate",
-            "authoritative inputs changed",
-            "No arbitrary delete/cancel",
-        )
-        for token in required_tokens:
+        ):
             with self.subTest(token=token):
                 self.assertIn(token, combined)
+
+        qa_owner_line = next(
+            line
+            for line in read_text(self.artifact).splitlines()
+            if "精确 defect" in line and "QA owner" in line
+        )
+        self.assertNotIn("visual-brief", qa_owner_line)
 
 if __name__ == "__main__":
     unittest.main()

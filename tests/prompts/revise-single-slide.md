@@ -6,13 +6,13 @@ Start each branch from a separate complete approved synthetic run.
 
 On S05, move one card exactly 24 px to restore alignment and correct a non-factual typo.
 
-Expected: classify as patch; preserve composition and manuscript approval; read full brief + current SVG + exact defect; dirty only S05 SVG and QA.
+Expected: classify as patch; preserve composition and manuscript approval; read complete direct-compile inputs + current SVG + exact defect; dirty only S05 SVG and QA.
 
 ## Branch B — recompose
 
 On S05, make the focal point stronger, change card density, and use a supplied visual reference while preserving all claims and source IDs.
 
-Expected: classify as recompose; rebuild S05 brief and SVG; do not use old SVG as a geometric base; preserve manuscript approval; dirty only S05 brief/SVG and QA.
+Expected: classify as recompose; rebuild the style-owned S05 generation prompt and SVG; do not use old SVG as a geometric base; preserve manuscript approval; dirty only the S05 generation prompt/SVG and QA.
 
 ## Branch C — factual change
 

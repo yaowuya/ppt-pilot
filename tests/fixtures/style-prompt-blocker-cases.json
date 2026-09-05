@@ -13,6 +13,7 @@
     "entrypoint_missing",
     "entrypoint_path_unsafe",
     "entrypoint_target_invalid",
+    "entrypoint_unreadable",
     "legacy_entrypoint_malformed",
     "legacy_identity_mismatch",
     "manifest_malformed",
@@ -23,12 +24,14 @@
     "style_asset_path_unsafe",
     "style_asset_target_invalid",
     "style_asset_unreadable",
-    "prompt_field_missing",
+    "style_asset_malformed",
+    "style_asset_schema_unsupported",
     "prompt_path_unsafe",
     "prompt_file_missing",
     "prompt_target_invalid",
     "prompt_unreadable",
     "prompt_template_invalid",
+    "prompt_preflight_invalid",
     "prompt_snapshot_conflict"
   ],
   "blocker_cases": [
@@ -50,7 +53,7 @@
       "resolver": {
         "result": "failure",
         "reason": "prompt_file_missing",
-        "resource": "assets/styles/canway-midyear-review/REDESIGN.md"
+        "resource": "assets/styles/canway-midyear-review/prompt.md"
       },
       "after_run": {
         "schema_version": 1,
@@ -65,12 +68,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -83,6 +86,9 @@
         "stop": true,
         "resolver_calls": 1,
         "generator_calls": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
         "svg_writes": 0,
         "stage_scan_calls": 0,
         "style_fallback_calls": 0,
@@ -122,12 +128,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_path_unsafe",
           "selected_style_id": "canway-midyear-review",
           "resource": "none",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -140,6 +146,9 @@
         "stop": true,
         "resolver_calls": 1,
         "generator_calls": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
         "svg_writes": 0,
         "stage_scan_calls": 0,
         "style_fallback_calls": 0,
@@ -161,12 +170,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -174,7 +183,7 @@
       "resolver": {
         "result": "failure",
         "reason": "prompt_unreadable",
-        "resource": "assets/styles/canway-midyear-review/REDESIGN.md"
+        "resource": "assets/styles/canway-midyear-review/prompt.md"
       },
       "after_run": {
         "schema_version": 1,
@@ -189,12 +198,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_unreadable",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -207,6 +216,9 @@
         "stop": true,
         "resolver_calls": 1,
         "generator_calls": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
         "svg_writes": 0,
         "stage_scan_calls": 0,
         "style_fallback_calls": 0,
@@ -228,12 +240,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S03",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -254,12 +266,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S03",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -272,6 +284,9 @@
         "stop": true,
         "resolver_calls": 0,
         "generator_calls": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
         "svg_writes": 0,
         "stage_scan_calls": 0,
         "style_fallback_calls": 0,
@@ -279,7 +294,7 @@
       },
       "attempted_operation": {
         "requested_slide_id": "S07",
-        "kind": "create_style_prompt_blocker",
+        "kind": "create_generation_prompt_blocker",
         "selected_style_id": "canway-midyear-review"
       }
     },
@@ -298,12 +313,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -311,7 +326,7 @@
       "resolver": {
         "result": "failure",
         "reason": "prompt_file_missing",
-        "resource": "assets/styles/canway-midyear-review/REDESIGN.md"
+        "resource": "assets/styles/canway-midyear-review/prompt.md"
       },
       "after_run": {
         "schema_version": 1,
@@ -326,12 +341,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -344,6 +359,9 @@
         "stop": true,
         "resolver_calls": 1,
         "generator_calls": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
         "svg_writes": 0,
         "stage_scan_calls": 0,
         "style_fallback_calls": 0,
@@ -351,7 +369,7 @@
       }
     },
     {
-      "id": "durable-prompt-keeps-compiling-blocker-before-commit",
+      "id": "active-blocker-precedes-durable-prompt-recovery",
       "before_run": {
         "schema_version": 1,
         "mode": "guided",
@@ -365,12 +383,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         },
@@ -407,13 +425,23 @@
             "status": "applied"
           }
         },
+        "visual_generation_blocker": {
+          "state": "generation_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_file_missing",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        },
         "visual_generation_transaction": {
           "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
           "slide_id": "S07",
           "prompt_path": "generation-prompts/S07.md",
           "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
           "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
-          "state": "compiled",
+          "state": "compiling",
           "generation_intent": "user_recompose",
           "generation_trigger_id": "interaction:visual-revision-3",
           "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
@@ -425,29 +453,23 @@
       },
       "expected": {
         "slide_id": "S07",
-        "first_action": "durable_prompt_before_run_json_commit",
+        "first_action": "revalidate_active_blocker_before_v1_recovery",
         "reason": "prompt_file_missing",
-        "active_blocker": false,
-        "stop": false,
-        "resolver_calls": 0,
+        "active_blocker": true,
+        "stop": true,
+        "resolver_calls": 1,
         "generator_calls": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
         "svg_writes": 0,
         "stage_scan_calls": 0,
         "style_fallback_calls": 0,
-        "patch_downgrade_calls": 0,
-        "atomic_run_replacements": [
-          {
-            "single_run_json_replacement": true,
-            "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
-            "from_state": "compiling",
-            "to_state": "compiled",
-            "remove_blocker_slide_id": "S07"
-          }
-        ]
+        "patch_downgrade_calls": 0
       }
     },
     {
-      "id": "compiling-crash-recovers-by-compiled-and-clears-blocker",
+      "id": "active-blocker-precedes-v1-compiling-crash-recovery",
       "before_run": {
         "schema_version": 1,
         "mode": "guided",
@@ -461,12 +483,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         },
@@ -486,11 +508,6 @@
           "failure_reason": null
         }
       },
-      "durable_prompt": {
-        "path": "generation-prompts/S07.md",
-        "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
-        "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
-      },
       "after_run": {
         "schema_version": 1,
         "mode": "guided",
@@ -503,13 +520,23 @@
             "status": "applied"
           }
         },
+        "visual_generation_blocker": {
+          "state": "generation_prompt_unavailable",
+          "slide_id": "S07",
+          "reason": "prompt_file_missing",
+          "selected_style_id": "canway-midyear-review",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "status": "active"
+        },
         "visual_generation_transaction": {
           "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
           "slide_id": "S07",
           "prompt_path": "generation-prompts/S07.md",
           "prompt_snapshot_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
           "compiled_prompt_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
-          "state": "compiled",
+          "state": "compiling",
           "generation_intent": "user_recompose",
           "generation_trigger_id": "interaction:visual-revision-3",
           "candidate_path": "slides/.candidates/S07-3333333333333333333333333333333333333333333333333333333333333333.svg",
@@ -521,25 +548,19 @@
       },
       "expected": {
         "slide_id": "S07",
-        "first_action": "resume_compiling_crash",
+        "first_action": "revalidate_active_blocker_before_v1_recovery",
         "reason": "prompt_file_missing",
-        "active_blocker": false,
-        "stop": false,
-        "resolver_calls": 0,
+        "active_blocker": true,
+        "stop": true,
+        "resolver_calls": 1,
         "generator_calls": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
         "svg_writes": 0,
         "stage_scan_calls": 0,
         "style_fallback_calls": 0,
-        "patch_downgrade_calls": 0,
-        "atomic_run_replacements": [
-          {
-            "single_run_json_replacement": true,
-            "transaction_id": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
-            "from_state": "compiling",
-            "to_state": "compiled",
-            "remove_blocker_slide_id": "S07"
-          }
-        ]
+        "patch_downgrade_calls": 0
       }
     },
     {
@@ -579,12 +600,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "style_assets_unavailable",
           "slide_id": "S07",
           "reason": "entrypoint_path_unsafe",
           "selected_style_id": "canway-midyear-review",
           "resource": "none",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -597,6 +618,9 @@
         "stop": true,
         "resolver_calls": 1,
         "generator_calls": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
         "svg_writes": 0,
         "stage_scan_calls": 0,
         "style_fallback_calls": 0,
@@ -640,12 +664,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "style_assets_unavailable",
           "slide_id": "S07",
           "reason": "style_asset_target_invalid",
           "selected_style_id": "canway-midyear-review",
           "resource": "assets/styles/canway-midyear-review/tokens.json",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         }
@@ -658,6 +682,9 @@
         "stop": true,
         "resolver_calls": 1,
         "generator_calls": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "candidate_writes": 0,
         "svg_writes": 0,
         "stage_scan_calls": 0,
         "style_fallback_calls": 0,
@@ -688,12 +715,12 @@
           "status": "answered"
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         },
@@ -736,12 +763,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         },
@@ -816,12 +843,12 @@
           }
         },
         "visual_generation_blocker": {
-          "state": "style_prompt_unavailable",
+          "state": "generation_prompt_unavailable",
           "slide_id": "S07",
           "reason": "prompt_file_missing",
           "selected_style_id": "canway-midyear-review",
-          "resource": "assets/styles/canway-midyear-review/REDESIGN.md",
-          "visual_brief_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "resource": "assets/styles/canway-midyear-review/prompt.md",
+          "storyboard_snapshot_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
           "theme_snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
           "status": "active"
         },
@@ -883,7 +910,7 @@
       "stop": true,
       "expected_calls": {
         "resolver": 0,
-        "generator": 1,
+        "generator": 0,
         "stage_scan": 0
       }
     },

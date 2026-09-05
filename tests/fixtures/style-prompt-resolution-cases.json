@@ -249,6 +249,7 @@
     {
       "id": "fallback-missing-registry-valid-legacy-seeds",
       "selected_style_id": "minimal-business",
+      "resolution_purpose": "identity_recovery",
       "covers": [
         "registry-missing-seed-only-fallback"
       ],
@@ -259,12 +260,15 @@
       "expected": {
         "ok": true,
         "reason": null,
-        "resolved_path": "assets/styles/minimal-business.json"
+        "resolved_path": "assets/styles/minimal-business.json",
+        "resolution_scope": "identity_recovery",
+        "runtime_authority": false
       }
     },
     {
       "id": "fallback-missing-registry-ignores-prompt-assets",
       "selected_style_id": "tech-dark",
+      "resolution_purpose": "identity_recovery",
       "covers": [],
       "defects": [
         "all historical prompt resources are invalid but ignored"
@@ -298,7 +302,9 @@
       "expected": {
         "ok": true,
         "reason": null,
-        "resolved_path": "assets/styles/tech-dark.json"
+        "resolved_path": "assets/styles/tech-dark.json",
+        "resolution_scope": "identity_recovery",
+        "runtime_authority": false
       }
     },
     {
