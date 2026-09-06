@@ -17,13 +17,13 @@ PPT Pilot 可选伴随工具：把一次运行的 slides/*.svg 组装为可交�
 运行目录（含 run.json 与 slides/）。缺省时自动探测 ppt-output/ 下唯一含 run.json 的运行。
 
 .PARAMETER SkipPptx
-跳过 PPTX 组装，只生成 preview.html。
+跳过 PPTX 组装，只生成 preview.html；SVG 生产期间和仅预览时必须指定，不探测或启动 Office。
 
 .PARAMETER ExportPng
 额外导出每页 1280x720 PNG 到 delivery/png/。
 
 .EXAMPLE
-powershell -File tools\deck-deliver.ps1
+powershell -File tools\deck-deliver.ps1 -RunDir ppt-output\fy26-h1-midyear-review -SkipPptx
 powershell -File tools\deck-deliver.ps1 -RunDir ppt-output\fy26-h1-midyear-review -ExportPng
 
 .NOTES
@@ -132,6 +132,9 @@ $runJsonPath = Join-Path $runPath '.ppt-pilot\run.json'
 $run = Get-Content -LiteralPath $runJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $deckId = if ($run.deck_id) { [string]$run.deck_id } else { Split-Path -Leaf $runPath }
 $stage = if ($run.stage) { [string]$run.stage } else { 'unknown' }
+if (-not $SkipPptx -and $stage -cne 'complete') {
+    throw 'Office delivery requires run.json.stage=complete. For SVG preview only, use -SkipPptx; no Office process was started.'
+}
 
 $slidesDir = Join-Path $runPath 'slides'
 $slideFiles = @(Get-ChildItem -LiteralPath $slidesDir -Filter '*.svg' -File -ErrorAction SilentlyContinue |

@@ -6,9 +6,17 @@
 
 生成锚点或正式页面前必须读取本参考。每个视觉阶段都要求 `run.json.manuscript_review.state` 精确为 `manuscript_approved`，同时具有有效且已批准的故事板和审查产物。顶层阶段依次经过 `theme`、`anchor` 并进入 `production` 后才能生产，而且必须已有验证通过的 `theme.json`。
 
-正式页面默认 `batch_width: 4`（可配置 3）。批内所有页面先完成内存 preflight 与能力协商，随后 pointer-last 写 per-slide transactions／manifest／active pointer；没有 fresh isolation 时保持零 prompt／transaction／candidate 写入。generation 与 per-slide validation 可重叠，但 coordinator 独占 candidate/transaction/final 写入，并按 `ordered_slide_ids` 串行 promotion 与最低 blocker publication。页面只有在 transaction promoted、页面 QA 与整套 QA 都通过后才从 `dirty_slides` 清除。每完成一个批次都更新可恢复状态，使另一个宿主无需对话历史即可继续。
+正式页面按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，无需用户选择。每次 dispatch／补位调用只读 `ppt_concurrency.py`，以实际宿主容量和在途任务数限制新增任务；不足 5 时说明限制。旧 3／4 页批次原位恢复。批内所有页面先完成内存 preflight 与能力协商，随后 pointer-last 写 per-slide transactions／manifest／active pointer；没有 fresh isolation 时保持零 prompt／transaction／candidate 写入。generation 与 per-slide validation 可重叠，但 coordinator 独占 candidate/transaction/final 写入，并按 `ordered_slide_ids` 串行 promotion 与最低 blocker publication。页面只有在 transaction promoted、页面 QA 与整套 QA 都通过后才从 `dirty_slides` 清除。每完成一个批次都更新可恢复状态，使另一个宿主无需对话历史即可继续。
 
 某页耗尽修复与回退策略后仍有硬检查失败时，不得继续生成后续页面。
+
+## SVG 渲染与 Office 边界
+
+`anchor`、`production`、修订和整套 `qa` 使用 XML／Office-safe 子集、事实来源、几何检查，以及浏览器或其他非 Office SVG 渲染与实际视觉检查。Office-safe 是静态兼容约束，不是启动应用的指令。保留全部硬质量门；缺少真实渲染时如实记录 `visual_qa: not_rendered` 并执行原降级／阻断规则，不把源码检查当成视觉 PASS。
+
+这条 SVG 路径不启动 PowerPoint／WPS，不逐页创建临时 PPT、插入 SVG、保存重开或导出，不运行 Office 能力探测或仓库 COM 冒烟测试。机器已安装 Office、用户赶时间或希望将来交付 PPTX，都不改变当前阶段。进度预览使用实时面板；仅静态预览时使用浏览器，或显式调用 `tools/deck-deliver.ps1 -RunDir <run> -SkipPptx`，不附加 `-ExportPng`。该工具属于可选仓库工具，安装包中不存在时直接使用已有浏览器／面板，不另找 Office 替代。
+
+Office 的合法触发分两类：旧稿导入在 `brief` 中按[源稿盘点](source-deck-redesign.md#1-源稿盘点brief-内)按需渲染原稿或做已授权 `.ppt` 转换，复用绑定源文件 hash 的核对证据；SVG 运行达到 `complete` 且用户明确需要 PPTX／Office 实测时，再进入独立交付流程集中验证，原生可编辑 PPTX 走 `ppt-editable`，图片式 PPTX 走用户明确选择的仓库交付工具。源稿核对不授权生产时重复启动 Office。用户只要 SVG 时，QA 报告注明本次未执行 Office 实测，不将其视为 SVG 质量失败，也不声称 Office 已验证；交付阶段仍遵守各自的验证、降级与阻断规则，`ppt-editable` 缺少 Office 验证不能给出 PASS。
 
 ## 单页硬检查
 
@@ -121,7 +129,7 @@ initial/recompose generator = durable generation prompt only
 - 生成回复必须恰好一个 `xml` 代码围栏；提取后裸内容从 `<svg` 开始并以 `</svg>` 结束；不得把代码围栏写入工作区 SVG；
 - 圆角卡片拒绝 `rect[rx]`／`rect[ry]`，必须检查 `path` 与 `A` 圆弧；普通直角 `rect` 仍允许；
 - 每个可见行一个独立 `text`，每个 `text` 一个简单 `tspan`；拒绝 nested tspan、混合 run 和自动换行；
-- 除浏览器／宿主渲染外，条件允许时执行实际 PowerPoint 插入、保存、重开与导出；未执行或失败时必须披露，不能声称 PowerPoint 通过。
+- 使用浏览器／非 Office 渲染完成实际视觉检查；Office 实测按[阶段边界](#svg-渲染与-office-边界)留到独立交付，不是候选验收条件。
 
 ## 生成 transaction、失败 consumer 与 QA 边界
 
@@ -144,6 +152,8 @@ initial/recompose generator = durable generation prompt only
   }
 }
 ```
+
+SVG transaction 中的 `checks.office` 表示 Office-safe SVG 子集的静态兼容检查；检查通过才记 `passed`，不要求启动 Office，也不代表应用保存／重开／渲染实测已通过。实际 Office 验证只依据独立交付结果，不能从这个字段推断。
 
 只有 coordinator 可原子提交该对象；任一 required check failed 时 state 必须 failed。`not_rendered` 只允许 visual check 使用且必须披露，不能冒充视觉通过。
 
@@ -241,6 +251,8 @@ QA 报告统一写入 `.ppt-pilot/质量检查报告.md`，记录：
 顶层位于 `manuscript_approved` 检查点的运行直接进入主题／锚点工作，不重复简报、研究、大纲、故事板或审查。进入这些阶段后，顶层 `stage` 正常前进，而 `manuscript_review.state: manuscript_approved` 持续作为视觉授权护栏。阻断或不可用的审查状态绝不能恢复到视觉设计。
 
 ## 修订（`revise`）
+
+以下免重审规则仅保留**既有运行中仍有效的**文稿批准，不创造新批准。外部 PPT／PPTX 首次导入即使“内容不变／只换产品风格”，也先走[旧稿导入](source-deck-redesign.md)的完整工作流；不能把原稿当作已批准故事板。导入运行每批生成前及完成前还须通过该文档的可执行 gate，缺渲染或人工视觉检查 pending 不得报完整 PASS。
 
 编辑前先分类请求。修改类别无法唯一判断时，先提出一个直接问题，确认是否允许改变事实主张、限定条件或来源映射；记录答案后再更新失效状态。
 

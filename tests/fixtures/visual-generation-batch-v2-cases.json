@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "default_batch_width": 4,
+  "default_batch_width": 5,
   "transaction_schema": [
     "batch_id",
     "candidate_path",
@@ -52,7 +52,7 @@
   ],
   "invalid_cases": [
     "width-two",
-    "width-five",
+    "width-eleven",
     "duplicate-slide",
     "unsorted-slides",
     "ref-order-mismatch",
@@ -704,8 +704,8 @@
         "writes": 0
       }
     },
-    "width-five": {
-      "id": "width-five",
+    "width-eleven": {
+      "id": "width-eleven",
       "run": {
         "active_visual_generation_batch": {
           "schema_version": 2,
@@ -717,7 +717,7 @@
         "schema_version": 2,
         "kind": "visual_generation_batch",
         "batch_id": "batch-3e912d0727bbae65c15856b8",
-        "batch_width": 5,
+        "batch_width": 11,
         "ordered_slide_ids": [
           "S03",
           "S04",

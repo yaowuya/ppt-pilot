@@ -11,6 +11,7 @@
 - **topic-only（仅主题）**：根据主题拟定简报。`guided` 模式按决策依赖顺序询问实质性缺失项，并在研究或编写大纲前请求明确的简报批准；`auto` 模式明确记录安全假设后继续。
 - **complete brief（完整简报）**：在不改变原意的前提下规范化用户简报。只有缺失决策会实质改变演示文稿时才需要补充；否则记录保守假设。
 - **source-driven（资料驱动）**：先盘点用户提供的资料，再根据覆盖情况和缺口生成简报与研究问题。
+- **外部旧 PPT 重设计**：完整读取[旧稿导入契约](source-deck-redesign.md)，执行源稿解析与逐页去向核对。只换风格也从本阶段开始；默认保留原页数与核心内容，不套用 6–15 页默认范围。原稿样式与目标产品风格分别记录。离线源稿审计仍须形成研究／来源文件，不能因无需联网略过。
 - **resume（恢复）**：先读取 `run.json`，严格按全局恢复链 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > schema-v1 visual_generation_transaction migration > active_visual_generation_batch > stage scan` 处理；只有这些 durable control state 均不存在或已完成后，才进入 stage scan，再从第一个未完成或脏输入继续。
 
 ## 决策依赖顺序与简报批准

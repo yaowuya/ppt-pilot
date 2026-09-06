@@ -436,10 +436,11 @@ class OfficeContractTests(unittest.TestCase):
         self.assertRegex(source, r"(?s)finally\s*\{.*?Release-ComObject")
 
     @unittest.skipUnless(
-        os.name == "nt"
+        os.environ.get("PPT_EDITABLE_LIVE_OFFICE_TESTS") == "1"
+        and os.name == "nt"
         and importlib.util.find_spec("_ppt_editable.office_protocol") is not None
         and importlib.import_module("_ppt_editable.office_protocol").powerpoint_available(),
-        "PowerPoint COM capability unavailable",
+        "Live Office test requires PPT_EDITABLE_LIVE_OFFICE_TESTS=1 and PowerPoint COM capability",
     )
     def test_com_smoke_preserves_preexisting_powerpoint_processes(self):
         module = self._module()

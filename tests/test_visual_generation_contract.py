@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'skills/ppt-start/scripts'))
 
 from helpers import read_text, repo_root, skill_root
 
@@ -548,7 +549,7 @@ def validate_v2_manifest(manifest: dict, transactions: dict[str, dict]) -> None:
     ):
         raise ValueError("v2 manifest batch ID is invalid")
     width = manifest["batch_width"]
-    if type(width) is not int or width not in {3, 4}:
+    if type(width) is not int or not 3 <= width <= 10:
         raise ValueError("batch width is invalid")
     slide_ids = manifest["ordered_slide_ids"]
     if not isinstance(slide_ids, list) or not 1 <= len(slide_ids) <= width:
@@ -925,17 +926,22 @@ def migrate_v1_run_to_v2(run: dict, corpus_case: dict) -> dict:
 
 def negotiate_host_capability(
     case: dict,
-    configured_width: int = 4,
+    configured_width=None,
 ) -> dict:
+    from _generation_concurrency import plan_dispatch
+
+    # An explicit width is an immutable legacy/active inventory cap, not a
+    # requested concurrency setting. New runs derive their target automatically.
     width = case.get("configured_width", configured_width)
-    if type(width) is not int or width not in {3, 4}:
-        raise ValueError("configured batch width must be 3 or 4")
+    if width is not None and (type(width) is not int or not 3 <= width <= 10):
+        raise ValueError("existing batch width must be between 3 and 10")
     capability = case["capability"]
     required_fields = {
         "native_fresh_isolation",
         "remote_fresh_isolation",
         "concurrent_tasks",
         "durable_lookup",
+        "worker_capacity",
         "prompt_by_value",
         "fresh_history",
         "filesystem_none",
@@ -983,11 +989,24 @@ def negotiate_host_capability(
             "error": "generator_unavailable",
             "lookup_permitted": False,
         }
-    selected_width = (
-        width
-        if capability["concurrent_tasks"] and capability["durable_lookup"]
-        else 1
-    )
+    observation = {
+        "schema_version": 1,
+        "capabilities": {
+            "fresh_isolation": True,
+            "concurrent_tasks": capability["concurrent_tasks"],
+            "durable_lookup": capability["durable_lookup"],
+            "worker_capacity": capability["worker_capacity"],
+        },
+        "ready_slide_ids": case.get("ready_slide_ids", ["S%02d" % n for n in range(1, 11)]),
+        "in_flight_slide_ids": case.get("in_flight_slide_ids", []),
+        "history": case.get("history", []),
+    }
+    if width is not None:
+        observation["batch_width"] = width
+    plan = plan_dispatch(observation)
+    if plan["status"] == "BLOCKED":
+        raise ValueError("invalid adaptive host observation: " + plan["reason"])
+    selected_width = plan["effective_concurrency"]
     result_error = {
         None: None,
         "completed": None,
@@ -1053,6 +1072,15 @@ def schedule_epoch(
     width = capability.get("selected_width")
     if type(width) is not int or width < 1:
         return []
+    reserved = {
+        ref for ref, transaction in transactions.items()
+        if transaction["state"] == "generating" or
+        (transaction["state"] == "compiled" and
+         (transaction["host_task_id"] is not None or transaction["host_attribution_id"] is not None))
+    }
+    available_slots = max(0, width - len(reserved))
+    if not available_slots:
+        return []
     prompt_bytes_by_slide = capability.get("prompt_bytes_by_slide")
     if not isinstance(prompt_bytes_by_slide, dict):
         raise ValueError("prompt bytes by slide are required")
@@ -1064,11 +1092,9 @@ def schedule_epoch(
         transaction = transactions[ref]
         if transaction["state"] != "compiled":
             continue
-        already_scheduled = bool(
-            transaction["dispatch_epoch"] == manifest["dispatch_epoch"]
-            and transaction["host_task_id"] is not None
-        )
-        if already_scheduled:
+        # Old-epoch reservations remain occupied until durable host lookup
+        # resolves them; a new epoch alone never authorizes another spawn.
+        if ref in reserved:
             continue
         prompt = _validate_prompt_by_value(
             prompt_bytes_by_slide.get(slide_id),
@@ -1089,7 +1115,7 @@ def schedule_epoch(
                 "cancellation": True,
             }
         )
-        if len(tasks) == width:
+        if len(tasks) == available_slots:
             break
     return tasks
 
@@ -1824,7 +1850,7 @@ class VisualGenerationContractTests(unittest.TestCase):
         self.assertTrue(self.batch_v2.is_file(), f"missing fixture: {self.batch_v2}")
         payload = json.loads(read_text(self.batch_v2))
         self.assertEqual(payload["schema_version"], 2)
-        self.assertEqual(payload["default_batch_width"], 4)
+        self.assertEqual(payload["default_batch_width"], 5)
         self.assertEqual(
             payload["valid_batches"],
             ["four-slide-active", "three-slide-active", "one-slide-final"],
@@ -1852,7 +1878,7 @@ class VisualGenerationContractTests(unittest.TestCase):
         payload = json.loads(read_text(self.batch_v2))
         expected_ids = {
             "width-two",
-            "width-five",
+            "width-eleven",
             "duplicate-slide",
             "unsorted-slides",
             "ref-order-mismatch",

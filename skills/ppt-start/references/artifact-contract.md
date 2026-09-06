@@ -24,7 +24,7 @@ slides/<slide-id>.svg
 
 每页 transaction 使用精确字段：`schema_version`、`kind`、`batch_id`、`transaction_id`、`slide_id`、`generation_intent`、`generation_trigger_id`、`prompt_path`、`prompt_snapshot_id`、`compiled_prompt_sha256`、`candidate_path`、`final_path`、`prior_final_sha256`、`state`、`generation_attempt`、`candidate_sha256`、`failure_reason`、`dispatch_epoch`、`host_attribution_id`、`host_task_id`、`validation`、`timing`。状态保留 `compiling`、`compiled`、`generating`、`candidate_written`、`validated`、`promoted`、`failed`，以便 v1 状态无损迁移；候选 hash 只能在候选关闭、复读后随 `candidate_written` 提交。host、validation、timing 都由该页 transaction 拥有。
 
-batch manifest 使用精确字段：`schema_version`、`kind`、`batch_id`、`batch_width`、`ordered_slide_ids`、`storyboard_snapshot_id`、`theme_snapshot_id`、`source_audit_snapshot_id`、`generation_prompt_template_snapshot_id`、`transaction_refs`、`dispatch_epoch`、`promotion_cursor`、`blocker_cursor`、`active_blocker_ref`、`state`、`created_at`、`updated_at`、`telemetry_summary`。`batch_width` 只能是 3 或 4，默认 4；最后一批可含 `1..batch_width` 页。`transaction_refs` 必须按 `ordered_slide_ids` 一一对齐到规范 transaction 路径，且所有 transaction 使用同一 `batch_id`。
+batch manifest 使用精确字段：`schema_version`、`kind`、`batch_id`、`batch_width`、`ordered_slide_ids`、`storyboard_snapshot_id`、`theme_snapshot_id`、`source_audit_snapshot_id`、`generation_prompt_template_snapshot_id`、`transaction_refs`、`dispatch_epoch`、`promotion_cursor`、`blocker_cursor`、`active_blocker_ref`、`state`、`created_at`、`updated_at`、`telemetry_summary`。`batch_width` 必须是整数 `3..10`；新批次按[自动并发策略](adaptive-concurrency.md)从 5 起自动选择 5..10，不询问用户。3／4 仅保留旧批次恢复兼容；v1 迁移的 width 4 不变。最后一批可含 `1..batch_width` 页，活动批次 width 与 inventory 不因升档改变。`transaction_refs` 必须按 `ordered_slide_ids` 一一对齐到规范 transaction 路径，且所有 transaction 使用同一 `batch_id`。
 
 新批次只有在完整内存 preflight 与宿主 fresh-isolation 能力协商都通过后，才能进入下面的 durable 协议；无能力时 prompt、transaction、manifest 与 candidate writes 均为 0。
 
@@ -48,7 +48,7 @@ crash after transaction 时复读并复用 byte-identical transaction，只补 m
 
 ### 宿主能力、dispatch epoch 与状态归属
 
-`batch_width` 配置只能为 3 或 4，默认 4。fresh isolated text task 同时支持 concurrency 与 durable lookup 时按配置宽度派发；缺少任一能力但仍能 fresh isolation 时降为 width 1。非 Git 工作区与 Git 工作区使用同一能力矩阵。每页 transaction 的 `dispatch_epoch`、`host_attribution_id`、`host_task_id` 是 durable 一次派发证据；同一 `(transaction_id, dispatch_epoch)` 不得第二次 spawn，只能通过 attribution/task ID 查询。
+`batch_width` 是不可变批次 inventory 上限，不等于正在运行的任务数。fresh isolated text task 同时支持 concurrency 与 durable lookup 时按自动目标、宿主容量及活动批次上限规划；缺少任一能力但仍能 fresh isolation 时降为 width 1，容量未知保守为 1。容量为 0 只等待。每次 dispatch／补位都按[自动并发策略](adaptive-concurrency.md)调用只读 `ppt_concurrency.py`，扣除 generating 与有归因的 compiled 预留任务，包括未终结旧 epoch。非 Git 工作区与 Git 工作区使用同一能力矩阵。每页 transaction 的 `dispatch_epoch`、`host_attribution_id`、`host_task_id` 是 durable 一次派发证据；同一 `(transaction_id, dispatch_epoch)` 不得第二次 spawn，只能通过 attribution/task ID 查询。非法或不完整 transaction 仍先按原 schema 阻断，不能被规划器修复或转为可派发页。
 
 新批次没有安全 fresh isolation 时，不写 prompt、per-slide transaction 或 candidate，只写一个 run-level `generator_unavailable` blocker。已激活批次暂时失去能力时保留所有 transaction 与 previous final，把 manifest 标为 `blocked`，并只发布 `ordered_slide_ids` 中最低未派发页面的失败；不得删除 sibling 状态或改用 coordinator 当前上下文。
 
@@ -141,6 +141,8 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 - 文件格式错误、不可解码或 `schema_version` 非 1 时披露原因并整体忽略，继续当前运行；不得部分采用也无法唯一解释的内容。
 
 ## `run.json` 架构
+
+外部旧 PPT 首次导入新增可选 `source_deck`，绑定原稿、`.ppt-pilot/源稿清单.json`、`源页映射.json` 与 `导入检查点.json`。schema、hash 绑定、逐页覆盖、累计阶段检查和失效规则以[旧稿导入契约](source-deck-redesign.md)为单一权威。普通运行不自动添加这些字段；旧运行不迁移。导入证据是可核对的执行记录，不是自行声明 PASS 的授权。
 
 每个运行目录都必须包含 `run.json`，其顶层字段至少且统一使用：`schema_version`、`deck_id`、`mode`、`stage`、`manuscript_review` 和 `dirty_slides`。
 

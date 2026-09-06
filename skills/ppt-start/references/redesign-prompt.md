@@ -200,7 +200,7 @@ spawn_isolated_text_task(
 get_isolated_text_task_result(attribution_id | task_id)
 ```
 
-宿主能力协商优先使用 native fresh isolation，其次是受支持的 remote fresh isolation。支持并发且有 durable lookup 时使用配置的 `batch_width` 3 或 4；缺少并发或 durable lookup 但仍有 fresh isolation 时安全降级为 width 1。工作区是否为 Git 不参与能力判断，非 Git 工作区仍可 width 4。没有 fresh isolation、prompt-by-value、fresh history、`filesystem=none`、`tools=none` 或 attribution 时，在任何 prompt／transaction／candidate 写入前以 `generator_unavailable` fail closed。
+宿主能力协商优先使用 native fresh isolation，其次是受支持的 remote fresh isolation。支持并发且有 durable lookup 时按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，不询问用户选择；coordinator 在每次 dispatch／补位前调用只读规划器，并按实际 worker capacity、活动批次上限和已在途任务限流。缺少并发或 durable lookup 但仍有 fresh isolation 时安全降级为 width 1，容量未知也保守为 1；容量为 0 则等待。工作区是否为 Git 不参与能力判断，非 Git 工作区仍可自动并发。没有 fresh isolation、prompt-by-value、fresh history、`filesystem=none`、`tools=none` 或 attribution 时，在任何 prompt／transaction／candidate 写入前以 `generator_unavailable` fail closed。
 
 每个 `(transaction_id, dispatch_epoch)` 最多调用一次 spawn；同 epoch 已有 `host_attribution_id`／`host_task_id` 时只能 durable lookup，不得重复派发。`refused`、`timeout` 与 unknown durable result 分别映射为稳定失败，且 coordinator 保留 transaction 与 previous final。禁止嵌套调用 Claude、Codex 或 DeepSeek CLI；不得探测凭据或 profile；不得使用 coordinator 当前上下文作为 generator fallback；不得要求 Git 或 worktree。
 
@@ -210,7 +210,7 @@ get_isolated_text_task_result(attribution_id | task_id)
 
 ## 候选与 QA
 
-- 候选文件进入输出验收前先运行 SVG、视觉和 PowerPoint 检查。
+- 候选文件进入输出验收前先运行 SVG 结构／Office-safe 子集和非 Office 渲染的视觉检查；Office 实测遵循 [QA 阶段边界](qa-and-revision.md#svg-渲染与-office-边界)，不在逐页候选验收中启动应用。
 - 额外文字、多个代码围栏、缺失围栏、提取失败、解析失败都属于硬失败。
 - 额外失败（shape 不一致、快照过期、权限不足）返回阻断，不得悄悄降级。
 - 仅当 `generation-prompts/<slide-id>.md` 验收通过后，才进入正式候选与后续回归。
