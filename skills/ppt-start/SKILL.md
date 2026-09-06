@@ -27,6 +27,12 @@ description: Use when creating, revising, or resuming multi-slide presentations 
 
 ## 必须执行的工作流
 
+### 先启动实时进度面板
+
+新运行创建目标目录后、开始资料处理前，或 `resume`／`revise` 唯一确定运行目录后，先读取[实时进度面板](references/live-dashboard.md)，用本 Skill 的 `scripts/ppt_dashboard.py start --run-dir <运行目录绝对路径> --open` 启动或复用本地服务。使用已可用的 Python 3.9+，校验启动 JSON 的 `status: running` 后把实际 `url` 发给用户，再继续工作。用户明确不需要浏览器／服务时跳过；启动失败须说明原因和手动命令，不得伪造链接或改变工作流质量门。
+
+进入阶段时先持久化真实 `run.json.stage`，再执行该阶段；待确认、审查和逐页 transaction 在原契约规定的时点落盘，面板每秒读取更新。观察服务仅作展示，不向隔离 generator 添加工具，也不替代宿主对话中的批准。完成后保留面板供查看，提示对应 `stop --run-dir` 命令。
+
 执行某阶段前，先读取该阶段链接的参考文档。
 
 1. 简报与可选研究——[简报与研究](references/brief-and-research.md)

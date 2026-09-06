@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#f5f7fa">
+    <title>PPT Pilot · 实时工作台</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳到幻灯片预览</a>
+    <div class="workspace">
+      <aside class="sidebar" aria-label="工作流阶段">
+        <a class="brand" href="/" aria-label="PPT Pilot 实时工作台">
+          <span class="brand-mark" aria-hidden="true">P</span>
+          <span>PPT Pilot<small>LOCAL WORKSPACE</small></span>
+        </a>
+        <div class="sidebar-heading"><span>制作流程</span><span id="stage-count">10 阶段</span></div>
+        <ol id="stage-list" class="stage-list" aria-label="制作阶段任务"></ol>
+        <div class="sidebar-note">
+          <span class="local-dot" aria-hidden="true"></span>
+          <div><strong>仅在本机运行</strong><p>进度来自运行产物，页面只读。</p></div>
+        </div>
+      </aside>
+
+      <main id="main-content" class="main-content" tabindex="-1">
+        <header class="topbar">
+          <div class="breadcrumbs"><span>工作台</span><span aria-hidden="true">/</span><span id="deck-id">等待运行初始化</span></div>
+          <div id="connection-status" class="connection-status" data-state="connecting" role="status"><span class="connection-dot" aria-hidden="true"></span><span id="connection-label">正在连接</span></div>
+        </header>
+
+        <section class="overview" aria-labelledby="page-title">
+          <div class="overview-copy">
+            <div class="eyebrow">从想法到每一页</div>
+            <div class="title-row"><h1 id="page-title">演示文稿制作中</h1><span id="run-status" class="badge" data-status="unknown">等待状态</span></div>
+            <p id="stage-summary" class="overview-description">正在读取本地运行状态，稍后会自动更新。</p>
+          </div>
+          <div class="progress-summary">
+            <div class="progress-kicker">已产出正式页</div>
+            <div id="progress-label" class="progress-number"><strong id="progress-done">0</strong><span>/ <span id="progress-total">—</span></span></div>
+            <div id="progress-track" class="progress-track" role="progressbar" aria-label="已产出非脏正式页" aria-valuemin="0" aria-valuenow="0"><div id="progress-fill"></div></div>
+            <div class="progress-footnote">不含待更新页 · 非耗时进度</div>
+          </div>
+        </section>
+
+        <section id="connection-alert" class="notice notice-connection" role="status" hidden>
+          <span class="notice-symbol" aria-hidden="true">↻</span>
+          <div><h2>本地服务暂时失联</h2><p id="connection-message">正在自动重连，保留最近一次读取的内容。</p></div>
+          <button id="retry-button" class="text-button" type="button">立即重试</button>
+        </section>
+
+        <section id="notice-panel" class="notice" role="status" hidden>
+          <span id="notice-symbol" class="notice-symbol" aria-hidden="true">!</span>
+          <div><h2 id="notice-title">需要关注</h2><p id="notice-message"></p><p id="notice-help" class="notice-help" hidden>请回到正在执行的宿主会话处理；本页不会代为确认。</p></div>
+        </section>
+
+        <section class="preview-section" aria-labelledby="preview-heading">
+          <div class="section-heading"><div><h2 id="preview-heading">逐页预览</h2><p>随生成自动呈现，选择页面查看细节。</p></div><span id="slide-count" class="quiet-label">等待页面</span></div>
+
+          <div class="preview-workspace">
+            <aside class="slide-rail" aria-label="幻灯片任务列表">
+              <div class="rail-heading"><span>页面任务</span><span id="page-task-count">0</span></div>
+              <div id="slide-list" class="slide-list"></div>
+              <p id="slide-list-empty" class="list-empty">故事板准备好后，页面任务将在这里出现。</p>
+            </aside>
+
+            <div class="preview-panel">
+              <div class="preview-toolbar"><div class="preview-identity"><span id="selected-slide-id" class="slide-id">—</span><h3 id="selected-slide-title">等待第一张幻灯片</h3></div><button id="zoom-button" class="icon-text-button" type="button" disabled aria-haspopup="dialog"><span aria-hidden="true">⤢</span> 放大预览</button></div>
+              <div id="preview-surface" class="preview-surface">
+                <img id="slide-preview" class="slide-preview" alt="" hidden>
+                <div id="preview-empty" class="preview-empty"><span class="empty-art" aria-hidden="true"><span></span><span></span><span></span></span><h3 id="preview-empty-title">好内容，正在成形</h3><p id="preview-empty-message">当前尚无可预览的 SVG。产物写入后会自动出现在这里。</p></div>
+                <span id="preview-kind" class="preview-kind" hidden></span>
+                <span id="preview-dirty" class="preview-dirty" hidden>旧版预览 · 等待重新生成</span>
+              </div>
+              <div class="preview-footer"><div class="preview-detail"><span id="selected-slide-status" class="status-dot-label" data-status="unknown">等待页面</span><p id="selected-slide-detail">预览仅代表文件已产出，不代表质量检查已通过。</p></div><div class="page-navigation"><button id="previous-slide" class="nav-button" type="button" aria-label="上一页" disabled>←</button><span id="selection-position">— / —</span><button id="next-slide" class="nav-button" type="button" aria-label="下一页" disabled>→</button></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="warnings-section" class="diagnostics" hidden aria-labelledby="warnings-heading"><h2 id="warnings-heading">运行诊断</h2><ul id="warnings-list"></ul></section>
+        <footer class="workspace-footer"><span id="updated-at">尚未读取到产物</span><span>每秒读取 · 更新时间不是宿主心跳</span></footer>
+        <div id="live-announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+      </main>
+    </div>
+
+    <dialog id="preview-dialog" class="preview-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-content"><div class="dialog-toolbar"><div><span class="eyebrow">幻灯片预览</span><h2 id="dialog-title"></h2></div><button id="close-dialog" class="nav-button dialog-close" type="button" aria-label="关闭放大预览">×</button></div><div class="dialog-image-wrap"><img id="dialog-preview" alt=""><p id="dialog-empty" hidden>此页尚无可预览的 SVG。</p></div><div class="dialog-footer"><span id="dialog-detail"></span><div class="page-navigation"><button id="dialog-previous" class="nav-button" type="button" aria-label="上一页">←</button><span id="dialog-position"></span><button id="dialog-next" class="nav-button" type="button" aria-label="下一页">→</button></div><span class="keyboard-hint">← → 切换 · Esc 关闭</span></div></div>
+    </dialog>
+  </body>
+</html>

@@ -18,6 +18,8 @@ powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 
 旧版按 Skill ID 备份到 skills 扫描根之外的 `skill-backups/`，各保留最近一份；复制完成后做树摘要一致性校验。可选参数：`-SkipDeepSeek` / `-SkipClaudeCode` / `-SkipCodex` 跳过对应宿主；`-ProjectClaude` / `-ProjectCodex` 额外更新仓库内项目级目录；`-ClaudeSkillsRoot` / `-CodexSkillsRoot` / `-MarketplaceRoot` 覆盖默认路径。
 
+实时进度面板随 ppt-start 的 `scripts/` 和 `assets/dashboard/` 自动安装，需 Python 3.9+ 标准库。使用方法见[实时面板](LIVE-DASHBOARD.md)。项目级副本覆盖用户级 Skill 时，也应同步该副本后重新开启会话。
+
 仅需单独更新 DeepSeek 时：
 
 ```bash
@@ -138,4 +140,4 @@ ppt-style-extract
 
 - 符号链接是否可用取决于操作系统和宿主沙箱；无法使用时改为复制，并始终把本仓库 `skills/ppt-start/` 与 `skills/ppt-editable/` 视为标准源。
 - 若 harness 不扫描标准技能目录，两个 Skill 的 `SKILL.md`、`references/`、`assets/` 与 `scripts/` 必须保持相对结构并置于工作区可访问位置；不能只粘贴 ppt-start 或漏掉 ppt-editable 脚本。
-- Skill 本体纯指令，不强制依赖 MCP、SDK、Hook、后台服务或运行时软件包；`ppt-editable` 随 Skill 打包 Python/PowerShell 转换与验证脚本，检查依赖但不自动安装。
+- Skill 核心流程为纯指令，不强制依赖 MCP、SDK 或 Hook；`ppt-start` 面板使用 Python 标准库本地服务，`ppt-editable` 随包提供 Python/PowerShell 转换与验证脚本，检查依赖但不自动安装。
