@@ -166,7 +166,8 @@ inline PASS 和独立审查用的是**同一道严格质量门**，都能进 `ma
 
 ## 🎁 做完之后怎么交付？
 
-- **只看 SVG / 预览**：直接用 `slides/`，或用 `tools/deck-deliver.ps1` 生成 `preview.html` 联系表、可选 1280×720 PNG 与图片式 PPTX + 演讲者备注；
+- **只看 SVG / 预览**：直接用 `slides/`／实时面板，或显式用 `tools/deck-deliver.ps1 -RunDir <run> -SkipPptx` 生成 `preview.html` 联系表，不启动 Office；
+- **图片式 PPTX / Office PNG 导出**：运行完成且明确需要这种交付时，再使用 `tools/deck-deliver.ps1 -RunDir <run>`，可附加 `-ExportPng`；这条路径会调用 PowerPoint，不是仅预览命令；
 - **要原生可编辑 PowerPoint**：调用 `ppt-editable`，得到 `delivery/editable/<deck-id>-editable.pptx`——它自带结构/Office/视觉验证，结果状态清晰（`PASS`／`GENERATED_UNVERIFIED`／`BLOCKED`／`FAILED_VERIFICATION`），已验证的旧版**永不被**未验证构建覆盖。
 
 > 说实话，PPT Pilot **不保证**所有 Office 版本都能一致导入，也**不保证**转换后每个元素都**完全可编辑**——但能力到不到位，它都会如实地告诉你，绝不冒充验证通过。🙏
@@ -213,7 +214,7 @@ inline PASS 和独立审查用的是**同一道严格质量门**，都能进 `ma
 几个核心实现要点（想深挖请去 [架构与工作原理](docs/ARCHITECTURE.md)）：
 
 - **生成范式**：活动视觉路径是**故事板 + `theme.json` 直接编译**——把已批准叙事注入所选风格包的单一 `{{NARRATIVE}}` 注点，产出 `creative-brief-v1` Prompt。早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃为迁移历史。
-- **并发批次**：以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 与 `run.json.active_visual_generation_batch`，用 `prompt_by_value` 派出 fresh isolated generator，默认 `batch_width: 4`（缺并发或 durable lookup 时降为 width 1，非 Git 不降级）；generator 与每页 validation 可**并发**，但 candidate/final、visible blocker 与 pointer 只由 coordinator 按 `ordered_slide_ids` **串行**提交。
+- **并发批次**：无需用户选择，[自动策略](skills/ppt-start/references/adaptive-concurrency.md)从目标 5 路起，根据稳定通过检查的结果提升至最多 10 路；只读 `ppt_concurrency.py` 按宿主实际容量、批次上限 `batch_width` 和在途任务规划补位，容量／页数不足时明确报告限制。以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 与 `run.json.active_visual_generation_batch`，用 `prompt_by_value` 派出 fresh isolated generator（缺并发或 durable lookup 时降为 width 1，非 Git 不降级）；generator 与每页 validation 可**并发**，但 candidate/final、visible blocker 与 pointer 只由 coordinator 按 `ordered_slide_ids` **串行**提交。
 - **风格**：经 `assets/styles/registry.json` 发现，内置五套 style pack——`canway-midyear-review`（嘉为年中总结风格，manifest `1.3.0`）、`jiawei-product`、`minimal-business`、`tech-dark`、`bold-editorial`。
 
 ---

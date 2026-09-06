@@ -11,6 +11,7 @@
 确定唯一运行目录后，按[实时进度面板](live-dashboard.md)启动或复用观察服务并向用户提供实际 URL；新运行在资料处理前启动，旧运行不因启动面板迁移原有状态。每次真正进入某阶段前原子持久化其 `stage`，随后执行阶段工作。待回答状态仍保留原阶段。面板读取磁盘产物，不拥有批准、恢复或生成权限，也不改变下述全局恢复顺序。
 
 - `new`：从主题或简报开始创建新演示文稿；它是入口动作，不是写入 `run.json.mode` 的值。新运行未显式指定策略时使用 `guided`。
+- 外部旧 PPT／PPTX 重设计是 `new + source-driven` 输入分支；先按[旧稿导入](source-deck-redesign.md)建立源清单、源页映射和 source_deck 绑定，不能因“只改风格”直接进入 revise／production。十阶段顺序不变；导入运行在进入阶段及生成／交付前调用该文档的只读 gate，失败时停止。
 - `guided`：持久执行策略；在简报、大纲和锚点批准节点提出一个直接问题，并等待明确批准。
 - `auto`：持久执行策略且只有显式指定时才使用；采用默认值并跳过可选人工批准，但不能跳过用户权限、无安全默认值的决策或任何硬质量门。
 - `resume`：入口动作；重新打开已有运行，先读取 `run.json`，严格按“全局恢复顺序”依次处理 `pending_interaction`、`manuscript_review.pending_round`、`visual_generation_blocker`、schema-v1 `visual_generation_transaction` 迁移、`active_visual_generation_batch`；前五项均不存在后才能扫描第一个未完成或脏阶段。始终保留既有 `run.json.mode`。
@@ -35,13 +36,17 @@
 
 `visual_generation_blocker` 不是用户问题，不写入 `pending_interaction`。它只能记录安全 Skill 相对 `resource` 或 `none`，不能持久化未验证绝对路径、URL、工作区路径或机密内容；写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，并保持受影响 slide dirty。历史 crash 留下 durable prompt／`compiling` transaction／active blocker 旧协议组合时，prompt 必须视为不可信派生产物：保持受影响 slide dirty，保留 previous final，按需隔离旧 prompt 与 orphan candidate，并按 [artifact-contract.md](artifact-contract.md) 重新执行完整无副作用 preflight；不得采用旧 prompt，不得直接标记为 `compiled`，也不得直接移除 blocker。失败则按 canonical blocker 规则保留或幂等刷新 blocker。完整 preflight 成功时，只能先以一次原子 `run.json` 替换移除 blocker；若 schema-v1 `visual_generation_transaction` 仍存在，必须原样保留并重新进入全局顺序，由下一步零模型调用 migration 按 pointer-last 发布 v2 owner，不能跨过迁移直接创建新的 `compiling` transaction。只有 v1 owner 不存在时，新操作才可创建新 transaction。阻断期间不得启动 generator、不得写 SVG、不得降级为 patch 或改用其他风格。
 
-正式生产按 `ordered_slide_ids` 选择每批 3–4 页，默认 `batch_width: 4`；最后一批可为 1–4 页。确定性 preflight 先在内存完成，随后在任何 prompt／transaction／candidate durable write 前完成宿主能力协商；无安全 fresh isolation 时只写 run-level blocker。能力通过后才按 [artifact-contract.md](artifact-contract.md) 的 pointer-last 顺序写入每页 schema-v2 transaction、batch manifest，最后原子发布 `run.json.active_visual_generation_batch`。manifest 只拥有顺序、refs、批次快照与可重建 cursor 提示，不复制页面 state。
+正式生产按[自动并发策略](adaptive-concurrency.md)由插件决定目标，不询问用户：从 5 路起，根据稳定通过检查的结果自动提高到最多 10 路；新批次的 `batch_width` 使用当时目标，按 `ordered_slide_ids` 选择最多该数量的页面，尾批可为 `1..batch_width` 页。旧 3／4 页活动批次原位恢复，v1 迁移默认值保持不变。确定性 preflight 先在内存完成，随后在任何 prompt／transaction／candidate durable write 前完成宿主能力协商；无安全 fresh isolation 时只写 run-level blocker。能力通过后才按 [artifact-contract.md](artifact-contract.md) 的 pointer-last 顺序写入每页 schema-v2 transaction、batch manifest，最后原子发布 `run.json.active_visual_generation_batch`。manifest 只拥有顺序、refs、批次快照与可重建 cursor 提示，不复制页面 state。
 
 `active_visual_generation_batch` 恢复保持同一全局 order：只有无 pending、无 blocker 时处理。pointer 在 files 前出现属于 `visual_generation_state_conflict`；files 完整而 pointer 缺失只做 pointer-only completion。恢复按 manifest 的 `ordered_slide_ids` 读取完整 transaction inventory，重建 `promotion_cursor`／`blocker_cursor`，并忽略 completion callback 或 manifest cursor 的授权含义。候选只有在 durable `candidate_written` 且 hash 匹配时可采用；`generating` 上的 orphan candidate 必须隔离。`validated` final CAS 只允许 candidate 已在 final、prior final 仍在、或第三 hash conflict 三种结果，且始终保留 previous final。
 
-新批次在 durable 写入前协商 fresh isolated text task 能力；已激活批次在恢复／新 epoch 前重新协商。native 优先、remote 次之；并发+durable lookup 使用配置 width 3/4，缺少并发或 lookup 时降为 width 1。非 Git 工作区不降级。没有 fresh isolation 时，新批次只写 run-level `generator_unavailable` blocker，现有批次保留 transactions 并标记 blocked；绝不调用嵌套 CLI、探测 credentials/profiles、要求 worktree，或使用当前上下文生成。
+新批次在 durable 写入前协商 fresh isolated text task 能力；已激活批次在恢复／新 epoch 前重新协商。native 优先、remote 次之；并发+durable lookup 使用自动目标与实际 worker capacity 的较小值，缺少并发或 lookup 时降为 width 1，未知容量保守使用 1。容量为 0 时等待，不误报 isolation 不可用。非 Git 工作区不降级。没有 fresh isolation 时，新批次只写 run-level `generator_unavailable` blocker，现有批次保留 transactions 并标记 blocked；绝不调用嵌套 CLI、探测 credentials/profiles、要求 worktree，或使用当前上下文生成。
 
-每个 eligible `compiled` transaction 在同一 `dispatch_epoch` 最多一次 spawn。四个页面可共享 epoch 并并发生成；coordinator 将完整 prompt bytes 按值交给任务，任务固定 fresh history、无 filesystem、无 tools、text-only。coordinator 独占 candidate 写入、hash 与 transaction 提交。每页 validation 可在 sibling 生成期间并行，但 final promotion、visible blocker publication 和 `run.json` pointer 改变始终按 `ordered_slide_ids` 串行确定；visible blocker 只发布最低 ordered failed／undispatched slide，不能按 completion order 选择。
+每个 eligible `compiled` transaction 在同一 `dispatch_epoch` 最多一次 spawn。每次调用只读 `ppt_concurrency.py` 规划 dispatch／补位前，重建在途任务并扣除已运行和已预留任务，包括未终结旧 epoch；等待或重复观测不得重复派发。多页可共享 epoch 并在实际容量内并发生成；coordinator 将完整 prompt bytes 按值交给任务，任务固定 fresh history、无 filesystem、无 tools、text-only。coordinator 独占 candidate 写入、hash 与 transaction 提交。每页 validation 可在 sibling 生成期间并行，但 final promotion、visible blocker publication 和 `run.json` pointer 改变始终按 `ordered_slide_ids` 串行确定；visible blocker 只发布最低 ordered failed／undispatched slide，不能按 completion order 选择。
+
+上述并行 validation 使用 SVG 结构检查与非 Office 渲染，具体见 [SVG 渲染与 Office 边界](qa-and-revision.md#svg-渲染与-office-边界)。锚点／正式页面生成及预览不启动 PowerPoint／WPS；Office 实测不混入逐页任务，也不因提高并发而启动多个应用实例。
+
+外部旧稿运行在步骤 5 的既有 active batch owner 内、完成原 manifest／transaction 校验后，还须在 dispatch、candidate adoption、final promotion 前运行[导入恢复前置检查](source-deck-redesign.md#3-可执行阶段检查)的 `--resume-active-batch`。它不增加恢复步骤、不处理／清除高优先级状态；检查失败保留 owner 与 previous final，禁止让旧源稿候选先提升到 final。
 
 ## guided 检查点
 

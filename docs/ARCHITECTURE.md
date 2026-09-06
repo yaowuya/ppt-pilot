@@ -50,7 +50,7 @@ brief -> research? -> outline -> storyboard -> manuscript_review
 
 能力协商在任何 durable 写入之前完成；没有 fresh isolation 时以 `generator_unavailable` 零写入停止。能力通过后按 **pointer-last** 顺序写 per-slide transactions、batch manifest，最后发布 `run.json.active_visual_generation_batch`：
 
-- 默认 `batch_width: 4`（可配置 3）；并发或 durable lookup 缺失降为 width 1，非 Git 工作区不降级；
+- [自动并发](../skills/ppt-start/references/adaptive-concurrency.md)无需用户选择，目标从 5 起自动提升至最多 10；只读规划器按实际宿主容量、批次上限和在途任务计算可派发页数，容量／页数不足时报告限制，容量为 0 时等待；并发或 durable lookup 缺失降为 width 1，非 Git 工作区不降级；旧 3／4 页活动批次与 v1 迁移字节保持兼容；
 - 隔离任务只接收完整 `prompt_by_value`：fresh history、filesystem none、tools none、text-only；
 - generator 与 per-slide validation 可并发，但 candidate/transaction/final 写入、visible blocker 与 pointer 只由 coordinator 按 `ordered_slide_ids` 串行提交；
 - 每页请求预算固定 4 次（initial/recompose 1 + patch ≤2 + 确定性回退 1），每次派发输出一行进度说明；用尽即停，写 blocker；
@@ -77,7 +77,8 @@ telemetry（compile/model/render/qa/promotion spans、DAG 关键路径、batch w
 ## 交付链路
 
 - `ppt-start` 完成后主动提示下一步可转可编辑 PowerPoint（见[用户指南](USER-GUIDE.md)）。
-- `tools/deck-deliver.ps1`（可选伴随工具，不属于 Skill）：组装 `preview.html` 联系表、图片式 PPTX（COM 自动化，写入演讲者备注）与可选 PNG 导出；只新增 `delivery/`，不修改运行产物。
+- SVG 生产／预览按[阶段边界](../skills/ppt-start/references/qa-and-revision.md#svg-渲染与-office-边界)只使用结构检查与非 Office 渲染；Office 实测集中到完成后的交付，不进入逐页生成任务。
+- `tools/deck-deliver.ps1`（可选伴随工具，不属于 Skill）：仅预览显式传 `-SkipPptx`，不启动 Office；旧 PPTX 命令保留，但非 complete 运行在写入／Office 探测前阻断。可生成根目录 `preview.html` 联系表及 `delivery/` 下的图片式 PPTX（COM 自动化，写入演讲者备注）与可选 PNG，不修改 SVG 或运行批准。
 - `ppt-editable`：固定阶段序 `locate → validate → snapshot → recover → idempotency → dependencies → preflight → build → structural verify → capability → Office → visual compare → promotion → result`；结果状态 `PASS` / `GENERATED_UNVERIFIED` / `BLOCKED` / `FAILED_VERIFICATION`；永远保留已验证 final，不被未验证构建覆盖；只写 `delivery/editable/`，绝不改 `.ppt-pilot/run.json`。
 
 ## 测试与证据分级

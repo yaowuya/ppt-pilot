@@ -2,7 +2,7 @@
 
 本文档给出标准 `skills/ppt-start/` 与 `skills/ppt-editable/` 在 Claude Code、OpenAI Codex 与 DeepSeek Harness 中的可重复验收矩阵。自动一致性测试验证书面契约，但不能代替真实宿主、浏览器、PowerPoint 或 FY26H1 集成证据。
 
-未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前活动架构是**故事板 + `theme.json` 直接编译**：每个可选择 `style_pack` 都必须由 manifest `files.prompt_template` 声明并携带经过 tokens 精确绑定验证的 style-owned 完整模板；字段缺失立即 fail closed。运行时固定执行 manifest → tokens → guidance → prompt traversal；所有模板 hard prefix/suffix 字节相同，只有 Step 2 的七条 closed typed 风格指令由同包 tokens 确定性变化。仓库 `generation-prompt-template.md` 仅是建包 authoring seed，运行时不可执行。模板只有一个 whole-line `{{NARRATIVE}}` 注点，编译器只注入已批准、逐块带稳定 `block_id` 且不含来源注解的叙事／素材，持久格式为 `creative-brief-v1`。generator 仅可把每个 `block_id` 临时回显一次于规范 `data-block-id` 精确属性值；text／tail／其他属性泄漏以 `fact_source_mismatch` 零 candidate write 阻断。`tokens.json.prompt_baseline` 只作为闭合类型风格数据、QA 与 snapshot provenance，不是第二个正文注入域。早期 legacy `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃，新运行必须拒绝。新运行使用 schema-v2 per-slide transaction/batch manifest 与 `active_visual_generation_batch`，默认 width 4 isolated generation、per-slide validation 并发、coordinator ordered serial publication。Canway manifest 版本为 `1.3.0`。历史 visual briefs 与 singular v1 transaction 只作 inert migration evidence。
+未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前活动架构是**故事板 + `theme.json` 直接编译**：每个可选择 `style_pack` 都必须由 manifest `files.prompt_template` 声明并携带经过 tokens 精确绑定验证的 style-owned 完整模板；字段缺失立即 fail closed。运行时固定执行 manifest → tokens → guidance → prompt traversal；所有模板 hard prefix/suffix 字节相同，只有 Step 2 的七条 closed typed 风格指令由同包 tokens 确定性变化。仓库 `generation-prompt-template.md` 仅是建包 authoring seed，运行时不可执行。模板只有一个 whole-line `{{NARRATIVE}}` 注点，编译器只注入已批准、逐块带稳定 `block_id` 且不含来源注解的叙事／素材，持久格式为 `creative-brief-v1`。generator 仅可把每个 `block_id` 临时回显一次于规范 `data-block-id` 精确属性值；text／tail／其他属性泄漏以 `fact_source_mismatch` 零 candidate write 阻断。`tokens.json.prompt_baseline` 只作为闭合类型风格数据、QA 与 snapshot provenance，不是第二个正文注入域。早期 legacy `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃，新运行必须拒绝。新运行使用 schema-v2 per-slide transaction/batch manifest 与 `active_visual_generation_batch`，无需用户选择的目标 5→10 自动 isolated generation（实际并发受宿主容量与在途任务约束）、per-slide validation 并发、coordinator ordered serial publication。Canway manifest 版本为 `1.3.0`。历史 visual briefs 与 singular v1 transaction 只作 inert migration evidence。
 
 ## 前置条件
 
@@ -16,6 +16,24 @@
 8. 验证审稿独立性时，保存宿主返回的子上下文 ID、完成事件 ID、匹配的结果来源上下文 ID 及审稿人受限输入。审稿人只能接收五个冻结文稿文件和审查规范。只有文字叙述，或没有子上下文／接收者状态的空等待，均视为失败，不构成来源证据。`run.json` 单独存在不是证据；每个声明的 ID 都必须与宿主 transcript 或协作日志关联。
 9. 跨宿主交接时，不得向接收宿主提供发起宿主的对话。
 10. 实时网络或渲染不可用时，应保留运行中明确的降级状态，不能将其解释为通过。
+
+### 默认回归与真实 Office 测试
+
+SVG 生产和预览遵循[渲染边界](../skills/ppt-start/references/qa-and-revision.md#svg-渲染与-office-边界)：保留静态／浏览器视觉 QA，Office 实测属于已完成运行的独立交付。仅预览的仓库命令必须带 `-SkipPptx`；`-ExportPng` 属于会调用 Office 的交付路径。
+
+普通 `python -m unittest discover -s tests -q` 不自动运行真实 COM 冒烟。`test_com_smoke_preserves_preexisting_powerpoint_processes` 仅在 `PPT_EDITABLE_LIVE_OFFICE_TESTS` 精确为 `1` 且 PowerPoint 能力可用时执行；未启用记为 skipped，不是 Office 验证 PASS。`test_office_activation_boundaries.py` 用外部调用桩和 Office 探测前 tripwire 验证启用门禁、未完成运行拦截及仅预览输出，不启动真实应用。
+
+仅当用户明确授权真实 Office 集成测试、已保存工作并使用隔离测试桌面时，才运行以下 PowerShell 命令；不能为了消除 skip 或让普通回归通过而自行启用。该测试会创建 COM 应用实例，历史进程保留失败仍需独立修复／复验，本次 opt-in 改动不代表它已通过：
+
+```powershell
+$previousLiveOfficeSetting = $env:PPT_EDITABLE_LIVE_OFFICE_TESTS
+try {
+    $env:PPT_EDITABLE_LIVE_OFFICE_TESTS = '1'
+    python -m unittest discover -s tests -p test_ppt_editable_office_contract.py -k test_com_smoke -v
+} finally {
+    $env:PPT_EDITABLE_LIVE_OFFICE_TESTS = $previousLiveOfficeSetting
+}
+```
 
 ## 共用场景矩阵
 
@@ -55,6 +73,10 @@
 - telemetry critical path 使用 DAG max、batch wall 使用真实跨度，损坏只记 `telemetry_diagnostic_failed`。
 
 ### schema-v2 并发性能 telemetry 验收
+
+自动并发的行为验收见[提示与观测要求](../tests/prompts/automatic-svg-concurrency.md)。本地 `test_generation_concurrency.py` 实际调用只读规划器；`test_adaptive_generation_contract.py` 还覆盖 5／8／10 页 manifest、旧 3／4 页恢复、宿主容量、旧 epoch 预留与补位。规划器测试不等于真实宿主 5～10 路运行：必须另行记录真实任务峰值、槽位来源、限流／等待和重放行为，不能用目标值代替实际在途数。
+
+以下 width 3／4 数字保留为历史确定性 telemetry 样例，不代表新运行的默认策略或真实加速实测。
 
 并发 telemetry 只属于 `EVIDENCE_CLASS: DIAGNOSTIC`，不能授权 transaction、validation 或 promotion。静态 fixture 必须证明：串行 4×1000 ms model 基线约为 4400 ms critical path；并发 width 4 为一个约 1000 ms model wave 加串行 promotion（1400 ms）；width 3 的 8 页为 `ceil(8/3)` model waves 加串行 promotion（3400 ms）；out-of-order QA 使用 DAG 最长依赖链而不是 span 总和；恢复重放同一 `span_id` 只计一次；telemetry corrupt 只记录 `telemetry_diagnostic_failed`，原 correctness outcome 不变。真实宿主验收还必须记录 host、provider、model、isolation、attribution/task IDs、queue、timeout、token（可用时）与 batch wall time。
 

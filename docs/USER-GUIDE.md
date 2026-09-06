@@ -97,21 +97,25 @@
 
 | 你要什么 | 怎么做 | 得到什么 |
 |---|---|---|
-| 只看 SVG / 浏览器预览 | 直接用 `slides/`，或运行 `tools/deck-deliver.ps1`（自动生成 `preview.html`，可选 `-ExportPng`） | 静态预览页 / PNG |
+| 只看 SVG / 浏览器预览 | 直接用 `slides/`／实时面板，或运行 `tools/deck-deliver.ps1 -RunDir <run> -SkipPptx`，不启动 Office | SVG / 静态预览页 |
 | 图片式 PPTX + 演讲者备注 | `tools/deck-deliver.ps1`（需本机 PowerPoint） | PPTX + 备注清单 |
 | **原生可编辑 PPTX**（可改字、可改形状） | 调用 `ppt-editable` 技能 | `delivery/editable/<deck-id>-editable.pptx` |
 
 `deck-deliver.ps1` 用法（可选伴随工具，在仓库根目录运行）：
 
 ```bash
-powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1                # 自动探测唯一运行
+powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1 -RunDir ppt-output/<deck-id> -SkipPptx
+# 以下仅用于已完成运行的图片式 PPTX / Office PNG 交付，会启动 PowerPoint：
 powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1 -RunDir ppt-output/<deck-id> -ExportPng
 ```
 
 - 始终生成 `<run>/preview.html` 联系表：缩略图网格 + 单页查看器（方向键翻页、Esc 关闭），纯静态、无外部资源；
 - 从 `.ppt-pilot/故事板.md` 解析每页 `assertion_title`／`audience_takeaway`／`next_link`，自动写入 PPTX 演讲者备注；
-- 调用本机 PowerPoint（COM 自动化）把每页 SVG 插入 16:9 PPTX 并复开校验；本机没有 PowerPoint 或指定 `-SkipPptx` 时跳过该步，preview.html 仍可用；
+- 仅预览必须指定 `-SkipPptx`：生成 preview.html，不探测或启动 Office。退出码 3 表示仅预览成功，不等于 SVG 工作流 QA 已通过；
+- 不指定 `-SkipPptx` 的旧命令仍表示 PPTX 交付：只有 `run.json.stage=complete` 才会调用本机 PowerPoint（COM 自动化）插入 SVG、写备注并复开校验；未完成运行会在输出写入／Office 探测前停止。本机没有 PowerPoint 时只保留预览；
 - `-ExportPng` 额外导出每页 1280×720 PNG 作为渲染证据；结果清单写入 `<run>/delivery/delivery-result.json`；
+
+生成 SVG 的锚点、生产、修订与整套 QA 默认使用非 Office 渲染，不逐页打开 PPT。旧稿导入可在简报阶段按需渲染原稿；最终 PPTX 的 Office 验证在 SVG 全部完成后集中执行。浏览器视觉通过不等于已通过 Office 实测。
 - 工具只新增 preview.html 与 `delivery/`，不修改任何运行产物。退出码：`0`=PPTX+preview 成功；`3`=仅 preview 成功。
 
 调用 `ppt-editable` 的方式（与 `ppt-start` 同宿主同前缀）：
