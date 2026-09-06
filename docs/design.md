@@ -4,7 +4,7 @@
 
 PPT Pilot 是面向 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植 Agent Skill。它把主题、简报、资料集合或既有运行转换为 6–15 页、16:9 的演示文稿，最终每页交付为独立 SVG 文件。
 
-MVP 刻意保持纯指令架构。它只使用宿主常规的工作区能力，以及可选研究／视觉能力；不强制依赖 MCP 服务、API SDK、后台服务、Hook、嵌套 Skill、Shell 脚本或软件包运行时。
+核心生成流程保持纯指令架构，使用宿主常规工作区能力及可选研究／视觉能力，不强制依赖 MCP 服务、API SDK 或 Hook。随包的实时观察面板使用 Python 3.9+ 标准库本地服务和静态页面，读取现有运行产物展示阶段任务与 SVG；启动失败只降低可观察性，不改变批准和生成门禁，详见 [实时面板](LIVE-DASHBOARD.md)。
 
 可执行 Skill 标识为 `ppt-start`。产品名称仍为 PPT Pilot；宿主调用方式见 [README](../README.md)。
 

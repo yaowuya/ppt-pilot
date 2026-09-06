@@ -37,6 +37,10 @@ node_modules/
 dist/
 build/
 
+# Local browser verification screenshots and traces
+output/playwright/
+.playwright-cli/
+
 # Local environment and secrets
 .env
 .env.*

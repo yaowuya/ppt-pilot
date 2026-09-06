@@ -4,7 +4,7 @@
 
 ## 总体架构
 
-PPT Pilot 是纯指令的 Agent Skill 包，可移植运行于 Claude Code、OpenAI Codex 与 DeepSeek Harness，不强制依赖 MCP、SDK、Hook、后台服务或运行时软件包。仓库发布两个职责独立的 Skill：
+PPT Pilot 的核心是纯指令 Agent Skill，可移植运行于 Claude Code、OpenAI Codex 与 DeepSeek Harness，不强制依赖 MCP、SDK 或 Hook。实时进度面板使用随包 Python 标准库本地服务，只读观察运行产物；服务失败不改变流程门禁。仓库发布的 Skill 中，生成与可编辑交付职责分别如下：
 
 - `ppt-start`：从主题/简报/资料/既有运行生成有证据支撑的 16:9 独立 SVG 演示；
 - `ppt-editable`：只消费一个已完成的 `ppt-start` 运行，转换为递归分组、原生可编辑文本/形状的 PowerPoint，并完成结构/Office/视觉验证。

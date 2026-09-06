@@ -18,7 +18,7 @@ PPT Pilot 是一个装进 **Claude Code / OpenAI Codex / DeepSeek Harness** 就�
 | `ppt-editable` | 把一个已完成运行，变成**可编辑、能改字**的原生 PowerPoint |
 | `ppt-style-extract` | 从**模板 PPT / 参考图 / 风格 prompt** 提取风格，固化成你自己的 `ppt-start` 风格包 |
 
-整个 Skill 本体走**纯指令**路线，不强制依赖 MCP、SDK、Hook、后台服务或运行时软件包；**可选网络**研究默认不启用，机密内容默认不出网。
+核心工作流走**纯指令**路线，不强制依赖 MCP、SDK 或 Hook；随包的实时观察面板使用 Python 3.9+ 本地服务，服务不可用时仍可继续原工作流。**可选网络**研究默认不启用，机密内容默认不出网。
 
 ---
 
@@ -79,6 +79,8 @@ powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 ```
 
 一个脚本装好三个宿主（**DeepSeek Harness、Claude Code、Codex**），旧版按 Skill ID 自动备份。只想装 DeepSeek，就跑 `tools/install-deepseek-plugin.ps1`；复制或**符号链接**的逐宿主命令，见[安装指南](docs/INSTALL.md)。
+
+执行过程可在[本地实时面板](docs/LIVE-DASHBOARD.md)查看阶段任务、待确认问题和自动刷新的 SVG 预览。更新后的 `ppt-start` 会启动面板并给出浏览器地址；也可手动执行 `py -3 skills/ppt-start/scripts/ppt_dashboard.py start --run-dir ppt-output/<deck-id> --open`（Python 3.9+，无第三方依赖）。
 
 | 宿主 | 用户级安装 | 项目级安装 | 启动命令 |
 |---|---|---|---|
