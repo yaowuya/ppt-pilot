@@ -2973,7 +2973,8 @@ class RedesignPromptContractTests(unittest.TestCase):
             "所选风格必须声明的完整 `files.prompt_template`",
             "prompt_snapshot_conflict",
             "Transaction 创建前的无副作用 preflight",
-            "确定性 preflight 或 capability 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入",
+            "确定性 preflight 失败必须产生零 transaction／prompt／manifest／candidate 写入、零 generator 调用和零 SVG 写入",
+            "capability 失败除一次原子 run-level blocker 写入外保持同样的零生产副作用",
         ):
             with self.subTest(reference="artifact", token=token):
                 self.assertIn(token, artifact)

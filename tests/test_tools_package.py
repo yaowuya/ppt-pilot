@@ -118,6 +118,13 @@ class MultiSkillInstallerTests(unittest.TestCase):
                 with self.subTest(source=source[:20], token=token):
                     self.assertIn(token, source)
             self.assertNotIn("Get-FileHash", source)
+        for token in ("$ClaudeAgentsRoot", "ppt-svg-generator.md", "agent-backups"):
+            self.assertIn(token, update)
+            self.assertNotIn(token, deepseek)
+        self.assertIn(
+            "Join-Path (Split-Path -Parent $ClaudeSkillsRoot) 'agents'", update
+        )
+        self.assertIn("Join-Path $projectClaudeRoot 'agents'", update)
         self.assertIn("skill-backups", update)
         self.assertIn("'backups'", deepseek)
         self.assertIn("$args2.RepoRoot", update)
@@ -136,6 +143,7 @@ class MultiSkillInstallerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             claude_skills = root / "claude" / "skills"
+            claude_agents = root / "claude" / "agents"
             codex_skills = root / "codex" / "skills"
             command = [
                 shutil.which("powershell"),
@@ -149,6 +157,8 @@ class MultiSkillInstallerTests(unittest.TestCase):
                 "-SkipDeepSeek",
                 "-ClaudeSkillsRoot",
                 str(claude_skills),
+                "-ClaudeAgentsRoot",
+                str(claude_agents),
                 "-CodexSkillsRoot",
                 str(codex_skills),
             ]
@@ -164,7 +174,7 @@ class MultiSkillInstallerTests(unittest.TestCase):
                 )
                 self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
             for skills_root in (claude_skills, codex_skills):
-                for skill_id in ("ppt-start", "ppt-editable"):
+                for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract"):
                     source = repo_root() / "skills" / skill_id
                     installed = skills_root / skill_id
                     self.assertTrue((installed / "SKILL.md").is_file())
@@ -174,6 +184,30 @@ class MultiSkillInstallerTests(unittest.TestCase):
                     )
                     self.assertEqual(len(backups), 1)
                 self.assertFalse(any(skills_root.glob("*.bak-*")))
+
+            source_agent = (
+                repo_root()
+                / "hosts"
+                / "claude-code"
+                / "agents"
+                / "ppt-svg-generator.md"
+            )
+            installed_agent = claude_agents / "ppt-svg-generator.md"
+            self.assertEqual(installed_agent.read_bytes(), source_agent.read_bytes())
+            self.assertEqual(
+                len(
+                    list(
+                        (claude_agents.parent / "agent-backups").glob(
+                            "ppt-svg-generator.bak-*.md"
+                        )
+                    )
+                ),
+                1,
+            )
+            self.assertFalse(any(claude_agents.glob("*.bak-*")))
+            self.assertFalse(
+                (codex_skills.parent / "agents" / "ppt-svg-generator.md").exists()
+            )
 
     @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
     def test_backup_preparation_failure_never_deletes_live_skill(self):
@@ -221,6 +255,158 @@ class MultiSkillInstallerTests(unittest.TestCase):
             )
             self.assertNotEqual(second.returncode, 0)
             for skill_id, digest in before.items():
+                self.assertEqual(_tree_digest(claude_skills / skill_id), digest)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_claude_agent_backup_failure_leaves_agent_and_skills_unchanged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            claude_root = root / "claude"
+            claude_skills = claude_root / "skills"
+            claude_agents = claude_root / "agents"
+            command = [
+                shutil.which("powershell"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(self.update_path),
+                "-RepoRoot",
+                str(repo_root()),
+                "-SkipDeepSeek",
+                "-SkipCodex",
+                "-ClaudeSkillsRoot",
+                str(claude_skills),
+                "-ClaudeAgentsRoot",
+                str(claude_agents),
+            ]
+            first = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+            live_agent = claude_agents / "ppt-svg-generator.md"
+            live_agent.write_bytes(b"old-live-agent-sentinel\n")
+            (claude_skills / "ppt-start" / "old-live-sentinel.txt").write_text(
+                "preserve me\n", encoding="utf-8"
+            )
+            before_agent = live_agent.read_bytes()
+            before_skills = {
+                skill_id: _tree_digest(claude_skills / skill_id)
+                for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract")
+            }
+            backup_root = claude_root / "agent-backups"
+            backup_root.write_text("not a directory", encoding="utf-8")
+
+            second = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertNotEqual(second.returncode, 0)
+            self.assertEqual(
+                (claude_agents / "ppt-svg-generator.md").read_bytes(), before_agent
+            )
+            for skill_id, digest in before_skills.items():
+                self.assertEqual(_tree_digest(claude_skills / skill_id), digest)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_claude_agent_post_copy_failure_restores_live_agent_and_skills(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            claude_root = root / "claude"
+            claude_skills = claude_root / "skills"
+            claude_agents = claude_root / "agents"
+            base_command = [
+                shutil.which("powershell"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(self.update_path),
+                "-RepoRoot",
+                str(repo_root()),
+                "-SkipDeepSeek",
+                "-SkipCodex",
+                "-ClaudeSkillsRoot",
+                str(claude_skills),
+                "-ClaudeAgentsRoot",
+                str(claude_agents),
+            ]
+            first = subprocess.run(
+                base_command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+            live_agent = claude_agents / "ppt-svg-generator.md"
+            live_agent.write_bytes(b"old-live-agent-sentinel\n")
+            (claude_skills / "ppt-start" / "old-live-sentinel.txt").write_text(
+                "preserve me\n", encoding="utf-8"
+            )
+            before_agent = live_agent.read_bytes()
+            before_skills = {
+                skill_id: _tree_digest(claude_skills / skill_id)
+                for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract")
+            }
+
+            installer_text = read_text(self.update_path)
+            copy_line = (
+                "        Copy-Item -LiteralPath $source "
+                "-Destination $destination -Force\n"
+            )
+            self.assertEqual(installer_text.count(copy_line), 1)
+            injected_installer = root / "update-hosts-agent-failure.ps1"
+            injected_installer.write_text(
+                installer_text.replace(
+                    copy_line,
+                    copy_line + "        throw 'injected agent verification failure'\n",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            failed_command = list(base_command)
+            failed_command[failed_command.index(str(self.update_path))] = str(
+                injected_installer
+            )
+            failed = subprocess.run(
+                failed_command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn(
+                "injected agent verification failure", failed.stderr + failed.stdout
+            )
+            self.assertEqual(
+                (claude_agents / "ppt-svg-generator.md").read_bytes(), before_agent
+            )
+            self.assertEqual(
+                list(
+                    (claude_root / "agent-backups").glob(
+                        "ppt-svg-generator.bak-*.md"
+                    )
+                ),
+                [],
+            )
+            for skill_id, digest in before_skills.items():
                 self.assertEqual(_tree_digest(claude_skills / skill_id), digest)
 
     @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
@@ -442,13 +628,18 @@ class BatchConcurrencyContractTest(unittest.TestCase):
             "prompt_by_value",
             "fresh_history=true",
             "filesystem=none",
-            "tools=none",
+            "data_tools=none",
             "host_attribution_id",
             "host_task_id",
             "ordered_slide_ids",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.combined)
+        self.assertIn("host-isolation-adapters.md", self.combined)
+        self.assertIn(
+            "不得轮询",
+            read_text(skill_root() / "references" / "host-isolation-adapters.md"),
+        )
         ownership_documents = {
             "SKILL.md": self.skill,
             "workflow.md": self.workflow,

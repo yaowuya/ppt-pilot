@@ -6,7 +6,7 @@
 
 生成锚点或正式页面前必须读取本参考。每个视觉阶段都要求 `run.json.manuscript_review.state` 精确为 `manuscript_approved`，同时具有有效且已批准的故事板和审查产物。顶层阶段依次经过 `theme`、`anchor` 并进入 `production` 后才能生产，而且必须已有验证通过的 `theme.json`。
 
-正式页面按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，无需用户选择。每次 dispatch／补位调用只读 `ppt_concurrency.py`，以实际宿主容量和在途任务数限制新增任务；不足 5 时说明限制。旧 3／4 页批次原位恢复。批内所有页面先完成内存 preflight 与能力协商，随后 pointer-last 写 per-slide transactions／manifest／active pointer；没有 fresh isolation 时保持零 prompt／transaction／candidate 写入。generation 与 per-slide validation 可重叠，但 coordinator 独占 candidate/transaction/final 写入，并按 `ordered_slide_ids` 串行 promotion 与最低 blocker publication。页面只有在 transaction promoted、页面 QA 与整套 QA 都通过后才从 `dirty_slides` 清除。每完成一个批次都更新可恢复状态，使另一个宿主无需对话历史即可继续。
+正式页面按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，无需用户选择。每次 dispatch／补位调用只读 `ppt_concurrency.py`，以实际宿主容量和在途任务数限制新增任务；不足 5 时说明限制。旧 3／4 页批次原位恢复。批内所有页面先完成确定性内存 preflight，再按[页面生成宿主隔离适配器](host-isolation-adapters.md)协商能力，随后才可 pointer-last 写 per-slide transactions／manifest／active pointer；缺少或不安全 adapter 时以 `generator_unavailable` 结构性阻断，保持零 prompt／transaction／candidate 写入且不得轮询。generation 与 per-slide validation 可重叠，但 coordinator 独占 candidate/transaction/final 写入，并按 `ordered_slide_ids` 串行 promotion 与最低 blocker publication。页面只有在 transaction promoted、页面 QA 与整套 QA 都通过后才从 `dirty_slides` 清除。每完成一个批次都更新可恢复状态，使另一个宿主无需对话历史即可继续。
 
 某页耗尽修复与回退策略后仍有硬检查失败时，不得继续生成后续页面。
 
@@ -116,16 +116,16 @@ initial/recompose generator = durable generation prompt only
 
 ### 页面首次生成与 recompose 的统一 Prompt QA
 
-每个首次生成和任何 `recompose` 都必须使用[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)。QA 必须先验证固定生产顺序：读取已批准 outline／storyboard／theme 与适用 revisions → 按 `theme.selected_style_id` 执行 manifest → tokens → guidance → prompt 的固定 no-follow traversal，解析必需的 style-owned `files.prompt_template`（字段缺失 fail closed）→ 向唯一 whole-line `{{NARRATIVE}}` 注点投影叙事／素材／非来源 `block_id` 并完成确定性 preflight → 能力协商 → 按页持久化并复读 schema-v2 transaction/prompt → 写 batch manifest → pointer-last 激活 → prompt-by-value isolated dispatch → coordinator 解析裸 SVG、按 `data-block-id` 确定性关联来源并移除临时属性 → 写 candidate／复读／hash → per-slide QA → validated → ordered serial promotion。仓库模板只作建包 authoring seed；运行时 `tokens.json.prompt_baseline` 只参与风格数据、QA 与 snapshot provenance，不是第二个 prompt 正文注入域。
+每个首次生成和任何 `recompose` 都必须使用[页面首次生成与重新排版专用 Prompt 契约](redesign-prompt.md)。QA 必须先验证固定生产顺序：读取已批准 outline／storyboard／theme 与适用 revisions → 按 `theme.selected_style_id` 执行 manifest → tokens → guidance → prompt 的固定 no-follow traversal，解析必需的 style-owned `files.prompt_template`（字段缺失 fail closed）→ 向唯一 whole-line `{{NARRATIVE}}` 注点投影叙事／素材／非来源 `block_id` 并完成确定性 preflight → 按[宿主隔离适配器](host-isolation-adapters.md)能力协商 → 按页持久化并复读 schema-v2 transaction/prompt → 写 batch manifest → pointer-last 激活 → prompt-by-value isolated dispatch → coordinator 解析裸 SVG、按 `data-block-id` 确定性关联来源并移除临时属性 → 写 candidate／复读／hash → per-slide QA → validated → ordered serial promotion。仓库模板只作建包 authoring seed；运行时 `tokens.json.prompt_baseline` 只参与风格数据、QA 与 snapshot provenance，不是第二个 prompt 正文注入域。
 
-确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。该失败不得留下半 transaction、半成品 prompt 或可采用 candidate；canonical blocker 只能在没有为本次尝试创建 transaction/prompt 后独立写入。
+确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。该失败不得留下半 transaction、半成品 prompt 或可采用 candidate；canonical blocker 只能在没有为本次尝试创建 transaction/prompt/manifest 后，因 preflight 失败或随后 adapter 协商失败而独立写入。
 
 随后检查：
 
 - 验证 `.ppt-pilot/generation-prompts/<slide-id>.md` 的 `prompt_snapshot_id`、`storyboard_snapshot_id`、`theme_snapshot_id` 与已应用视觉修订 ID；
 - 风格身份／资产或 authoritative outline／storyboard／theme 验证失败时返回对应 owner；缺少 `files.prompt_template` 属于 `style_assets_unavailable: style_asset_field_missing`。只有当前解析出的 style-owned generation prompt 模板／字节或无法唯一解释的 snapshot／provenance 自身失败，才按产物契约独立写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 和 dirty slide，不启动 generator、不写 prompt/SVG、不改用其他风格、不降级为 patch；
 - 对每个候选重新检查冻结故事板的 `fact_source_consistency` 与 `narrative_integrity`，并检查 `theme.json` 的软风格基线；
-- fresh 独立生成上下文只接收该持久化 Prompt；首次生成不接收其他页面，`recompose` 还不得接收旧 SVG 或创作对话；
+- coordinator 只向 fresh 独立生成上下文传入该持久化 Prompt；首次生成不传其他页面，`recompose` 还不得传旧 SVG 或创作对话；Claude 自动 ambient context 的接受与忽略边界以[宿主隔离适配器](host-isolation-adapters.md)为准；
 - 生成回复必须恰好一个 `xml` 代码围栏；提取后裸内容从 `<svg` 开始并以 `</svg>` 结束；不得把代码围栏写入工作区 SVG；
 - 圆角卡片拒绝 `rect[rx]`／`rect[ry]`，必须检查 `path` 与 `A` 圆弧；普通直角 `rect` 仍允许；
 - 每个可见行一个独立 `text`，每个 `text` 一个简单 `tspan`；拒绝 nested tspan、混合 run 和自动换行；

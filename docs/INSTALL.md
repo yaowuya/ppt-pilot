@@ -13,10 +13,10 @@ powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 脚本同时更新：
 
 1. DeepSeek Harness 插件市场（调用 `tools/install-deepseek-plugin.ps1`）；
-2. Claude Code 用户级技能 `~/.claude/skills/`；
+2. Claude Code 用户级技能 `~/.claude/skills/` 与 SVG Agent `~/.claude/agents/ppt-svg-generator.md`；
 3. Codex 用户级技能 `$HOME/.agents/skills/`。
 
-旧版按 Skill ID 备份到 skills 扫描根之外的 `skill-backups/`，各保留最近一份；复制完成后做树摘要一致性校验。可选参数：`-SkipDeepSeek` / `-SkipClaudeCode` / `-SkipCodex` 跳过对应宿主；`-ProjectClaude` / `-ProjectCodex` 额外更新仓库内项目级目录；`-ClaudeSkillsRoot` / `-CodexSkillsRoot` / `-MarketplaceRoot` 覆盖默认路径。
+旧版按 Skill ID 备份到 skills 扫描根之外的 `skill-backups/`，Claude Agent 备份到 `agent-backups/`，各保留最近一份；复制完成后做摘要一致性校验。可选参数：`-SkipDeepSeek` / `-SkipClaudeCode` / `-SkipCodex` 跳过对应宿主；`-ProjectClaude` / `-ProjectCodex` 额外更新仓库内项目级目录；`-ClaudeSkillsRoot` / `-ClaudeAgentsRoot` / `-CodexSkillsRoot` / `-MarketplaceRoot` 覆盖默认路径。
 
 实时进度面板随 ppt-start 的 `scripts/` 和 `assets/dashboard/` 自动安装，需 Python 3.9+ 标准库。使用方法见[实时面板](LIVE-DASHBOARD.md)。项目级副本覆盖用户级 Skill 时，也应同步该副本后重新开启会话。
 
@@ -28,26 +28,34 @@ powershell -ExecutionPolicy Bypass -File tools/install-deepseek-plugin.ps1
 
 ## Claude Code
 
-- 用户级安装：`~/.claude/skills/ppt-start/`、`~/.claude/skills/ppt-editable/`
-- 项目级安装：`.claude/skills/ppt-start/`、`.claude/skills/ppt-editable/`
+- 用户级安装：`~/.claude/skills/ppt-start/`、`~/.claude/skills/ppt-editable/`，以及 `~/.claude/agents/ppt-svg-generator.md`
+- 项目级安装：`.claude/skills/ppt-start/`、`.claude/skills/ppt-editable/`，以及 `.claude/agents/ppt-svg-generator.md`
+- Agent 源文件：`hosts/claude-code/agents/ppt-svg-generator.md`
 - 显式启动命令：`/ppt-start`、`/ppt-editable`
 
 用户级复制示例：
 
-以下命令只复制 Skill **目录内容**，不会在已有目标下再生成同名嵌套目录。手动升级不要用 `cp -R skills/ppt-start <已有目标>`；优先运行上方更新脚本，由脚本先把整个旧目标移到扫描根之外的 `skill-backups/`，再安装干净副本。
+以下命令只复制 Skill **目录内容**，不会在已有目标下再生成同名嵌套目录。手动升级不要用 `cp -R skills/ppt-start <已有目标>`；优先运行上方更新脚本，由脚本先备份再安装干净副本。
 
 ```bash
-mkdir -p ~/.claude/skills/ppt-start ~/.claude/skills/ppt-editable
+mkdir -p ~/.claude/skills/ppt-start ~/.claude/skills/ppt-editable ~/.claude/agents
 cp -R skills/ppt-start/. ~/.claude/skills/ppt-start/
 cp -R skills/ppt-editable/. ~/.claude/skills/ppt-editable/
+cp hosts/claude-code/agents/ppt-svg-generator.md ~/.claude/agents/ppt-svg-generator.md
 ```
 
 项目级符号链接示例：
 
 ```bash
+mkdir -p .claude/skills .claude/agents
 ln -s ../../skills/ppt-start .claude/skills/ppt-start
 ln -s ../../skills/ppt-editable .claude/skills/ppt-editable
+ln -s ../../hosts/claude-code/agents/ppt-svg-generator.md .claude/agents/ppt-svg-generator.md
 ```
+
+`ppt-svg-generator` 使用普通 fresh-context subagent，并省略 worktree isolation；普通非 Git PPT 工作目录无需初始化仓库或创建首个提交。安装或更新 Agent 后必须重新开启 Claude Code 会话，当前会话不会重新扫描 Agent。
+
+若仍出现 `Failed to resolve base branch "HEAD"`，说明当前会话仍在走旧的 worktree 路径：检查是否有项目级 Skill 或 Agent（`.claude/skills/ppt-start/`、`.claude/agents/ppt-svg-generator.md`）覆盖用户级安装，更新有效定义后重新开会话；不要用 `git init` 或空提交解锁。
 
 调用示例：
 

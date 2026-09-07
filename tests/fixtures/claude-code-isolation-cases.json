@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "case_ids": [
+    "plain-non-git-ordinary-agent",
+    "unborn-head-ordinary-agent",
+    "committed-git-ordinary-agent",
+    "agent-missing",
+    "worktree-only-host",
+    "remote-only-host",
+    "data-tool-exposed"
+  ],
+  "cases": [
+    {
+      "id": "plain-non-git-ordinary-agent",
+      "workspace_state": "plain_directory",
+      "observation": {
+        "agent_registered": true,
+        "ordinary_subagent": true,
+        "worktree_required": false,
+        "remote_required": false,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "ambient_claude_md_allowed": true,
+        "ambient_git_status_allowed": true,
+        "parent_conversation_history": false,
+        "filesystem_none": true,
+        "data_tools_none": true,
+        "text_output": true,
+        "attribution": true,
+        "exposed_tools": ["TodoWrite"]
+      },
+      "expected": {
+        "mode": "claude_code_agent",
+        "agent": "ppt-svg-generator",
+        "isolation_argument": null,
+        "requires_git": false,
+        "error": null,
+        "git_mutations": [],
+        "poll_when_blocked": false
+      },
+      "expected_side_effects": {
+        "blocker_writes": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "manifest_writes": 0,
+        "candidate_writes": 0,
+        "svg_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "unborn-head-ordinary-agent",
+      "workspace_state": "git_unborn_head",
+      "observation": {
+        "agent_registered": true,
+        "ordinary_subagent": true,
+        "worktree_required": false,
+        "remote_required": false,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "ambient_claude_md_allowed": true,
+        "ambient_git_status_allowed": true,
+        "parent_conversation_history": false,
+        "filesystem_none": true,
+        "data_tools_none": true,
+        "text_output": true,
+        "attribution": true,
+        "exposed_tools": ["TodoWrite"]
+      },
+      "expected": {
+        "mode": "claude_code_agent",
+        "agent": "ppt-svg-generator",
+        "isolation_argument": null,
+        "requires_git": false,
+        "error": null,
+        "git_mutations": [],
+        "poll_when_blocked": false
+      },
+      "expected_side_effects": {
+        "blocker_writes": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "manifest_writes": 0,
+        "candidate_writes": 0,
+        "svg_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "committed-git-ordinary-agent",
+      "workspace_state": "git_committed",
+      "observation": {
+        "agent_registered": true,
+        "ordinary_subagent": true,
+        "worktree_required": false,
+        "remote_required": false,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "ambient_claude_md_allowed": true,
+        "ambient_git_status_allowed": true,
+        "parent_conversation_history": false,
+        "filesystem_none": true,
+        "data_tools_none": true,
+        "text_output": true,
+        "attribution": true,
+        "exposed_tools": ["TodoWrite"]
+      },
+      "expected": {
+        "mode": "claude_code_agent",
+        "agent": "ppt-svg-generator",
+        "isolation_argument": null,
+        "requires_git": false,
+        "error": null,
+        "git_mutations": [],
+        "poll_when_blocked": false
+      },
+      "expected_side_effects": {
+        "blocker_writes": 0,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "manifest_writes": 0,
+        "candidate_writes": 0,
+        "svg_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "agent-missing",
+      "workspace_state": "plain_directory",
+      "observation": {
+        "agent_registered": false,
+        "ordinary_subagent": true,
+        "worktree_required": false,
+        "remote_required": false,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "ambient_claude_md_allowed": true,
+        "ambient_git_status_allowed": true,
+        "parent_conversation_history": false,
+        "filesystem_none": true,
+        "data_tools_none": true,
+        "text_output": true,
+        "attribution": true,
+        "exposed_tools": ["TodoWrite"]
+      },
+      "expected": {
+        "mode": null,
+        "agent": null,
+        "isolation_argument": null,
+        "requires_git": false,
+        "error": "generator_unavailable",
+        "git_mutations": [],
+        "poll_when_blocked": false
+      },
+      "expected_side_effects": {
+        "blocker_writes": 1,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "manifest_writes": 0,
+        "candidate_writes": 0,
+        "svg_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "worktree-only-host",
+      "workspace_state": "git_committed",
+      "observation": {
+        "agent_registered": true,
+        "ordinary_subagent": false,
+        "worktree_required": true,
+        "remote_required": false,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "ambient_claude_md_allowed": true,
+        "ambient_git_status_allowed": true,
+        "parent_conversation_history": false,
+        "filesystem_none": true,
+        "data_tools_none": true,
+        "text_output": true,
+        "attribution": true,
+        "exposed_tools": ["TodoWrite"]
+      },
+      "expected": {
+        "mode": null,
+        "agent": null,
+        "isolation_argument": null,
+        "requires_git": false,
+        "error": "generator_unavailable",
+        "git_mutations": [],
+        "poll_when_blocked": false
+      },
+      "expected_side_effects": {
+        "blocker_writes": 1,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "manifest_writes": 0,
+        "candidate_writes": 0,
+        "svg_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "remote-only-host",
+      "workspace_state": "plain_directory",
+      "observation": {
+        "agent_registered": true,
+        "ordinary_subagent": false,
+        "worktree_required": false,
+        "remote_required": true,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "ambient_claude_md_allowed": true,
+        "ambient_git_status_allowed": true,
+        "parent_conversation_history": false,
+        "filesystem_none": true,
+        "data_tools_none": true,
+        "text_output": true,
+        "attribution": true,
+        "exposed_tools": ["TodoWrite"]
+      },
+      "expected": {
+        "mode": null,
+        "agent": null,
+        "isolation_argument": null,
+        "requires_git": false,
+        "error": "generator_unavailable",
+        "git_mutations": [],
+        "poll_when_blocked": false
+      },
+      "expected_side_effects": {
+        "blocker_writes": 1,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "manifest_writes": 0,
+        "candidate_writes": 0,
+        "svg_writes": 0,
+        "generator_calls": 0
+      }
+    },
+    {
+      "id": "data-tool-exposed",
+      "workspace_state": "plain_directory",
+      "observation": {
+        "agent_registered": true,
+        "ordinary_subagent": true,
+        "worktree_required": false,
+        "remote_required": false,
+        "prompt_by_value": true,
+        "fresh_history": true,
+        "ambient_claude_md_allowed": true,
+        "ambient_git_status_allowed": true,
+        "parent_conversation_history": false,
+        "filesystem_none": false,
+        "data_tools_none": false,
+        "text_output": true,
+        "attribution": true,
+        "exposed_tools": ["Read"]
+      },
+      "expected": {
+        "mode": null,
+        "agent": null,
+        "isolation_argument": null,
+        "requires_git": false,
+        "error": "generator_unavailable",
+        "git_mutations": [],
+        "poll_when_blocked": false
+      },
+      "expected_side_effects": {
+        "blocker_writes": 1,
+        "prompt_writes": 0,
+        "transaction_writes": 0,
+        "manifest_writes": 0,
+        "candidate_writes": 0,
+        "svg_writes": 0,
+        "generator_calls": 0
+      }
+    }
+  ]
+}

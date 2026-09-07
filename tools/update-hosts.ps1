@@ -1,13 +1,14 @@
 ﻿<#
 .SYNOPSIS
-更新 ppt-start 与 ppt-editable 到 DeepSeek、Claude Code、Codex 及可选项目级技能目录。
+更新三个 PPT Pilot Skill 到 DeepSeek、Claude Code、Codex 及可选项目级目录。
 .DESCRIPTION
-两个 Skill 使用同一 descriptor 流程；备份位于 skills 扫描根之外的 skill-backups，按 Skill ID 各保留最近一份。
+三个 Skill 使用同一 descriptor 流程；Claude Code 同时安装 SVG Agent。备份位于宿主扫描根之外。
 #>
 [CmdletBinding()]
 param(
     [string]$MarketplaceRoot = '',
     [string]$ClaudeSkillsRoot = '',
+    [string]$ClaudeAgentsRoot = '',
     [string]$CodexSkillsRoot = '',
     [string]$RepoRoot = '',
     [string]$Version = '',
@@ -34,6 +35,13 @@ foreach ($skill in $skills) {
     if (-not (Test-Path -LiteralPath (Join-Path $skill.Source 'SKILL.md'))) {
         throw "源 Skill 缺 SKILL.md：$($skill.Source)"
     }
+}
+$claudeAgent = [ordered]@{
+    Id = 'ppt-svg-generator'
+    Source = Join-Path $RepoRoot 'hosts\claude-code\agents\ppt-svg-generator.md'
+}
+if (-not (Test-Path -LiteralPath $claudeAgent.Source -PathType Leaf)) {
+    throw "Claude Code Agent 缺失：$($claudeAgent.Source)"
 }
 
 function Get-FileSha256 {
@@ -155,6 +163,76 @@ function Copy-SkillWithBackup {
     }
 }
 
+function Copy-ClaudeAgentWithBackup {
+    param(
+        [System.Collections.IDictionary]$Descriptor,
+        [string]$AgentsRoot,
+        [string]$Label
+    )
+    $id = [string]$Descriptor.Id
+    $source = [string]$Descriptor.Source
+    $destination = Join-Path $AgentsRoot "$id.md"
+    $harnessRoot = Split-Path -Parent $AgentsRoot
+    $backupRoot = Join-Path $harnessRoot 'agent-backups'
+    $filter = "$id.bak-*.md"
+    $createdBackup = $null
+    $destinationExisted = Test-Path -LiteralPath $destination
+    $backupMoved = $false
+
+    New-Item -ItemType Directory -Force -Path $AgentsRoot | Out-Null
+    try {
+        if ($destinationExisted) {
+            New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
+            $backupCandidate = Join-Path $backupRoot "$id.bak-$ts.md"
+            if (Test-Path -LiteralPath $backupCandidate) {
+                $backupCandidate = Join-Path $backupRoot (
+                    "$id.bak-$ts." + [guid]::NewGuid().ToString('N') + '.md'
+                )
+            }
+            Move-Item -LiteralPath $destination -Destination $backupCandidate
+            $createdBackup = $backupCandidate
+            $backupMoved = $true
+        }
+
+        Copy-Item -LiteralPath $source -Destination $destination -Force
+        if ((Get-FileSha256 -Path $source) -ne (Get-FileSha256 -Path $destination)) {
+            throw "$id Agent 安装摘要不一致"
+        }
+    }
+    catch {
+        if ($backupMoved) {
+            if (Test-Path -LiteralPath $destination) {
+                Remove-Item -LiteralPath $destination -Force
+            }
+            if (Test-Path -LiteralPath $createdBackup) {
+                Move-Item -LiteralPath $createdBackup -Destination $destination
+            }
+        }
+        elseif (-not $destinationExisted -and (Test-Path -LiteralPath $destination)) {
+            Remove-Item -LiteralPath $destination -Force
+        }
+        throw
+    }
+
+    if (Test-Path -LiteralPath $backupRoot -PathType Container) {
+        $backups = @(
+            Get-ChildItem -LiteralPath $backupRoot -File -Filter $filter -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTimeUtc, Name -Descending
+        )
+        $preserve = $createdBackup
+        if (-not $preserve -and $backups.Count -gt 0) {
+            $preserve = $backups[0].FullName
+        }
+        foreach ($backup in $backups) {
+            if (-not $preserve -or $backup.FullName -ne $preserve) {
+                Remove-Item -LiteralPath $backup.FullName -Force
+            }
+        }
+    }
+
+    Write-Host "  $Label Agent 已更新 -> $destination"
+}
+
 function Install-SkillsToRoot {
     param([string]$SkillsRoot, [string]$Label)
     foreach ($skill in $skills) {
@@ -176,8 +254,14 @@ if (-not $SkipDeepSeek) {
 else { Write-Host '[1/3] 跳过 DeepSeek。' }
 
 if (-not $SkipClaudeCode) {
-    Write-Host '[2/3] Claude Code（用户级技能）...'
-    if (-not $ClaudeSkillsRoot) { $ClaudeSkillsRoot = Join-Path $env:USERPROFILE '.claude\skills' }
+    Write-Host '[2/3] Claude Code（用户级技能与 SVG Agent）...'
+    if (-not $ClaudeSkillsRoot) {
+        $ClaudeSkillsRoot = Join-Path $env:USERPROFILE '.claude\skills'
+    }
+    if (-not $ClaudeAgentsRoot) {
+        $ClaudeAgentsRoot = Join-Path (Split-Path -Parent $ClaudeSkillsRoot) 'agents'
+    }
+    Copy-ClaudeAgentWithBackup $claudeAgent $ClaudeAgentsRoot 'Claude Code'
     Install-SkillsToRoot $ClaudeSkillsRoot 'Claude Code'
 }
 else { Write-Host '[2/3] 跳过 Claude Code。' }
@@ -189,8 +273,13 @@ if (-not $SkipCodex) {
 }
 else { Write-Host '[3/3] 跳过 Codex。' }
 
-if ($ProjectClaude) { Install-SkillsToRoot (Join-Path $RepoRoot '.claude\skills') '项目级 Claude' }
+if ($ProjectClaude) {
+    $projectClaudeRoot = Join-Path $RepoRoot '.claude'
+    Copy-ClaudeAgentWithBackup $claudeAgent (Join-Path $projectClaudeRoot 'agents') '项目级 Claude'
+    Install-SkillsToRoot (Join-Path $projectClaudeRoot 'skills') '项目级 Claude'
+}
 if ($ProjectCodex) { Install-SkillsToRoot (Join-Path $RepoRoot '.agents\skills') '项目级 Codex' }
 
 Write-Host ''
-Write-Host '全部完成。Claude Code：/ppt-start、/ppt-editable；Codex：$ppt-start、$ppt-editable；DeepSeek：ppt-start、ppt-editable。'
+Write-Host '全部完成。Claude Code 新增或更新 Agent 后请重新开启会话。'
+Write-Host 'Claude Code：/ppt-start、/ppt-editable；Codex：$ppt-start、$ppt-editable；DeepSeek：ppt-start、ppt-editable。'

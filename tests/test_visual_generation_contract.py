@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'skills/ppt-start/scripts'))
 
-from helpers import read_text, repo_root, skill_root
+from helpers import parse_frontmatter, read_text, repo_root, skill_root
 
 
 STYLE_ASSET_BLOCKER_REASONS = (
@@ -52,6 +52,8 @@ GENERATION_PROMPT_BLOCKER_REASONS = (
     "prompt_preflight_invalid",
     "prompt_snapshot_conflict",
 )
+
+HOST_GENERATION_BLOCKER_REASONS = ("generator_unavailable",)
 
 
 STABLE_RESOLVER_REASONS = (
@@ -135,6 +137,9 @@ def is_closed_blocker_tuple(blocker: dict) -> bool:
     elif reason in GENERATION_PROMPT_BLOCKER_REASONS:
         if state != "generation_prompt_unavailable":
             return False
+    elif reason in HOST_GENERATION_BLOCKER_REASONS:
+        if state != "generator_unavailable":
+            return False
     else:
         return False
 
@@ -144,6 +149,9 @@ def is_closed_blocker_tuple(blocker: dict) -> bool:
     tokens_path = f"assets/styles/{style_id}/tokens.json"
     guidance_path = f"assets/styles/{style_id}/STYLE.md"
     prompt_path = f"assets/styles/{style_id}/prompt.md"
+
+    if reason in HOST_GENERATION_BLOCKER_REASONS:
+        return resource == "none"
 
     none_reasons = {
         "registry_missing",
@@ -924,6 +932,77 @@ def migrate_v1_run_to_v2(run: dict, corpus_case: dict) -> dict:
     }
 
 
+CLAUDE_CODE_ADAPTER_FIELDS = {
+    "agent_registered",
+    "ordinary_subagent",
+    "worktree_required",
+    "remote_required",
+    "prompt_by_value",
+    "fresh_history",
+    "ambient_claude_md_allowed",
+    "ambient_git_status_allowed",
+    "parent_conversation_history",
+    "filesystem_none",
+    "data_tools_none",
+    "text_output",
+    "attribution",
+    "exposed_tools",
+}
+CLAUDE_CODE_WORKSPACE_STATES = {
+    "plain_directory",
+    "git_unborn_head",
+    "git_committed",
+}
+
+
+def negotiate_claude_code_adapter(case: dict) -> dict:
+    observation = case["observation"]
+    boolean_fields = CLAUDE_CODE_ADAPTER_FIELDS - {"exposed_tools"}
+    if (
+        not isinstance(observation, dict)
+        or set(observation) != CLAUDE_CODE_ADAPTER_FIELDS
+        or case.get("workspace_state") not in CLAUDE_CODE_WORKSPACE_STATES
+        or any(type(observation[field]) is not bool for field in boolean_fields)
+        or not isinstance(observation["exposed_tools"], list)
+        or any(
+            not isinstance(tool, str) or not tool
+            for tool in observation["exposed_tools"]
+        )
+    ):
+        raise ValueError("Claude Code adapter observation differs")
+    safe = all(
+        observation[field]
+        for field in (
+            "agent_registered",
+            "ordinary_subagent",
+            "prompt_by_value",
+            "fresh_history",
+            "ambient_claude_md_allowed",
+            "ambient_git_status_allowed",
+            "filesystem_none",
+            "data_tools_none",
+            "text_output",
+            "attribution",
+        )
+    )
+    safe = (
+        safe
+        and observation["worktree_required"] is False
+        and observation["remote_required"] is False
+        and observation["parent_conversation_history"] is False
+        and observation["exposed_tools"] == ["TodoWrite"]
+    )
+    return {
+        "mode": "claude_code_agent" if safe else None,
+        "agent": "ppt-svg-generator" if safe else None,
+        "isolation_argument": None,
+        "requires_git": False,
+        "error": None if safe else "generator_unavailable",
+        "git_mutations": [],
+        "poll_when_blocked": False,
+    }
+
+
 def negotiate_host_capability(
     case: dict,
     configured_width=None,
@@ -945,7 +1024,7 @@ def negotiate_host_capability(
         "prompt_by_value",
         "fresh_history",
         "filesystem_none",
-        "tools_none",
+        "data_tools_none",
         "attribution",
         "nested_cli_required",
         "credential_probe_required",
@@ -967,7 +1046,7 @@ def negotiate_host_capability(
             "prompt_by_value",
             "fresh_history",
             "filesystem_none",
-            "tools_none",
+            "data_tools_none",
             "attribution",
         )
     )
@@ -1108,7 +1187,7 @@ def schedule_epoch(
                 "prompt_by_value": prompt,
                 "fresh_history": True,
                 "filesystem": "none",
-                "tools": "none",
+                "data_tools": "none",
                 "output": "text",
                 "expected_fence": "xml",
                 "timeout_ms": 120000,
@@ -1511,6 +1590,10 @@ class VisualGenerationContractTests(unittest.TestCase):
         self.transaction = repo_root() / "tests" / "fixtures" / "visual-generation-transaction-cases.json"
         self.batch_v2 = repo_root() / "tests" / "fixtures" / "visual-generation-batch-v2-cases.json"
         self.host_capabilities = repo_root() / "tests" / "fixtures" / "visual-generation-host-capability-cases.json"
+        self.claude_isolation = (
+            repo_root() / "tests" / "fixtures" / "claude-code-isolation-cases.json"
+        )
+        self.host_adapters = skill_root() / "references" / "host-isolation-adapters.md"
         self.timing_cases = repo_root() / "tests" / "fixtures" / "visual-generation-timing-cases.json"
 
     def test_telemetry_span_schema_and_dag_critical_path(self):
@@ -1636,6 +1719,160 @@ class VisualGenerationContractTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, combined)
 
+    def test_claude_code_adapter_is_git_independent_and_never_uses_worktree(self):
+        payload = json.loads(read_text(self.claude_isolation))
+        self.assertEqual(payload["schema_version"], 1)
+        cases = {case["id"]: case for case in payload["cases"]}
+        self.assertEqual(payload["case_ids"], list(cases))
+
+        successful_ids = (
+            "plain-non-git-ordinary-agent",
+            "unborn-head-ordinary-agent",
+            "committed-git-ordinary-agent",
+        )
+        successful = []
+        for case_id in payload["case_ids"]:
+            case = cases[case_id]
+            with self.subTest(case=case_id):
+                result = negotiate_claude_code_adapter(case)
+                self.assertEqual(result, case["expected"])
+                self.assertFalse(result["requires_git"])
+                self.assertIsNone(result["isolation_argument"])
+                self.assertEqual(result["git_mutations"], [])
+                self.assertFalse(result["poll_when_blocked"])
+                self.assertTrue(case["observation"]["ambient_claude_md_allowed"])
+                self.assertTrue(case["observation"]["ambient_git_status_allowed"])
+                self.assertFalse(
+                    case["observation"]["parent_conversation_history"]
+                )
+                if result["error"] is not None:
+                    self.assertEqual(
+                        case["expected_side_effects"],
+                        {
+                            "blocker_writes": 1,
+                            "prompt_writes": 0,
+                            "transaction_writes": 0,
+                            "manifest_writes": 0,
+                            "candidate_writes": 0,
+                            "svg_writes": 0,
+                            "generator_calls": 0,
+                        },
+                    )
+                else:
+                    self.assertEqual(
+                        case["expected_side_effects"],
+                        {
+                            "blocker_writes": 0,
+                            "prompt_writes": 0,
+                            "transaction_writes": 0,
+                            "manifest_writes": 0,
+                            "candidate_writes": 0,
+                            "svg_writes": 0,
+                            "generator_calls": 0,
+                        },
+                    )
+            if case_id in successful_ids:
+                successful.append(result)
+        self.assertEqual(successful[0], successful[1])
+        self.assertEqual(successful[1], successful[2])
+
+        agent_path = (
+            repo_root()
+            / "hosts"
+            / "claude-code"
+            / "agents"
+            / "ppt-svg-generator.md"
+        )
+        prompt = "# complete prompt\nReturn one SVG."
+        dispatch = {
+            "subagent_type": parse_frontmatter(agent_path)["name"],
+            "prompt": prompt,
+        }
+        self.assertEqual(dispatch["subagent_type"], "ppt-svg-generator")
+        self.assertEqual(dispatch["prompt"], prompt)
+        self.assertNotIn("isolation", dispatch)
+        self.assertNotIn("prompt_path", dispatch)
+
+        for field in ("ambient_claude_md_allowed", "ambient_git_status_allowed"):
+            rejected = copy.deepcopy(cases["plain-non-git-ordinary-agent"])
+            rejected["observation"][field] = False
+            with self.subTest(ambient_policy=field):
+                self.assertEqual(
+                    negotiate_claude_code_adapter(rejected)["error"],
+                    "generator_unavailable",
+                )
+
+    def test_claude_adapter_contract_names_agent_and_forbids_git_unlocks(self):
+        text = read_text(self.host_adapters)
+        for token in (
+            "ppt-svg-generator",
+            "普通 fresh-context subagent",
+            "省略 `isolation`",
+            "data_tools=none",
+            "TodoWrite",
+            "`CLAUDE.md`",
+            "父会话的 Git status",
+            "不提供 byte-pure prompt-only",
+            "结构性不可用",
+            "不得轮询",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, text)
+        for forbidden_action in (
+            "`git init`",
+            "`git add`",
+            "`git commit`",
+            "`git push`",
+            "`isolation: worktree`",
+            "`isolation: remote`",
+        ):
+            with self.subTest(forbidden_action=forbidden_action):
+                self.assertRegex(
+                    text,
+                    r"(?:禁止|不得)[^。\n]{0,160}" + re.escape(forbidden_action),
+                )
+
+    def test_generator_unavailable_has_closed_run_level_blocker(self):
+        blocker = {
+            "state": "generator_unavailable",
+            "slide_id": "S01",
+            "reason": "generator_unavailable",
+            "selected_style_id": "minimal-business",
+            "resource": "none",
+            "storyboard_snapshot_id": "sha256:" + "1" * 64,
+            "theme_snapshot_id": "sha256:" + "2" * 64,
+            "status": "active",
+        }
+        self.assertEqual(set(blocker), VISUAL_GENERATION_BLOCKER_FIELDS)
+        self.assertTrue(is_closed_blocker_tuple(blocker))
+        for field, value in (
+            ("state", "generation_prompt_unavailable"),
+            ("reason", "prompt_file_missing"),
+            ("resource", "assets/styles/minimal-business/prompt.md"),
+        ):
+            mutated = copy.deepcopy(blocker)
+            mutated[field] = value
+            with self.subTest(field=field, value=value):
+                self.assertFalse(is_closed_blocker_tuple(mutated))
+
+        combined = "\n".join(
+            (
+                read_text(self.artifact),
+                read_text(skill_root() / "references" / "workflow.md"),
+                read_text(skill_root() / "references" / "redesign-prompt.md"),
+            )
+        )
+        for token in (
+            "`state: generator_unavailable`",
+            "`reason: generator_unavailable`",
+            "`resource: none`",
+            "manifest 写入",
+            "显式 resume",
+            "不得轮询",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, combined)
+
     def test_host_capability_matrix_is_portable_and_fail_closed(self):
         self.assertTrue(
             self.host_capabilities.is_file(),
@@ -1674,7 +1911,9 @@ class VisualGenerationContractTests(unittest.TestCase):
                         {
                             "prompt_writes": 0,
                             "transaction_writes": 0,
+                            "manifest_writes": 0,
                             "candidate_writes": 0,
+                            "svg_writes": 0,
                             "generator_calls": 0,
                         },
                     )
@@ -1772,7 +2011,7 @@ class VisualGenerationContractTests(unittest.TestCase):
                     "prompt_by_value",
                     "fresh_history",
                     "filesystem",
-                    "tools",
+                    "data_tools",
                     "output",
                     "expected_fence",
                     "timeout_ms",
@@ -1781,7 +2020,7 @@ class VisualGenerationContractTests(unittest.TestCase):
             )
             self.assertTrue(task["fresh_history"])
             self.assertEqual(task["filesystem"], "none")
-            self.assertEqual(task["tools"], "none")
+            self.assertEqual(task["data_tools"], "none")
             self.assertEqual(task["output"], "text")
             self.assertEqual(task["expected_fence"], "xml")
             self.assertNotIn("prompt_path", task)
@@ -1826,13 +2065,14 @@ class VisualGenerationContractTests(unittest.TestCase):
             "prompt_by_value",
             "fresh_history=true",
             "filesystem=none",
-            "tools=none",
+            "data_tools=none",
             "batch_width",
             "width 1",
             "generator_unavailable",
             "host_attribution_id",
             "host_task_id",
             "非 Git",
+            "host-isolation-adapters.md",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, combined)
