@@ -16,6 +16,14 @@ Git 状态不参与路由：普通目录、unborn `HEAD` 和已有提交的仓�
 
 agent 未注册、普通 subagent 不可用、宿主强制 worktree/remote、agent 暴露数据工具、Prompt 不能按值传入、attribution 不可用，或调用方要求 byte-pure prompt-only 时，按结构性不可用返回 `generator_unavailable`。coordinator 只按[产物契约](artifact-contract.md#可选-visual_generation_blocker)写入闭合的 run-level blocker；该结果不是容量等待，不得轮询，只有安装/宿主配置实际变化后的显式 resume 才重新协商。
 
-## 其他宿主
+## Codex
 
-Codex 与 DeepSeek Harness 继续通过各自已验证的 native/remote 能力实现同一抽象接口。缺 concurrency 或 durable lookup 但仍满足完整安全接口时只把实际 dispatch 降为 width 1；缺核心隔离能力时 fail closed。任何宿主都不得调用嵌套 CLI 或使用 coordinator 当前上下文生成。
+Codex 只有在当前宿主公开的 native/remote task 原语能够逐项证明 prompt-by-value、fresh history、`filesystem=none`、`data_tools=none`、text-only result 与稳定 attribution 时才满足接口。缺 concurrency 或 durable lookup 但仍满足完整安全接口时只把实际 dispatch 降为 width 1；缺核心隔离能力时 fail closed。不得以 worktree 本身、普通协作者或当前 coordinator 上下文替代隔离证明。
+
+## DeepSeek Harness
+
+DeepSeek Harness 当前没有可由本 Skill 静态假定为已验证的 generator adapter。每次视觉批次必须从实际宿主调用面重新取得六项能力证据；“可以创建普通 subagent”、提示词要求其不要读文件、或事后声称未使用工具，都不能证明 `filesystem=none`／`data_tools=none`。
+
+六项能力任一缺失时，coordinator 只能以一次原子 `run.json` 替换写入规范 `visual_generation_blocker`：`state: generator_unavailable`、`reason: generator_unavailable`、`resource: none`、当前 style/snapshot 与最低受影响 `slide_id`，然后立即结束本次入口。禁止创建 `run_level_generator_blocker`、`native_delivery`、`native_anchor`、`anchor_plan` 或 `execution_hold` 等平行状态；禁止调用 WPS/PowerPoint、生成原生 PPTX、用当前上下文画 SVG、启动带数据工具的通用 subagent，或通过嵌套 CLI 规避。只有宿主配置或能力实际改变后的显式 resume 才重新协商。
+
+任何宿主都不得调用嵌套 CLI 或使用 coordinator 当前上下文生成。

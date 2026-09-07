@@ -10,6 +10,8 @@
 
 确定唯一运行目录后，按[实时进度面板](live-dashboard.md)启动或复用观察服务并向用户提供实际 URL；新运行在资料处理前启动，旧运行不因启动面板迁移原有状态。每次真正进入某阶段前原子持久化其 `stage`，随后执行阶段工作。待回答状态仍保留原阶段。面板读取磁盘产物，不拥有批准、恢复或生成权限，也不改变下述全局恢复顺序。
 
+最小 `run.json` 存在后先执行 `scripts/ppt_workflow_gate.py --run-dir <运行目录绝对路径> --audit-run`；任何入口、恢复或修订都不能跳过。该只读审计先于全局恢复顺序，专门拒绝宿主自创的平行 stage/control、`complete` 前的非源稿 PPTX，以及不在 `delivery/editable/` 的完成后 PPTX。它不消费或改变合法 durable state；审计 PASS 后才按下述全局恢复顺序处理。外部旧稿的每个 `--before` 与 `--resume-active-batch` 已自动包含同一审计，不能因上游证据 PASS 而忽略运行目录副作用。
+
 - `new`：从主题或简报开始创建新演示文稿；它是入口动作，不是写入 `run.json.mode` 的值。新运行未显式指定策略时使用 `guided`。
 - 外部旧 PPT／PPTX 重设计是 `new + source-driven` 输入分支；先按[旧稿导入](source-deck-redesign.md)建立源清单、源页映射和 source_deck 绑定，不能因“只改风格”直接进入 revise／production。十阶段顺序不变；导入运行在进入阶段及生成／交付前调用该文档的只读 gate，失败时停止。
 - `guided`：持久执行策略；在简报、大纲和锚点批准节点提出一个直接问题，并等待明确批准。
@@ -41,6 +43,8 @@
 `active_visual_generation_batch` 恢复保持同一全局 order：只有无 pending、无 blocker 时处理。pointer 在 files 前出现属于 `visual_generation_state_conflict`；files 完整而 pointer 缺失只做 pointer-only completion。恢复按 manifest 的 `ordered_slide_ids` 读取完整 transaction inventory，重建 `promotion_cursor`／`blocker_cursor`，并忽略 completion callback 或 manifest cursor 的授权含义。候选只有在 durable `candidate_written` 且 hash 匹配时可采用；`generating` 上的 orphan candidate 必须隔离。`validated` final CAS 只允许 candidate 已在 final、prior final 仍在、或第三 hash conflict 三种结果，且始终保留 previous final。
 
 新批次在 durable 写入前按[宿主隔离适配器](host-isolation-adapters.md)协商 fresh isolated text task 能力；已激活批次在恢复／新 epoch 前重新协商。Claude Code 在普通目录、unborn `HEAD` 和已有提交的仓库都选择已注册 `ppt-svg-generator` 普通 fresh-context subagent 并省略 `isolation`，既不需要 Git 也不需要可解析的 `HEAD`；worktree 与 remote 都是禁止的 fallback。其他受支持宿主继续优先 native、其次 remote；并发+durable lookup 使用自动目标与实际 worker capacity 的较小值，缺少并发或 lookup 时降为 width 1，未知容量保守使用 1。`worker_capacity == 0` 时进入容量 `WAIT`，不误报 isolation 不可用。缺少或不安全 adapter 属于结构性不可用：新批次只以一次 `run.json` 原子替换写入 `state/reason: generator_unavailable`、`resource: none` 的 blocker，现有批次保留 transactions 并标记 blocked，且不得轮询；绝不调用嵌套 CLI、探测 credentials/profiles、要求 worktree，或使用当前上下文生成。
+
+对 DeepSeek Harness，不得把“能启动普通 subagent”当作上述能力证明；只有真实调用面同时保证 prompt-by-value、fresh history、无文件系统／数据工具、text-only 和稳定 attribution 才允许 dispatch。缺一项就写规范 `visual_generation_blocker` 并结束本次入口，禁止转入原生 PPTX/WPS 分支或创建 `native_anchor` 等新阶段。
 
 每个 eligible `compiled` transaction 在同一 `dispatch_epoch` 最多一次 spawn。每次调用只读 `ppt_concurrency.py` 规划 dispatch／补位前，重建在途任务并扣除已运行和已预留任务，包括未终结旧 epoch；等待或重复观测不得重复派发。多页可共享 epoch 并在实际容量内并发生成；coordinator 将完整 prompt bytes 按值交给任务，不传源稿或工作区内容；任务固定 `fresh_history=true`、`filesystem=none`、`data_tools=none`、text-only，Claude 自动 ambient context 的接受与忽略边界以[宿主隔离适配器](host-isolation-adapters.md)为准。coordinator 独占 candidate 写入、hash 与 transaction 提交。每页 validation 可在 sibling 生成期间并行，但 final promotion、visible blocker publication 和 `run.json` pointer 改变始终按 `ordered_slide_ids` 串行确定；visible blocker 只发布最低 ordered failed／undispatched slide，不能按 completion order 选择。
 

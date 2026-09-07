@@ -10,6 +10,7 @@ from _xml_safety import parse_xml
 
 STAGES = ('research', 'outline', 'storyboard', 'manuscript_review', 'theme',
           'anchor', 'production', 'qa', 'complete')
+WORKFLOW_STAGES = ('brief',) + STAGES
 MANUSCRIPT_FILES = ('.ppt-pilot/简报.md', '.ppt-pilot/研究.md', '.ppt-pilot/来源.md',
                     '大纲.md', '.ppt-pilot/故事板.md')
 
@@ -149,6 +150,48 @@ class Gate:
                 'invalid_schema', 'brief', 'Use supported run schema_version 1.')
         self.run = run
         return run
+
+    def conformance(self):
+        """Reject host-invented workflow branches and premature PPTX output."""
+        run = self.run
+        require(run.get('stage') in WORKFLOW_STAGES, 'workflow_escape_state', 'theme',
+                'Restore a canonical PPT Pilot stage before continuing.')
+        escape_fields = sorted(key for key in run if
+                               key.startswith('native_') or key in {
+                                   'anchor_plan', 'execution_hold', 'run_level_generator_blocker'})
+        require(not escape_fields, 'workflow_escape_state', 'theme',
+                'Archive noncanonical control fields and resume the canonical SVG workflow: ' +
+                ', '.join(escape_fields))
+
+        source_path = None
+        source = run.get('source_deck')
+        if isinstance(source, dict) and string(source.get('source_path')):
+            candidate = Path(source['source_path'])
+            if candidate.is_absolute():
+                source_path = candidate.resolve()
+
+        pending = [self.root]
+        pptx_files = []
+        while pending:
+            directory = pending.pop()
+            entries = sorted(directory.iterdir(), key=lambda path: (path.is_dir(), path.name.lower()))
+            for entry in entries:
+                relative = entry.relative_to(self.root).as_posix()
+                safe = self.path(relative)
+                if safe.is_dir():
+                    pending.append(safe)
+                elif safe.is_file() and safe.suffix.lower() == '.pptx' and safe.resolve() != source_path:
+                    pptx_files.append(relative)
+
+        if run['stage'] != 'complete':
+            require(not pptx_files, 'precomplete_pptx', 'theme',
+                    'Quarantine premature PPTX output and resume theme -> anchor -> production -> qa: ' +
+                    ', '.join(sorted(pptx_files)))
+        invalid_delivery = [name for name in pptx_files
+                            if not name.startswith('delivery/editable/')]
+        require(not invalid_delivery, 'pptx_outside_delivery', 'complete',
+                'Keep post-complete PPTX delivery only under delivery/editable/: ' +
+                ', '.join(sorted(invalid_delivery)))
 
     def recovery(self, resume_active=False):
         run = self.run
@@ -291,6 +334,24 @@ def check_run(run_dir, before):
     return _check_run(run_dir, before)
 
 
+def audit_run(run_dir):
+    """Audit workflow control state and owned PPTX side effects without mutation."""
+    result = {'status': 'BLOCKED', 'before': 'audit', 'errors': []}
+    gate = None
+    try:
+        gate = Gate(run_dir)
+        gate.load_run()
+        gate.conformance()
+        result['status'] = 'PASS'
+    except GateError as error:
+        result['errors'].append(error.error)
+    except (OSError, ValueError, TypeError, KeyError, RecursionError) as error:
+        result['errors'].append({'code': 'invalid_or_unreadable_evidence',
+                                 'reentry_stage': gate.stage if gate else 'brief',
+                                 'next_action': 'Repair unreadable or malformed evidence (' + type(error).__name__ + ').'})
+    return result
+
+
 def check_active_batch(run_dir):
     """Revalidate import inputs before existing active-batch recovery side effects."""
     return _check_run(run_dir, None, resume_active=True)
@@ -306,11 +367,13 @@ def _check_run(run_dir, before, resume_active=False):
         if resume_active:
             before = run.get('stage')
             result['before'] = before
-            gate.recovery(resume_active=True)
-            gate.active_batch()
         if 'source_deck' not in run:
             result['status'] = 'NOT_APPLICABLE'
             return result
+        gate.conformance()
+        if resume_active:
+            gate.recovery(resume_active=True)
+            gate.active_batch()
         if not resume_active:
             gate.recovery()
         require(run.get('mode') in ('guided', 'auto'), 'invalid_schema', 'brief', 'Use guided or auto mode.')

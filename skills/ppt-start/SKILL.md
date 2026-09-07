@@ -33,6 +33,8 @@ description: Use when creating or resuming SVG presentations, redesigning an exi
 
 新运行创建目标目录后、开始资料处理前，或 `resume`／`revise` 唯一确定运行目录后，先读取[实时进度面板](references/live-dashboard.md)，用本 Skill 的 `scripts/ppt_dashboard.py start --run-dir <运行目录绝对路径> --open` 启动或复用本地服务。使用已可用的 Python 3.9+，校验启动 JSON 的 `status: running` 后把实际 `url` 发给用户，再继续工作。用户明确不需要浏览器／服务时跳过；启动失败须说明原因和手动命令，不得伪造链接或改变工作流质量门。
 
+运行目录拥有最小 `run.json` 后，或任何 `resume`／`revise` 开始时，必须先运行本 Skill 的 `scripts/ppt_workflow_gate.py --run-dir <运行目录绝对路径> --audit-run`。`BLOCKED`／非零退出时报告首个错误并停止；不得先解释、重命名或继续消费低优先级状态。外部旧稿后续每个 `--before`／`--resume-active-batch` 检查都内置同一审计。审计禁止宿主自创 `native_*`、`run_level_generator_blocker`、`anchor_plan`、`execution_hold` 等平行控制状态，禁止 `complete` 前在运行目录写入非源稿 PPTX，并要求完成后的 PPTX 只由 `ppt-editable` 写入 `delivery/editable/`。
+
 进入阶段时先持久化真实 `run.json.stage`，再执行该阶段；待确认、审查和逐页 transaction 在原契约规定的时点落盘，面板每秒读取更新。观察服务仅作展示，不向隔离 generator 添加工具，也不替代宿主对话中的批准。完成后保留面板供查看，提示对应 `stop --run-dir` 命令。
 
 执行某阶段前，先读取该阶段链接的参考文档。
@@ -65,6 +67,7 @@ SVG 的锚点、生产、修订与预览使用结构检查和浏览器／非 Off
 - 仅当既有运行的文稿批准和冻结证据仍有效，纯视觉修改或可证明不改变事实的文字修正才只把受影响页面和 QA 标记为脏，不重新进行文稿审查；外部旧稿首次导入不适用。
 - 所有首次页面生成和 `recompose` 必须按 manifest → tokens → guidance → prompt 固定 traversal 读取所选中风格包必需的完整 `files.prompt_template`，再编译 `.ppt-pilot/generation-prompts/<slide-id>.md`；完成 canonical bytes 与关系门禁后按 pointer-last 激活 schema-v2 batch。coordinator 只向 fresh 隔离任务传入完整 prompt bytes by value，Claude ambient host context 例外以宿主适配器为准；`block_id` 仅可临时出现一次于规范 `data-block-id` 精确属性值，禁止进入 text／tail／其他属性。coordinator 完成来源关联并移除该属性后才原子写 candidate、复读 hash 并提交 per-slide transaction；泄漏以 `fact_source_mismatch` 零 candidate write 失败。
 - 确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。authoritative outline／storyboard／theme 缺陷返回对应 owner；只有规范模板／规范字节／无法唯一解释的 provenance 自身失败，或完整 preflight 后宿主 adapter 不可用，才在没有本次 transaction/prompt/manifest 的情况下独立写闭合的 `run.json.visual_generation_blocker`。历史 crash 留下旧协议的 prompt／`compiling`／blocker 组合时，不采用旧 Prompt，必须从完整无副作用 preflight 重启；成功后先以一次原子 `run.json` 替换仅移除 blocker，并原样保留可能存在的 schema-v1 owner，再重新进入全局顺序完成零模型调用迁移，不能跨过 v1 创建新 transaction。
+- `generator_unavailable` 是终止本次入口的结构性阻断：写完规范 `visual_generation_blocker` 后立即停止。不得改用原生 PPTX、WPS／PowerPoint 重排、当前上下文 SVG、普通带工具 subagent、临时脚本或新的批准点继续生产；用户要求最终 PPTX 也不改变此规则。
 - 主张、来源、事实性文案、大纲或故事板变化会使批准失效；重新生成视觉页面前必须进行新的文稿审查。
 
 ## 输出规则

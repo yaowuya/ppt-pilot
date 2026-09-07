@@ -235,6 +235,8 @@ python -m unittest discover -s tests -v
 
 > 2026-08-19 的宿主行为证据使用旧 Skill 标识 `ppt-pilot` 和当时的英文指令生成。它们保留为历史行为证据，不能证明重命名、中文化后的 `ppt-start` 在当前宿主中可发现或表现相同。浏览器 SVG 证据仍适用于未改变的 SVG 资产；当前宿主调用场景必须使用新命令重新执行后才能形成新的当前通过结论。
 
+2026-09-07 在 `D:/05-AI/ppt-部署与升级/ppt-output/jiwei-deployment-upgrade-restyle/` 捕获一例 DeepSeek Harness 负面行为：运行仍处于 `anchor` 时创建两个根目录 PPTX，并写入 `native_delivery`、`run_level_generator_blocker` 等非契约状态。由于该运行没有保存精确 harness 版本和完整 transcript，它不能填入下表作为正式版本验收；它作为本次 `--audit-run` 回归夹具的现实来源。修复后的 DeepSeek 行仍保持 PENDING，直到以精确版本、发现证据、调用 attribution 和完整运行目录重跑。
+
 | 场景 | 方向／宿主 | 运行日期 | 宿主版本 | 结果 | 证据路径 |
 |---|---|---|---|---|---|
 | 仅主题 guided | Claude Code | — | — | PENDING | — |

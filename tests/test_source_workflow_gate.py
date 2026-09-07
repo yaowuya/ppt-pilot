@@ -129,6 +129,15 @@ class SourceGateTests(unittest.TestCase):
         self.assertTrue(result['errors'][0]['next_action'])
         return result
 
+    def audit(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS / 'ppt_workflow_gate.py'),
+             '--run-dir', str(self.root), '--audit-run'],
+            capture_output=True, text=True, encoding='utf-8')
+        if result.returncode not in (0, 2):
+            self.fail(result.stderr + result.stdout)
+        return result, json.loads(result.stdout)
+
     def test_all_nine_cumulative_stages_pass_without_mutation(self):
         initial = {path.relative_to(self.root).as_posix(): path.read_bytes() for path in self.root.rglob('*') if path.is_file()}
         for stage in STAGES:
@@ -136,6 +145,41 @@ class SourceGateTests(unittest.TestCase):
                 self.assertEqual(check_run(self.root, stage)['status'], 'PASS')
         final = {path.relative_to(self.root).as_posix(): path.read_bytes() for path in self.root.rglob('*') if path.is_file()}
         self.assertEqual(initial, final)
+
+    def test_precomplete_pptx_blocks_every_gate(self):
+        self.fixture.write('unexpected.pptx', 'native detour')
+        self.blocked('anchor', 'precomplete_pptx', 'theme')
+
+    def test_noncanonical_native_control_state_blocks(self):
+        for field in ('native_delivery', 'run_level_generator_blocker'):
+            with self.subTest(field=field):
+                self.fixture.run[field] = {'status': 'active'}
+                self.blocked('anchor', 'workflow_escape_state', 'theme')
+                del self.fixture.run[field]
+
+    def test_audit_cli_is_read_only(self):
+        before = {path.relative_to(self.root).as_posix(): path.read_bytes()
+                  for path in self.root.rglob('*') if path.is_file()}
+        result, payload = self.audit()
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertEqual(payload, {
+            'status': 'PASS', 'before': 'audit', 'errors': []})
+        after = {path.relative_to(self.root).as_posix(): path.read_bytes()
+                 for path in self.root.rglob('*') if path.is_file()}
+        self.assertEqual(before, after)
+
+    def test_complete_delivery_pptx_is_only_allowed_in_editable_directory(self):
+        self.fixture.run['stage'] = 'complete'
+        self.fixture.write('delivery/editable/deck-editable.pptx', 'validated delivery')
+        self.fixture.save()
+        result, payload = self.audit()
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertEqual(payload['status'], 'PASS')
+        self.fixture.write('deck-editable.pptx', 'wrong delivery location')
+        result, payload = self.audit()
+        self.assertEqual(result.returncode, 2, result.stderr + result.stdout)
+        self.assertEqual(payload['status'], 'BLOCKED', payload)
+        self.assertEqual(payload['errors'][0]['code'], 'pptx_outside_delivery')
 
     def test_guided_valid_and_latest_approval_is_authoritative(self):
         self.fixture.guided()
