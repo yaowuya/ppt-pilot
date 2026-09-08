@@ -20,7 +20,7 @@
 
 - 色彩角色：brand_primary=#0B74E5（主强调；用于标题或关键强调）；deep_primary=#0A5CC9（层级边界；用于层级边界或深色强调）；highlight_blue=#27B3FF（选中状态；用于少量关键点或选中状态）；light_blue=#EAF5FF（次级表面；用于卡片底或弱强调区）；title_ink=#111827（正文文字；用于页面标题或正文）
 - 字体栈：Source Han Sans / Microsoft YaHei / sans-serif
-- 字号层级：body=20；body_weight=400；caption=14；font_stack=["Source Han Sans","Microsoft YaHei","sans-serif"]；label_weight=500；module_label=20；page_title=36；section_title=20；section_weight=600；title_weight=700
+- 字号层级：body=20；body_weight=400；caption=14；font_stack=["Source Han Sans","Microsoft YaHei","sans-serif"]；label_weight=500；module_label=20；page_title=40；section_title=20；section_weight=600；title_weight=700
 - 间距节奏：card_gap=20；line_height=1.4；outer_margin=64；page_padding=12；standard_gap=24
 - 形状语言：button_radius=8；card_radius=16；connector_width=2；module_radius=14；stroke_width=1
 - 构图规则：layout_family="asymmetric_modular"；min_card_gap=20；no_english_title=true；no_top_right_logo=true；title_position="top_left"

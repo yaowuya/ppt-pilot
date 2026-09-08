@@ -6,6 +6,12 @@ from typing import Optional
 FAILURE_REASONS = frozenset(
     {
         "run_not_found",
+        "artifact_firewall_unavailable",
+        "runtime_code_artifact",
+        "unexpected_run_artifact",
+        "unsafe_evidence_path",
+        "precomplete_pptx",
+        "pptx_outside_delivery",
         "run_ambiguous",
         "run_not_complete",
         "deck_id_invalid",

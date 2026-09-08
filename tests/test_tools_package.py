@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -42,6 +43,24 @@ def _tree_digest(root: Path):
         digest.update(relative)
         digest.update(len(data).to_bytes(8, "big"))
         digest.update(hashlib.sha256(data).digest())
+    return len(files), digest.hexdigest()
+
+
+def _filtered_tree_digest(root: Path):
+    excluded_directories = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+    excluded_suffixes = {".pyc", ".pyo"}
+    files = sorted(
+        path
+        for path in root.rglob("*")
+        if path.is_file()
+        and not excluded_directories.intersection(path.relative_to(root).parts)
+        and path.suffix.lower() not in excluded_suffixes
+    )
+    digest = hashlib.sha256()
+    for path in files:
+        relative = path.relative_to(root).as_posix()
+        content_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        digest.update(f"{relative}\0{path.stat().st_size}\0{content_hash}\n".encode())
     return len(files), digest.hexdigest()
 
 
@@ -107,20 +126,26 @@ class MultiSkillInstallerTests(unittest.TestCase):
     def test_installers_are_descriptor_driven_for_both_skills(self):
         update = read_text(self.update_path)
         deepseek = read_text(self.deepseek_path)
+        packaging = read_text(repo_root() / "tools" / "packaging.ps1")
         for source in (update, deepseek):
             for token in (
                 "ppt-start",
                 "ppt-editable",
                 "$skills",
-                "Get-SkillTreeInfo",
-                "Get-FileSha256",
             ):
                 with self.subTest(source=source[:20], token=token):
                     self.assertIn(token, source)
             self.assertNotIn("Get-FileHash", source)
+        for token in ("$ClaudeAgentsRoot", "ppt-svg-generator.md", "agent-backups"):
+            self.assertIn(token, update)
+            self.assertNotIn(token, deepseek)
+        for token in ("Get-PptPilotTreeInfo", "Get-PptPilotFileSha256", "Copy-PptPilotFilteredTree"):
+            self.assertIn(token, packaging)
+        self.assertIn("Join-Path (Split-Path -Parent $ClaudeSkillsRoot) 'agents'", update)
+        self.assertIn("Join-Path $project '.claude\\agents'", update)
         self.assertIn("skill-backups", update)
         self.assertIn("'backups'", deepseek)
-        self.assertIn("$args2.RepoRoot", update)
+        self.assertIn("$arguments = @{ RepoRoot = $RepoRoot }", update)
         self.assertIn("skills      = './skills/'", deepseek)
         self.assertIn("ppt-editable：", deepseek)
         self.assertIn("$marketplaceAttemptBackup", deepseek)
@@ -128,14 +153,268 @@ class MultiSkillInstallerTests(unittest.TestCase):
             deepseek,
             r"(?s)marketplacePath\.bak-\$timestamp.*?Test-Path.*?guid.*?marketplaceAttemptBackup",
         )
-        self.assertIn("/ppt-editable", update)
-        self.assertIn("$ppt-editable", update)
+        self.assertIn("New session required", update)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_update_hosts_filters_cache_and_refreshes_existing_project_scopes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_repo = root / "source"
+            for relative in ("skills", "hosts", "tools"):
+                shutil.copytree(repo_root() / relative, source_repo / relative)
+            cache = source_repo / "skills" / "ppt-start" / "scripts" / "__pycache__"
+            cache.mkdir(exist_ok=True)
+            (cache / "runtime.cpython-313.pyc").write_bytes(b"bytecode")
+            (source_repo / "skills" / "ppt-start" / ".pytest_cache").mkdir(exist_ok=True)
+            project = root / "project"
+            for scope in (project / ".agents" / "skills", project / ".claude" / "skills"):
+                (scope / "ppt-start").mkdir(parents=True)
+                (scope / "ppt-start" / "stale.txt").write_text("stale", encoding="utf-8")
+            command = [
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(source_repo / "tools" / "update-hosts.ps1"),
+                "-RepoRoot", str(source_repo), "-SkipDeepSeek", "-SkipClaudeCode",
+                "-SkipCodex", "-ProjectRoot", str(project),
+            ]
+            completed = subprocess.run(command, capture_output=True, text=True,
+                                       encoding="utf-8", errors="replace", check=False)
+            self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
+            expected = _filtered_tree_digest(source_repo / "skills" / "ppt-start")
+            for installed in (
+                project / ".agents" / "skills" / "ppt-start",
+                project / ".claude" / "skills" / "ppt-start",
+            ):
+                self.assertEqual(_filtered_tree_digest(installed), expected)
+                self.assertFalse((installed / "scripts" / "__pycache__").exists())
+            self.assertTrue((project / ".claude" / "agents" / "ppt-svg-generator.md").is_file())
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_repo_root_existing_scopes_refresh_without_legacy_project_flags(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source_repo = Path(directory) / "source"
+            for relative in ("skills", "hosts", "tools"):
+                shutil.copytree(repo_root() / relative, source_repo / relative)
+            for scope in (source_repo / ".agents" / "skills", source_repo / ".claude" / "skills"):
+                (scope / "ppt-start").mkdir(parents=True)
+                (scope / "ppt-start" / "stale.txt").write_text("stale", encoding="utf-8")
+            completed = subprocess.run([
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(source_repo / "tools" / "update-hosts.ps1"),
+                "-RepoRoot", str(source_repo), "-SkipDeepSeek", "-SkipClaudeCode", "-SkipCodex",
+            ], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+            self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
+            for installed in (
+                source_repo / ".agents" / "skills" / "ppt-start",
+                source_repo / ".claude" / "skills" / "ppt-start",
+            ):
+                self.assertEqual(
+                    _filtered_tree_digest(installed),
+                    _filtered_tree_digest(source_repo / "skills" / "ppt-start"),
+                )
+            self.assertTrue((source_repo / ".claude" / "agents" / "ppt-svg-generator.md").is_file())
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_explicit_codex_plugin_root_updates_only_skills_and_preserves_unrelated_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin = root / "plugin"
+            (plugin / "skills" / "ppt-start").mkdir(parents=True)
+            (plugin / "skills" / "ppt-start" / "stale.txt").write_text("stale", encoding="utf-8")
+            (plugin / ".git").mkdir()
+            (plugin / "docs").mkdir()
+            (plugin / "docs" / "keep.txt").write_text("keep", encoding="utf-8")
+            completed = subprocess.run([
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(self.update_path), "-RepoRoot", str(repo_root()),
+                "-SkipDeepSeek", "-SkipClaudeCode", "-SkipCodex", "-SkipRepoProject",
+                "-CodexPluginRoot", str(plugin),
+            ], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+            self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
+            self.assertTrue((plugin / ".git").is_dir())
+            self.assertEqual((plugin / "docs" / "keep.txt").read_text(), "keep")
+            self.assertEqual(
+                _filtered_tree_digest(plugin / "skills" / "ppt-start"),
+                _filtered_tree_digest(skill_root()),
+            )
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_mixed_destination_failure_is_nonzero_partial_failure_and_rolls_back_failed_scope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            good = root / "good" / "skills"
+            bad_parent = root / "bad"
+            bad_parent.write_text("not a directory", encoding="utf-8")
+            completed = subprocess.run([
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(self.update_path), "-RepoRoot", str(repo_root()),
+                "-SkipDeepSeek", "-SkipClaudeCode", "-SkipRepoProject", "-CodexSkillsRoot", str(good),
+                "-ProjectRoot", str(bad_parent),
+            ], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+            output = completed.stdout + completed.stderr
+            self.assertNotEqual(completed.returncode, 0, output)
+            self.assertIn("PARTIAL_FAILURE", output)
+            self.assertIn("updated", output)
+            self.assertIn("failed", output)
+            self.assertNotIn("全部完成", output)
+            self.assertTrue((good / "ppt-start" / "SKILL.md").is_file())
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_backup_preparation_failure_is_failed_but_not_rolled_back(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skills = root / "host" / "skills"
+            destination = skills / "ppt-start"
+            destination.mkdir(parents=True)
+            (destination / "SKILL.md").write_text("stale", encoding="utf-8")
+            (root / "host" / "skill-backups").write_text("not a directory", encoding="utf-8")
+            completed = subprocess.run([
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(self.update_path), "-RepoRoot", str(repo_root()),
+                "-SkipRepoProject", "-SkipDeepSeek", "-SkipClaudeCode",
+                "-CodexSkillsRoot", str(skills),
+            ], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+            output = completed.stdout + completed.stderr
+            self.assertNotEqual(completed.returncode, 0, output)
+            self.assertIn(str(destination), output)
+            rolled_back = next(line for line in output.splitlines() if line.startswith("rolled_back:"))
+            self.assertNotIn(str(destination), rolled_back)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_project_claude_scope_restores_agent_when_later_skill_copy_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            skills = project / ".claude" / "skills"
+            agent = project / ".claude" / "agents" / "ppt-svg-generator.md"
+            agent.parent.mkdir(parents=True)
+            agent.write_bytes(b"old-agent\n")
+            for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract"):
+                target = skills / skill_id
+                target.mkdir(parents=True)
+                (target / "SKILL.md").write_text("stale " + skill_id, encoding="utf-8")
+            before = agent.read_bytes()
+            before_skills = {
+                skill_id: (skills / skill_id / "SKILL.md").read_bytes()
+                for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract")
+            }
+            self.assertNotEqual(
+                before,
+                (repo_root() / "hosts" / "claude-code" / "agents" / "ppt-svg-generator.md").read_bytes(),
+            )
+            (project / ".claude" / "skill-backups").write_text("not a directory", encoding="utf-8")
+            completed = subprocess.run([
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(self.update_path), "-RepoRoot", str(repo_root()),
+                "-SkipRepoProject", "-SkipDeepSeek", "-SkipClaudeCode", "-SkipCodex",
+                "-ProjectRoot", str(project),
+            ], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+            self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            self.assertEqual(agent.read_bytes(), before)
+            for skill_id, original in before_skills.items():
+                self.assertEqual((skills / skill_id / "SKILL.md").read_bytes(), original)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_direct_child_shadowing_skill_fails_and_names_path_before_update(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skills = root / "skills"
+            live = skills / "ppt-start"
+            shadow = skills / "ppt-start.bak-legacy"
+            for target in (live, shadow):
+                target.mkdir(parents=True)
+                (target / "SKILL.md").write_text("---\nname: ppt-start\n---\n", encoding="utf-8")
+            before = (live / "SKILL.md").read_bytes()
+            completed = subprocess.run([
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(self.update_path), "-RepoRoot", str(repo_root()),
+                "-SkipRepoProject", "-SkipDeepSeek", "-SkipClaudeCode",
+                "-CodexSkillsRoot", str(skills),
+            ], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+            output = completed.stdout + completed.stderr
+            self.assertNotEqual(completed.returncode, 0, output)
+            self.assertIn(str(shadow), output)
+            self.assertEqual((live / "SKILL.md").read_bytes(), before)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_final_claude_snapshot_failure_after_deepseek_success_reports_and_cleans(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            for relative in ("skills", "hosts", "tools"):
+                shutil.copytree(repo_root() / relative, source / relative)
+            claude = root / "claude"
+            agent = claude / "agents" / "ppt-svg-generator.md"
+            agent.parent.mkdir(parents=True)
+            agent.write_bytes(b"prior-agent")
+            for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract"):
+                skill = claude / "skills" / skill_id
+                skill.mkdir(parents=True)
+                (skill / "SKILL.md").write_bytes(b"prior-skill")
+            before = {str(p.relative_to(claude)): p.read_bytes() for p in claude.rglob('*') if p.is_file()}
+            updater = source / "tools" / "update-hosts.ps1"
+            script = read_text(updater)
+            copy = "Copy-Item -LiteralPath $target.Path -Destination $target.Snapshot -Recurse -Force"
+            self.assertIn(copy, script)
+            # Fail after one partial snapshot copy; the previous agent snapshot also exists.
+            updater.write_text(script.replace(copy, copy + "; throw 'injected snapshot copy failure'", 1), encoding="utf-8")
+            temporary = root / "temporary"
+            temporary.mkdir()
+            marketplace = root / "marketplace"
+            completed = subprocess.run([
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(updater), "-RepoRoot", str(source), "-SkipCodex", "-SkipRepoProject",
+                "-MarketplaceRoot", str(marketplace), "-ClaudeSkillsRoot", str(claude / "skills"),
+                "-ClaudeAgentsRoot", str(agent.parent),
+            ], env=dict(os.environ, TEMP=str(temporary), TMP=str(temporary)),
+                capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+            output = completed.stdout + completed.stderr
+            self.assertNotEqual(completed.returncode, 0, output)
+            self.assertIn("PARTIAL_FAILURE", output)
+            updated = next(line for line in output.splitlines() if line.startswith("updated:"))
+            failed = next(line for line in output.splitlines() if line.startswith("failed:"))
+            restored = next(line for line in output.splitlines() if line.startswith("rolled_back:"))
+            self.assertIn("deepseek-plugin", updated)
+            self.assertIn(str(claude / "skills"), failed)
+            self.assertIn("injected snapshot copy failure", failed)
+            self.assertNotIn(str(claude), updated)
+            self.assertNotIn(str(claude), restored)
+            self.assertEqual({str(p.relative_to(claude)): p.read_bytes() for p in claude.rglob('*') if p.is_file()}, before)
+            self.assertFalse(list(temporary.glob("ppt-claude-scope-*")))
+            self.assertEqual(_filtered_tree_digest(marketplace / "plugins/ppt-pilot/skills/ppt-start"),
+                             _filtered_tree_digest(source / "skills/ppt-start"))
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_final_deepseek_shadow_fails_before_any_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marketplace = Path(directory) / "marketplace"
+            plugin = marketplace / "plugins/ppt-pilot"
+            shadow = plugin / "skills/legacy-ppt"
+            shadow.mkdir(parents=True)
+            (shadow / "SKILL.md").write_text("---\nname: ppt-start\n---\n", encoding="utf-8")
+            for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract"):
+                live = plugin / "skills" / skill_id
+                live.mkdir()
+                (live / "SKILL.md").write_bytes(b"prior-live")
+            (marketplace / "marketplace.json").write_bytes(b'{"name":"personal","plugins":[]}')
+            before = {str(p.relative_to(marketplace)): p.read_bytes() if p.is_file() else None
+                      for p in marketplace.rglob('*')}
+            completed = subprocess.run([
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(self.deepseek_path), "-RepoRoot", str(repo_root()),
+                "-MarketplaceRoot", str(marketplace),
+            ], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+            output = completed.stdout + completed.stderr
+            self.assertNotEqual(completed.returncode, 0, output)
+            self.assertIn(str(shadow), output)
+            self.assertEqual({str(p.relative_to(marketplace)): p.read_bytes() if p.is_file() else None
+                              for p in marketplace.rglob('*')}, before)
 
     @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
     def test_update_hosts_copies_and_verifies_both_skill_trees_with_per_id_backups(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             claude_skills = root / "claude" / "skills"
+            claude_agents = root / "claude" / "agents"
             codex_skills = root / "codex" / "skills"
             command = [
                 shutil.which("powershell"),
@@ -146,9 +425,12 @@ class MultiSkillInstallerTests(unittest.TestCase):
                 str(self.update_path),
                 "-RepoRoot",
                 str(repo_root()),
+                "-SkipRepoProject",
                 "-SkipDeepSeek",
                 "-ClaudeSkillsRoot",
                 str(claude_skills),
+                "-ClaudeAgentsRoot",
+                str(claude_agents),
                 "-CodexSkillsRoot",
                 str(codex_skills),
             ]
@@ -164,16 +446,42 @@ class MultiSkillInstallerTests(unittest.TestCase):
                 )
                 self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
             for skills_root in (claude_skills, codex_skills):
-                for skill_id in ("ppt-start", "ppt-editable"):
+                for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract"):
                     source = repo_root() / "skills" / skill_id
                     installed = skills_root / skill_id
                     self.assertTrue((installed / "SKILL.md").is_file())
-                    self.assertEqual(_tree_digest(installed), _tree_digest(source))
+                    self.assertEqual(
+                        _filtered_tree_digest(installed), _filtered_tree_digest(source)
+                    )
                     backups = list(
                         (skills_root.parent / "skill-backups").glob(skill_id + ".bak-*")
                     )
                     self.assertEqual(len(backups), 1)
                 self.assertFalse(any(skills_root.glob("*.bak-*")))
+
+            source_agent = (
+                repo_root()
+                / "hosts"
+                / "claude-code"
+                / "agents"
+                / "ppt-svg-generator.md"
+            )
+            installed_agent = claude_agents / "ppt-svg-generator.md"
+            self.assertEqual(installed_agent.read_bytes(), source_agent.read_bytes())
+            self.assertEqual(
+                len(
+                    list(
+                        (claude_agents.parent / "agent-backups").glob(
+                            "ppt-svg-generator.bak-*.md"
+                        )
+                    )
+                ),
+                1,
+            )
+            self.assertFalse(any(claude_agents.glob("*.bak-*")))
+            self.assertFalse(
+                (codex_skills.parent / "agents" / "ppt-svg-generator.md").exists()
+            )
 
     @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
     def test_backup_preparation_failure_never_deletes_live_skill(self):
@@ -189,6 +497,7 @@ class MultiSkillInstallerTests(unittest.TestCase):
                 str(self.update_path),
                 "-RepoRoot",
                 str(repo_root()),
+                "-SkipRepoProject",
                 "-SkipDeepSeek",
                 "-SkipCodex",
                 "-ClaudeSkillsRoot",
@@ -221,6 +530,161 @@ class MultiSkillInstallerTests(unittest.TestCase):
             )
             self.assertNotEqual(second.returncode, 0)
             for skill_id, digest in before.items():
+                self.assertEqual(_tree_digest(claude_skills / skill_id), digest)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_claude_agent_backup_failure_leaves_agent_and_skills_unchanged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            claude_root = root / "claude"
+            claude_skills = claude_root / "skills"
+            claude_agents = claude_root / "agents"
+            command = [
+                shutil.which("powershell"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(self.update_path),
+                "-RepoRoot",
+                str(repo_root()),
+                "-SkipRepoProject",
+                "-SkipDeepSeek",
+                "-SkipCodex",
+                "-ClaudeSkillsRoot",
+                str(claude_skills),
+                "-ClaudeAgentsRoot",
+                str(claude_agents),
+            ]
+            first = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+            live_agent = claude_agents / "ppt-svg-generator.md"
+            live_agent.write_bytes(b"old-live-agent-sentinel\n")
+            (claude_skills / "ppt-start" / "old-live-sentinel.txt").write_text(
+                "preserve me\n", encoding="utf-8"
+            )
+            before_agent = live_agent.read_bytes()
+            before_skills = {
+                skill_id: _tree_digest(claude_skills / skill_id)
+                for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract")
+            }
+            backup_root = claude_root / "agent-backups"
+            backup_root.write_text("not a directory", encoding="utf-8")
+
+            second = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertNotEqual(second.returncode, 0)
+            self.assertEqual(
+                (claude_agents / "ppt-svg-generator.md").read_bytes(), before_agent
+            )
+            for skill_id, digest in before_skills.items():
+                self.assertEqual(_tree_digest(claude_skills / skill_id), digest)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_claude_agent_post_copy_failure_restores_live_agent_and_skills(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            claude_root = root / "claude"
+            claude_skills = claude_root / "skills"
+            claude_agents = claude_root / "agents"
+            base_command = [
+                shutil.which("powershell"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(self.update_path),
+                "-RepoRoot",
+                str(repo_root()),
+                "-SkipRepoProject",
+                "-SkipDeepSeek",
+                "-SkipCodex",
+                "-ClaudeSkillsRoot",
+                str(claude_skills),
+                "-ClaudeAgentsRoot",
+                str(claude_agents),
+            ]
+            first = subprocess.run(
+                base_command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+            live_agent = claude_agents / "ppt-svg-generator.md"
+            live_agent.write_bytes(b"old-live-agent-sentinel\n")
+            (claude_skills / "ppt-start" / "old-live-sentinel.txt").write_text(
+                "preserve me\n", encoding="utf-8"
+            )
+            before_agent = live_agent.read_bytes()
+            before_skills = {
+                skill_id: _tree_digest(claude_skills / skill_id)
+                for skill_id in ("ppt-start", "ppt-editable", "ppt-style-extract")
+            }
+
+            installer_text = read_text(self.update_path)
+            copy_line = (
+                "        $newCopied = $true\n"
+                "        Copy-Item -LiteralPath $agentSource -Destination $destination -Force\n"
+            )
+            self.assertEqual(installer_text.count(copy_line), 1)
+            injected_installer = root / "update-hosts-agent-failure.ps1"
+            injected_installer.write_text(
+                installer_text.replace(
+                    copy_line,
+                    copy_line + "        throw 'injected agent verification failure'\n",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            shutil.copy2(repo_root() / "tools" / "packaging.ps1", root / "packaging.ps1")
+            failed_command = list(base_command)
+            failed_command[failed_command.index(str(self.update_path))] = str(
+                injected_installer
+            )
+            failed = subprocess.run(
+                failed_command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                check=False,
+            )
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn(
+                "injected agent verification failure", failed.stderr + failed.stdout
+            )
+            self.assertEqual(
+                (claude_agents / "ppt-svg-generator.md").read_bytes(), before_agent
+            )
+            self.assertEqual(
+                list(
+                    (claude_root / "agent-backups").glob(
+                        "ppt-svg-generator.bak-*.md"
+                    )
+                ),
+                [],
+            )
+            for skill_id, digest in before_skills.items():
                 self.assertEqual(_tree_digest(claude_skills / skill_id), digest)
 
     @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
@@ -279,7 +743,9 @@ class MultiSkillInstallerTests(unittest.TestCase):
             for skill_id in ("ppt-start", "ppt-editable"):
                 source = repo_root() / "skills" / skill_id
                 installed = plugin / "skills" / skill_id
-                self.assertEqual(_tree_digest(installed), _tree_digest(source))
+                self.assertEqual(
+                    _filtered_tree_digest(installed), _filtered_tree_digest(source)
+                )
                 self.assertEqual(
                     len(list((plugin / "backups").glob(skill_id + ".bak-*"))),
                     1,
@@ -347,6 +813,42 @@ class MultiSkillInstallerTests(unittest.TestCase):
                 self.assertEqual(_tree_digest(plugin / "skills" / skill_id), digest)
             self.assertEqual(manifest_path.read_bytes(), before_manifest)
             self.assertEqual(market_path.read_bytes(), broken_marketplace)
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_deepseek_staged_copy_failure_preserves_live_skill_tree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            for relative in ("skills", "tools"):
+                shutil.copytree(repo_root() / relative, source / relative)
+            marketplace = root / "marketplace"
+            marketplace.mkdir()
+            (marketplace / "marketplace.json").write_text(
+                json.dumps({"name": "personal", "plugins": []}), encoding="utf-8"
+            )
+            command = [
+                shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(source / "tools" / "install-deepseek-plugin.ps1"),
+                "-RepoRoot", str(source), "-MarketplaceRoot", str(marketplace),
+            ]
+            first = subprocess.run(command, capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace", check=False)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            live = marketplace / "plugins" / "ppt-pilot" / "skills" / "ppt-start"
+            before = _filtered_tree_digest(live)
+            helper = source / "tools" / "packaging.ps1"
+            helper_text = read_text(helper)
+            marker = "        Copy-PptPilotFilteredTree $Source $stage\n"
+            self.assertIn(marker, helper_text)
+            helper.write_text(
+                helper_text.replace(marker, marker + "        throw 'injected staged copy failure'\n", 1),
+                encoding="utf-8",
+            )
+            failed = subprocess.run(command, capture_output=True, text=True,
+                                    encoding="utf-8", errors="replace", check=False)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("injected staged copy failure", failed.stdout + failed.stderr)
+            self.assertEqual(_filtered_tree_digest(live), before)
 
 
 class GoldenHashFallbackContractTest(unittest.TestCase):
@@ -442,13 +944,18 @@ class BatchConcurrencyContractTest(unittest.TestCase):
             "prompt_by_value",
             "fresh_history=true",
             "filesystem=none",
-            "tools=none",
+            "data_tools=none",
             "host_attribution_id",
             "host_task_id",
             "ordered_slide_ids",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.combined)
+        self.assertIn("host-isolation-adapters.md", self.combined)
+        self.assertIn(
+            "不得轮询",
+            read_text(skill_root() / "references" / "host-isolation-adapters.md"),
+        )
         ownership_documents = {
             "SKILL.md": self.skill,
             "workflow.md": self.workflow,

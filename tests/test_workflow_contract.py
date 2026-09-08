@@ -73,6 +73,37 @@ class WorkflowContractTests(unittest.TestCase):
     def test_workflow_reference_exists(self):
         self.assertTrue(self.workflow_path.exists(), f"Missing workflow reference file: {self.workflow_path}")
 
+    def test_existing_run_audits_before_dashboard_or_runtime_writes(self):
+        combined = "\n".join(
+            read_text(path)
+            for path in (
+                skill_root() / "SKILL.md",
+                self.workflow_path,
+                self.reference_root / "live-dashboard.md",
+            )
+        )
+        for token in (
+            "已有运行先审计",
+            "不启动或重启 dashboard",
+            "不暂存 generator 响应",
+            "不调用 `ingest-result`",
+            "不得手写 owner",
+            "固定 `ppt_runtime.py` 不存在",
+            "不得手写 `generator_unavailable`",
+        ):
+            self.assertIn(token, combined)
+
+    def test_style_blocker_tuple_allows_malformed_guidance_but_not_schema_guidance(self):
+        contract = read_text(self.contract_path)
+        self.assertIn(
+            "`style_asset_target_invalid`、`style_asset_unreadable` 与 `style_asset_malformed` 可使用已验证的 `<style-id>/tokens.json` 或 `<style-id>/STYLE.md`",
+            contract,
+        )
+        self.assertIn(
+            "`style_asset_schema_unsupported` 只允许 tokens",
+            contract,
+        )
+
     def _extract_stage_order(self, text: str) -> list[str]:
         flow_lines = [
             line

@@ -73,14 +73,10 @@ class StyleAssetTests(unittest.TestCase):
                 self.assertIsInstance(typography["font_stack"], list)
                 self.assertGreaterEqual(len(typography["font_stack"]), 2)
                 self.assertFalse(any("http" in font.lower() for font in typography["font_stack"]))
-                # style packs vary in key naming (slide_title/page_title/body) and may keep
-                # small caption sizes; require a title-level size >= 34 once weights excluded.
-                font_sizes = [
-                    value for key, value in typography.items()
-                    if "weight" not in key and key != "font_stack" and isinstance(value, int)
-                ]
-                self.assertTrue(font_sizes)
-                self.assertGreaterEqual(max(font_sizes), 34)
+                title_keys = [key for key in ("slide_title", "page_title") if key in typography]
+                self.assertEqual(len(title_keys), 1, f"{style_id} needs one canonical title-size token")
+                title_key = title_keys[0]
+                self.assertGreaterEqual(typography[title_key], 40, f"{style_id}:{title_key}")
 
                 spacing = tokens["spacing"]
                 self.assertEqual(spacing["outer_margin"], 64)
@@ -109,6 +105,10 @@ class StyleAssetTests(unittest.TestCase):
                 self.assertNotIn("[[STYLE_BASELINE]]", prompt)
                 self.assertNotIn("[[CANONICAL_NARRATIVE_BULLETS]]", prompt)
                 self.assertNotIn("source=", prompt)
+                self.assertIn(
+                    f"{title_key}={typography[title_key]}", prompt,
+                    f"{style_id} prompt must materialize its canonical title size",
+                )
 
                 self.assertTrue((pack_dir / STYLE_FILE).is_file())
 

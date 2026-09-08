@@ -7,6 +7,8 @@ description: Use when a completed PPT Pilot SVG run must be delivered as a Power
 
 Convert one completed PPT Pilot run into a recursively grouped, natively editable PowerPoint deck. Preserve the previous verified final until a new verified promotion commits.
 
+Before consuming prior run artifacts, run the installed `ppt-start/scripts/ppt_workflow_gate.py --run-dir <run> --audit-run` common read-only audit and stop on `BLOCKED`. Consume only contract-validated data files: never execute, import, dynamically load, or pass a run file to an interpreter; never install dependencies or create helper scripts below the run. Owner recovery belongs to the fixed `ppt-start` runtime CLI, not manual repair.
+
 ## Required references
 
 Read these before running the converter:

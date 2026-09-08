@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'skills/ppt-start/scripts'))
 
-from helpers import read_text, repo_root, skill_root
+from helpers import parse_frontmatter, read_text, repo_root, skill_root
 
 
 STYLE_ASSET_BLOCKER_REASONS = (
@@ -52,6 +52,8 @@ GENERATION_PROMPT_BLOCKER_REASONS = (
     "prompt_preflight_invalid",
     "prompt_snapshot_conflict",
 )
+
+HOST_GENERATION_BLOCKER_REASONS = ("generator_unavailable",)
 
 
 STABLE_RESOLVER_REASONS = (
@@ -135,6 +137,9 @@ def is_closed_blocker_tuple(blocker: dict) -> bool:
     elif reason in GENERATION_PROMPT_BLOCKER_REASONS:
         if state != "generation_prompt_unavailable":
             return False
+    elif reason in HOST_GENERATION_BLOCKER_REASONS:
+        if state != "generator_unavailable":
+            return False
     else:
         return False
 
@@ -144,6 +149,9 @@ def is_closed_blocker_tuple(blocker: dict) -> bool:
     tokens_path = f"assets/styles/{style_id}/tokens.json"
     guidance_path = f"assets/styles/{style_id}/STYLE.md"
     prompt_path = f"assets/styles/{style_id}/prompt.md"
+
+    if reason in HOST_GENERATION_BLOCKER_REASONS:
+        return resource == "none"
 
     none_reasons = {
         "registry_missing",
@@ -181,49 +189,47 @@ def is_closed_blocker_tuple(blocker: dict) -> bool:
         return resource == manifest_path
     if reason in {"style_asset_target_invalid", "style_asset_unreadable"}:
         return resource in {tokens_path, guidance_path}
-    if reason in {"style_asset_malformed", "style_asset_schema_unsupported"}:
+    if reason == "style_asset_malformed":
+        return resource in {tokens_path, guidance_path}
+    if reason == "style_asset_schema_unsupported":
         return resource == tokens_path
     return resource == prompt_path
 
-V1_MIGRATION_STATES = (
-    "compiling",
-    "compiled",
-    "generating",
-    "candidate_written",
-    "validated",
-    "promoted",
-    "failed",
+from _generation_runtime import (
+    V1_MIGRATION_STATES,
+    V1_MIGRATION_FAILURE_REASONS,
+    V1_TRANSACTION_FIELDS,
+    V2_TRANSACTION_FIELDS,
+    V2_MANIFEST_FIELDS,
+    V2_TRANSACTION_STATES,
+    V2_MANIFEST_STATES,
+    V2_FAILURE_REASONS,
+    V2_VALIDATION_CHECKS,
+    GENERATION_PROMPT_METADATA_FIELDS,
+    _SHA256_ID_RE,
+    _SLIDE_ID_RE,
+    _BATCH_ID_RE,
+    _require_sha256,
+    _transaction_ref,
+    validate_v2_transaction,
+    validate_v2_manifest,
+    rebuild_batch_cursors,
+    validated_final_outcome,
+    canonical_v2_json_bytes,
+    _migration_sha,
+    _migration_validation,
+    _migration_conflict,
+    clear_repaired_blocker_before_v1_migration,
+    validate_v1_migration_transaction,
+    migrate_v1_run_to_v2,
+    _validate_prompt_by_value,
+    schedule_epoch,
+    eligible_promotions,
+    lowest_eligible_blocker,
+    promote_in_order,
 )
 
-V1_MIGRATION_FAILURE_REASONS = (
-    "generator_unavailable",
-    "generator_refused",
-    "generator_timeout",
-    "generator_output_malformed",
-    "candidate_write_failed",
-    "candidate_hash_mismatch",
-    "svg_contract_failed",
-    "locked_content_mismatch",
-    "visual_qa_failed",
-    "final_promotion_conflict",
-    "transaction_state_conflict",
-)
 
-V1_TRANSACTION_FIELDS = {
-    "transaction_id",
-    "slide_id",
-    "generation_intent",
-    "generation_trigger_id",
-    "prompt_path",
-    "prompt_snapshot_id",
-    "compiled_prompt_sha256",
-    "candidate_path",
-    "final_path",
-    "state",
-    "generation_attempt",
-    "candidate_sha256",
-    "failure_reason",
-}
 
 EXPECTED_OPERATION_FIELDS = (
     "first_action",
@@ -270,94 +276,6 @@ def validate_blocker_operation_expectation(expected: object) -> None:
             raise ValueError("blocker side effect must be zero")
 
 
-V2_TRANSACTION_FIELDS = {
-    "schema_version",
-    "kind",
-    "batch_id",
-    "transaction_id",
-    "slide_id",
-    "generation_intent",
-    "generation_trigger_id",
-    "prompt_path",
-    "prompt_snapshot_id",
-    "compiled_prompt_sha256",
-    "candidate_path",
-    "final_path",
-    "prior_final_sha256",
-    "state",
-    "generation_attempt",
-    "candidate_sha256",
-    "failure_reason",
-    "dispatch_epoch",
-    "host_attribution_id",
-    "host_task_id",
-    "validation",
-    "timing",
-}
-V2_MANIFEST_FIELDS = {
-    "schema_version",
-    "kind",
-    "batch_id",
-    "batch_width",
-    "ordered_slide_ids",
-    "storyboard_snapshot_id",
-    "theme_snapshot_id",
-    "source_audit_snapshot_id",
-    "generation_prompt_template_snapshot_id",
-    "transaction_refs",
-    "dispatch_epoch",
-    "promotion_cursor",
-    "blocker_cursor",
-    "active_blocker_ref",
-    "state",
-    "created_at",
-    "updated_at",
-    "telemetry_summary",
-}
-V2_TRANSACTION_STATES = {
-    "compiling",
-    "compiled",
-    "generating",
-    "candidate_written",
-    "validated",
-    "promoted",
-    "failed",
-}
-V2_MANIFEST_STATES = {"prepared", "active", "blocked", "completed"}
-V2_FAILURE_REASONS = {
-    "prompt_write_failed",
-    "generator_unavailable",
-    "generator_refused",
-    "generator_timeout",
-    "generator_output_malformed",
-    "candidate_write_failed",
-    "candidate_hash_mismatch",
-    "svg_contract_failed",
-    "locked_content_mismatch",
-    "fact_source_mismatch",
-    "visual_qa_failed",
-    "final_promotion_conflict",
-    "transaction_state_conflict",
-}
-V2_VALIDATION_CHECKS = {
-    "xml",
-    "office",
-    "geometry_text",
-    "fact_source",
-    "narrative",
-    "visual",
-}
-GENERATION_PROMPT_METADATA_FIELDS = (
-    "slide_id",
-    "storyboard_snapshot_id",
-    "theme_snapshot_id",
-    "applied_visual_revision_ids",
-    "prompt_snapshot_id",
-    "user_page_request",
-    "expected_output",
-    "workspace_output_path",
-    "format",
-)
 TELEMETRY_SPAN_FIELDS = {
     "span_id",
     "parent_span_id",
@@ -392,535 +310,102 @@ TELEMETRY_SPAN_FIELDS = {
     "finish_reason",
 }
 TELEMETRY_PHASES = {"compile", "model", "render", "qa", "promotion"}
-_SHA256_ID_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
-_SLIDE_ID_RE = re.compile(r"^S[0-9]+$")
-_BATCH_ID_RE = re.compile(r"^[0-9a-z][0-9a-z-]*$")
 
 
-def _require_sha256(value: object, label: str) -> str:
-    if not isinstance(value, str) or _SHA256_ID_RE.fullmatch(value) is None:
-        raise ValueError("{} must be a sha256 identity".format(label))
-    return value
 
 
-def _transaction_ref(transaction: dict) -> str:
-    suffix = transaction["transaction_id"].removeprefix("sha256:")
-    return (
-        ".ppt-pilot/visual-generation-transactions/"
-        "{}-{}.json".format(transaction["slide_id"], suffix)
-    )
 
 
-def validate_v2_transaction(transaction: dict) -> None:
-    if not isinstance(transaction, dict) or set(transaction) != V2_TRANSACTION_FIELDS:
-        raise ValueError("v2 transaction fields differ")
-    if transaction["schema_version"] != 2 or transaction["kind"] != "visual_generation_transaction":
-        raise ValueError("v2 transaction identity differs")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CLAUDE_CODE_ADAPTER_FIELDS = {
+    "agent_registered",
+    "ordinary_subagent",
+    "worktree_required",
+    "remote_required",
+    "prompt_by_value",
+    "fresh_history",
+    "ambient_claude_md_allowed",
+    "ambient_git_status_allowed",
+    "parent_conversation_history",
+    "filesystem_none",
+    "data_tools_none",
+    "text_output",
+    "attribution",
+    "exposed_tools",
+}
+CLAUDE_CODE_WORKSPACE_STATES = {
+    "plain_directory",
+    "git_unborn_head",
+    "git_committed",
+}
+
+
+def negotiate_claude_code_adapter(case: dict) -> dict:
+    observation = case["observation"]
+    boolean_fields = CLAUDE_CODE_ADAPTER_FIELDS - {"exposed_tools"}
     if (
-        not isinstance(transaction["batch_id"], str)
-        or _BATCH_ID_RE.fullmatch(transaction["batch_id"]) is None
-    ):
-        raise ValueError("v2 transaction batch ID is invalid")
-    slide_id = transaction["slide_id"]
-    if not isinstance(slide_id, str) or _SLIDE_ID_RE.fullmatch(slide_id) is None:
-        raise ValueError("v2 transaction slide ID is invalid")
-    transaction_id = _require_sha256(transaction["transaction_id"], "transaction_id")
-    if transaction["prompt_snapshot_id"] != transaction_id:
-        raise ValueError("transaction and prompt identities differ")
-    _require_sha256(transaction["compiled_prompt_sha256"], "compiled_prompt_sha256")
-    if transaction["generation_intent"] not in {
-        "initial_generation",
-        "user_recompose",
-        "deterministic_fallback",
-    }:
-        raise ValueError("generation intent is invalid")
-    if not isinstance(transaction["generation_trigger_id"], str) or not transaction[
-        "generation_trigger_id"
-    ]:
-        raise ValueError("generation trigger is invalid")
-    suffix = transaction_id.removeprefix("sha256:")
-    if transaction["prompt_path"] != "generation-prompts/{}.md".format(slide_id):
-        raise ValueError("prompt path differs")
-    if transaction["candidate_path"] != "slides/.candidates/{}-{}.svg".format(
-        slide_id,
-        suffix,
-    ):
-        raise ValueError("candidate path differs")
-    if transaction["final_path"] != "slides/{}.svg".format(slide_id):
-        raise ValueError("final path differs")
-    prior = transaction["prior_final_sha256"]
-    if prior != "none":
-        _require_sha256(prior, "prior_final_sha256")
-    state = transaction["state"]
-    if state not in V2_TRANSACTION_STATES:
-        raise ValueError("transaction state is invalid")
-    if type(transaction["generation_attempt"]) is not int or transaction[
-        "generation_attempt"
-    ] < 0:
-        raise ValueError("generation attempt is invalid")
-    candidate_sha256 = transaction["candidate_sha256"]
-    if candidate_sha256 is not None:
-        _require_sha256(candidate_sha256, "candidate_sha256")
-    if state in {"compiling", "compiled", "generating"} and candidate_sha256 is not None:
-        raise ValueError("candidate hash is premature")
-    if state in {"candidate_written", "validated", "promoted"} and candidate_sha256 is None:
-        raise ValueError("candidate hash is missing")
-    if state == "failed":
-        if transaction["failure_reason"] not in V2_FAILURE_REASONS:
-            raise ValueError("failed transaction reason is invalid")
-        if (
-            transaction["failure_reason"] == "locked_content_mismatch"
-            and not transaction["batch_id"].startswith("migration-")
-        ):
-            raise ValueError("legacy failure reason is migration-only")
-    elif transaction["failure_reason"] is not None:
-        raise ValueError("nonfailed transaction has a failure reason")
-    if type(transaction["dispatch_epoch"]) is not int or transaction["dispatch_epoch"] < 0:
-        raise ValueError("dispatch epoch is invalid")
-    host_values = (
-        transaction["host_attribution_id"],
-        transaction["host_task_id"],
-    )
-    if (host_values[0] is None) != (host_values[1] is None) or any(
-        value is not None and (not isinstance(value, str) or not value)
-        for value in host_values
-    ):
-        raise ValueError("host task identity is invalid")
-    validation = transaction["validation"]
-    if (
-        not isinstance(validation, dict)
-        or set(validation) != {"state", "checks"}
-        or validation["state"] not in {"pending", "running", "passed", "failed"}
-        or not isinstance(validation["checks"], dict)
-        or set(validation["checks"]) != V2_VALIDATION_CHECKS
+        not isinstance(observation, dict)
+        or set(observation) != CLAUDE_CODE_ADAPTER_FIELDS
+        or case.get("workspace_state") not in CLAUDE_CODE_WORKSPACE_STATES
+        or any(type(observation[field]) is not bool for field in boolean_fields)
+        or not isinstance(observation["exposed_tools"], list)
         or any(
-            value not in {"pending", "passed", "failed", "not_rendered"}
-            for value in validation["checks"].values()
+            not isinstance(tool, str) or not tool
+            for tool in observation["exposed_tools"]
         )
     ):
-        raise ValueError("validation payload is invalid")
-    validation_state = validation["state"]
-    checks = validation["checks"]
-    if state in {"compiling", "compiled", "generating"} and validation_state != "pending":
-        raise ValueError("validation state is premature")
-    if state == "candidate_written" and validation_state not in {"pending", "running"}:
-        raise ValueError("candidate validation state differs")
-    if state in {"validated", "promoted"} and (
-        validation_state != "passed"
-        or any(
-            checks[key] != "passed"
-            for key in V2_VALIDATION_CHECKS - {"visual"}
+        raise ValueError("Claude Code adapter observation differs")
+    safe = all(
+        observation[field]
+        for field in (
+            "agent_registered",
+            "ordinary_subagent",
+            "prompt_by_value",
+            "fresh_history",
+            "ambient_claude_md_allowed",
+            "ambient_git_status_allowed",
+            "filesystem_none",
+            "data_tools_none",
+            "text_output",
+            "attribution",
         )
-        or checks["visual"] not in {"passed", "not_rendered"}
-    ):
-        raise ValueError("validated transaction lacks passing checks")
-    if state == "failed" and validation_state == "passed":
-        raise ValueError("failed transaction claims passing validation")
-    failure_reason = transaction["failure_reason"]
-    if failure_reason == "svg_contract_failed" and (
-        validation_state != "failed"
-        or not any(
-            checks[key] == "failed"
-            for key in ("xml", "office", "geometry_text")
-        )
-    ):
-        raise ValueError("SVG contract failure lacks a failed hard check")
-    qa_failure_check = {
-        "fact_source_mismatch": "fact_source",
-        "locked_content_mismatch": "fact_source",
-        "visual_qa_failed": "visual",
-    }.get(failure_reason)
-    if qa_failure_check is not None and (
-        validation_state != "failed" or checks[qa_failure_check] != "failed"
-    ):
-        raise ValueError("QA failure lacks matching failed check")
-    if not isinstance(transaction["timing"], list):
-        raise ValueError("timing payload is invalid")
-
-
-def validate_v2_manifest(manifest: dict, transactions: dict[str, dict]) -> None:
-    if not isinstance(manifest, dict) or set(manifest) != V2_MANIFEST_FIELDS:
-        raise ValueError("v2 manifest fields differ")
-    if manifest["schema_version"] != 2 or manifest["kind"] != "visual_generation_batch":
-        raise ValueError("v2 manifest identity differs")
-    if (
-        not isinstance(manifest["batch_id"], str)
-        or _BATCH_ID_RE.fullmatch(manifest["batch_id"]) is None
-    ):
-        raise ValueError("v2 manifest batch ID is invalid")
-    width = manifest["batch_width"]
-    if type(width) is not int or not 3 <= width <= 10:
-        raise ValueError("batch width is invalid")
-    slide_ids = manifest["ordered_slide_ids"]
-    if not isinstance(slide_ids, list) or not 1 <= len(slide_ids) <= width:
-        raise ValueError("batch slide count is invalid")
-    if (
-        any(not isinstance(value, str) or _SLIDE_ID_RE.fullmatch(value) is None for value in slide_ids)
-        or len(slide_ids) != len(set(slide_ids))
-        or slide_ids != sorted(slide_ids, key=lambda value: int(value[1:]))
-    ):
-        raise ValueError("ordered slide IDs are invalid")
-    for key in (
-        "storyboard_snapshot_id",
-        "theme_snapshot_id",
-        "source_audit_snapshot_id",
-        "generation_prompt_template_snapshot_id",
-    ):
-        _require_sha256(manifest[key], key)
-    refs = manifest["transaction_refs"]
-    if not isinstance(refs, list) or len(refs) != len(slide_ids):
-        raise ValueError("transaction refs are invalid")
-    if set(transactions) != set(refs):
-        raise ValueError("transaction inventory differs from refs")
-    for slide_id, ref in zip(slide_ids, refs):
-        transaction = transactions.get(ref)
-        if transaction is None:
-            raise ValueError("transaction ref is missing")
-        validate_v2_transaction(transaction)
-        if (
-            transaction["batch_id"] != manifest["batch_id"]
-            or transaction["slide_id"] != slide_id
-            or ref != _transaction_ref(transaction)
-        ):
-            raise ValueError("transaction ref alignment differs")
-    if type(manifest["dispatch_epoch"]) is not int or manifest["dispatch_epoch"] < 0:
-        raise ValueError("manifest dispatch epoch is invalid")
-    for key in ("promotion_cursor", "blocker_cursor"):
-        if type(manifest[key]) is not int or not 0 <= manifest[key] <= len(slide_ids):
-            raise ValueError("manifest cursor is untrusted")
-    if manifest["state"] not in V2_MANIFEST_STATES:
-        raise ValueError("manifest state is invalid")
-    rebuilt_promotion_cursor, rebuilt_blocker_cursor = rebuild_batch_cursors(
-        manifest, transactions
     )
-    if (
-        manifest["promotion_cursor"] != rebuilt_promotion_cursor
-        or manifest["blocker_cursor"] != rebuilt_blocker_cursor
-    ):
-        raise ValueError("manifest cursor is untrusted")
-    expected_blocker_ref = (
-        refs[rebuilt_blocker_cursor]
-        if rebuilt_blocker_cursor < len(refs)
-        else None
+    safe = (
+        safe
+        and observation["worktree_required"] is False
+        and observation["remote_required"] is False
+        and observation["parent_conversation_history"] is False
+        and observation["exposed_tools"] == ["TodoWrite"]
     )
-    blocker_ref = manifest["active_blocker_ref"]
-    if blocker_ref != expected_blocker_ref:
-        raise ValueError("active blocker ref is invalid")
-    if (manifest["state"] == "blocked") != (expected_blocker_ref is not None):
-        raise ValueError("manifest state is invalid")
-    for key in ("created_at", "updated_at"):
-        if not isinstance(manifest[key], str) or not manifest[key]:
-            raise ValueError("manifest timestamp is invalid")
-    if not isinstance(manifest["telemetry_summary"], dict):
-        raise ValueError("telemetry summary is invalid")
-
-
-def rebuild_batch_cursors(
-    manifest: dict,
-    transactions: dict[str, dict],
-) -> tuple[int, int]:
-    promotion_cursor = 0
-    for ref in manifest["transaction_refs"]:
-        if transactions[ref]["state"] != "promoted":
-            break
-        promotion_cursor += 1
-    blocker_cursor = len(manifest["transaction_refs"])
-    for index, ref in enumerate(manifest["transaction_refs"]):
-        if transactions[ref]["state"] == "failed":
-            blocker_cursor = index
-            break
-    return promotion_cursor, blocker_cursor
-
-
-def validated_final_outcome(
-    transaction: dict,
-    observed_final_sha256: str,
-) -> str:
-    validate_v2_transaction(transaction)
-    if transaction["state"] != "validated":
-        raise ValueError("transaction is not validated")
-    if observed_final_sha256 == transaction["candidate_sha256"]:
-        return "commit_promoted"
-    if observed_final_sha256 == transaction["prior_final_sha256"]:
-        return "retry_atomic_promotion"
-    return "final_promotion_conflict"
-
-
-def canonical_v2_json_bytes(value: dict) -> bytes:
-    return (
-        json.dumps(
-            value,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        + "\n"
-    ).encode("utf-8")
-
-
-def _migration_sha(transaction_id: str, label: str) -> str:
-    return "sha256:" + hashlib.sha256(
-        ("v1-migration\0" + transaction_id + "\0" + label).encode("utf-8")
-    ).hexdigest()
-
-
-def _migration_validation(state: str, has_candidate: bool) -> dict:
-    if state in {"validated", "promoted"}:
-        validation_state = "passed"
-        check_state = "passed"
-    elif state == "failed" and has_candidate:
-        validation_state = "failed"
-        check_state = "failed"
-    else:
-        validation_state = "pending"
-        check_state = "pending"
     return {
-        "state": validation_state,
-        "checks": {
-            key: check_state
-            for key in sorted(V2_VALIDATION_CHECKS)
-        },
-    }
-
-
-def _migration_conflict(run: dict) -> dict:
-    return {
-        "status": "visual_generation_state_conflict",
-        "run": copy.deepcopy(run),
-        "transaction": None,
-        "manifest": None,
-        "transaction_bytes": None,
-        "manifest_bytes": None,
-        "run_bytes": canonical_v2_json_bytes(run),
-        "write_order": [],
-        "writes": 0,
-        "generator_calls": 0,
-    }
-
-
-def clear_repaired_blocker_before_v1_migration(run: dict) -> dict:
-    """Commit only blocker removal; the legacy owner remains for next resume."""
-    if not {
-        "visual_generation_blocker",
-        "visual_generation_transaction",
-    }.issubset(run):
-        raise ValueError("visual_generation_state_conflict")
-    cleared = copy.deepcopy(run)
-    del cleared["visual_generation_blocker"]
-    return cleared
-
-
-def validate_v1_migration_transaction(legacy: dict) -> None:
-    if not isinstance(legacy, dict) or set(legacy) != V1_TRANSACTION_FIELDS:
-        raise ValueError("v1 transaction schema differs")
-    transaction_id = _require_sha256(legacy["transaction_id"], "transaction_id")
-    if legacy["prompt_snapshot_id"] != legacy["transaction_id"]:
-        raise ValueError("transaction and prompt identities differ")
-    _require_sha256(legacy["compiled_prompt_sha256"], "compiled_prompt_sha256")
-    slide_id = legacy["slide_id"]
-    if not isinstance(slide_id, str) or re.fullmatch(r"S[0-9]+", slide_id) is None:
-        raise ValueError("slide id is invalid")
-    if legacy["generation_intent"] not in {
-        "initial_generation",
-        "user_recompose",
-        "deterministic_fallback",
-    }:
-        raise ValueError("generation intent is invalid")
-    if not isinstance(legacy["generation_trigger_id"], str) or not legacy[
-        "generation_trigger_id"
-    ]:
-        raise ValueError("generation trigger is invalid")
-    if legacy["prompt_path"] != f"generation-prompts/{slide_id}.md":
-        raise ValueError("prompt path differs")
-    if legacy["candidate_path"] != (
-        f"slides/.candidates/{slide_id}-{transaction_id.removeprefix('sha256:')}.svg"
-    ):
-        raise ValueError("candidate path differs")
-    if legacy["final_path"] != f"slides/{slide_id}.svg":
-        raise ValueError("final path differs")
-    if legacy["state"] not in V1_MIGRATION_STATES:
-        raise ValueError("transaction state is invalid")
-    attempt = legacy["generation_attempt"]
-    if isinstance(attempt, bool) or not isinstance(attempt, int) or not 0 <= attempt <= 3:
-        raise ValueError("generation attempt is invalid")
-    candidate_sha256 = legacy["candidate_sha256"]
-    if candidate_sha256 is not None:
-        _require_sha256(candidate_sha256, "candidate_sha256")
-    failure_reason = legacy["failure_reason"]
-    if legacy["state"] == "failed":
-        if failure_reason not in V1_MIGRATION_FAILURE_REASONS:
-            raise ValueError("failure reason is invalid")
-    elif failure_reason is not None:
-        raise ValueError("nonfailed transaction has a failure reason")
-
-
-def migrate_v1_run_to_v2(run: dict, corpus_case: dict) -> dict:
-    source_run = copy.deepcopy(run)
-    has_v1 = "visual_generation_transaction" in source_run
-    has_v2 = "active_visual_generation_batch" in source_run
-    if has_v1 and has_v2:
-        return _migration_conflict(source_run)
-    if has_v2:
-        existing_transaction = corpus_case.get("existing_transaction")
-        existing_manifest = corpus_case.get("existing_manifest")
-        pointer = source_run.get("active_visual_generation_batch")
-        try:
-            if not isinstance(existing_transaction, dict) or not isinstance(
-                existing_manifest,
-                dict,
-            ):
-                raise ValueError("v2 durable files are missing")
-            existing_ref = _transaction_ref(existing_transaction)
-            validate_v2_manifest(
-                existing_manifest,
-                {existing_ref: existing_transaction},
-            )
-            if (
-                not isinstance(pointer, dict)
-                or set(pointer) != {"schema_version", "batch_id", "manifest_path"}
-                or pointer["schema_version"] != 2
-                or pointer["batch_id"] != existing_manifest["batch_id"]
-                or pointer["manifest_path"]
-                != ".ppt-pilot/visual-generation-batches/{}.json".format(
-                    existing_manifest["batch_id"]
-                )
-            ):
-                raise ValueError("v2 pointer differs from durable manifest")
-        except (KeyError, TypeError, ValueError):
-            return _migration_conflict(source_run)
-        return {
-            "status": "no_op",
-            "run": source_run,
-            "transaction": copy.deepcopy(existing_transaction),
-            "manifest": copy.deepcopy(existing_manifest),
-            "transaction_bytes": canonical_v2_json_bytes(existing_transaction),
-            "manifest_bytes": canonical_v2_json_bytes(existing_manifest),
-            "run_bytes": canonical_v2_json_bytes(source_run),
-            "write_order": [],
-            "writes": 0,
-            "generator_calls": 0,
-        }
-    if not has_v1:
-        return _migration_conflict(source_run)
-    if "observed_prior_final_sha256" not in corpus_case:
-        return _migration_conflict(source_run)
-
-    legacy = source_run["visual_generation_transaction"]
-    try:
-        validate_v1_migration_transaction(legacy)
-    except (KeyError, TypeError, ValueError):
-        return _migration_conflict(source_run)
-    transaction_id = legacy["transaction_id"]
-    batch_id = "migration-" + transaction_id.removeprefix("sha256:")[:24]
-    candidate_sha256 = legacy["candidate_sha256"]
-    transaction = {
-        "schema_version": 2,
-        "kind": "visual_generation_transaction",
-        "batch_id": batch_id,
-        "transaction_id": transaction_id,
-        "slide_id": legacy["slide_id"],
-        "generation_intent": legacy["generation_intent"],
-        "generation_trigger_id": legacy["generation_trigger_id"],
-        "prompt_path": legacy["prompt_path"],
-        "prompt_snapshot_id": legacy["prompt_snapshot_id"],
-        "compiled_prompt_sha256": legacy["compiled_prompt_sha256"],
-        "candidate_path": legacy["candidate_path"],
-        "final_path": legacy["final_path"],
-        "prior_final_sha256": corpus_case["observed_prior_final_sha256"],
-        "state": legacy["state"],
-        "generation_attempt": legacy["generation_attempt"],
-        "candidate_sha256": candidate_sha256,
-        "failure_reason": legacy["failure_reason"],
-        "dispatch_epoch": 0,
-        "host_attribution_id": None,
-        "host_task_id": None,
-        "validation": _migration_validation(
-            legacy["state"],
-            candidate_sha256 is not None,
-        ),
-        "timing": [],
-    }
-    validate_v2_transaction(transaction)
-    transaction_ref = _transaction_ref(transaction)
-    promoted = 1 if transaction["state"] == "promoted" else 0
-    failed = transaction["state"] == "failed"
-    manifest = {
-        "schema_version": 2,
-        "kind": "visual_generation_batch",
-        "batch_id": batch_id,
-        "batch_width": 4,
-        "ordered_slide_ids": [transaction["slide_id"]],
-        "storyboard_snapshot_id": _migration_sha(transaction_id, "storyboard"),
-        "theme_snapshot_id": _migration_sha(transaction_id, "theme"),
-        "source_audit_snapshot_id": _migration_sha(transaction_id, "source-audit"),
-        "generation_prompt_template_snapshot_id": _migration_sha(
-            transaction_id,
-            "generation-prompt-template",
-        ),
-        "transaction_refs": [transaction_ref],
-        "dispatch_epoch": 0,
-        "promotion_cursor": promoted,
-        "blocker_cursor": 0 if failed else 1,
-        "active_blocker_ref": transaction_ref if failed else None,
-        "state": "completed" if promoted else ("blocked" if failed else "active"),
-        "created_at": "1970-01-01T00:00:00Z",
-        "updated_at": "1970-01-01T00:00:00Z",
-        "telemetry_summary": {"migration": "v1"},
-    }
-    validate_v2_manifest(manifest, {transaction_ref: transaction})
-    migrated_run = copy.deepcopy(source_run)
-    del migrated_run["visual_generation_transaction"]
-    migrated_run["active_visual_generation_batch"] = {
-        "schema_version": 2,
-        "batch_id": batch_id,
-        "manifest_path": ".ppt-pilot/visual-generation-batches/{}.json".format(
-            batch_id
-        ),
-    }
-    transaction_bytes = canonical_v2_json_bytes(transaction)
-    manifest_bytes = canonical_v2_json_bytes(manifest)
-    durable = corpus_case.get("durable", {})
-    encoded_transaction = durable.get("transaction_bytes_base64")
-    encoded_manifest = durable.get("manifest_bytes_base64")
-    if encoded_manifest is not None and encoded_transaction is None:
-        return _migration_conflict(source_run)
-    try:
-        durable_transaction_bytes = (
-            None
-            if encoded_transaction is None
-            else base64.b64decode(encoded_transaction, validate=True)
-        )
-        durable_manifest_bytes = (
-            None
-            if encoded_manifest is None
-            else base64.b64decode(encoded_manifest, validate=True)
-        )
-    except (TypeError, ValueError):
-        return _migration_conflict(source_run)
-    if (
-        durable_transaction_bytes is not None
-        and durable_transaction_bytes != transaction_bytes
-    ):
-        return _migration_conflict(source_run)
-    if durable_manifest_bytes is not None and durable_manifest_bytes != manifest_bytes:
-        return _migration_conflict(source_run)
-    write_order = []
-    if durable_transaction_bytes is None:
-        write_order.append("transaction")
-    if durable_manifest_bytes is None:
-        write_order.append("manifest")
-    write_order.append("run")
-    return {
-        "status": "migrated",
-        "run": migrated_run,
-        "transaction": transaction,
-        "manifest": manifest,
-        "transaction_bytes": transaction_bytes,
-        "manifest_bytes": manifest_bytes,
-        "run_bytes": canonical_v2_json_bytes(migrated_run),
-        "write_order": write_order,
-        "writes": len(write_order),
-        "generator_calls": 0,
+        "mode": "claude_code_agent" if safe else None,
+        "agent": "ppt-svg-generator" if safe else None,
+        "isolation_argument": None,
+        "requires_git": False,
+        "error": None if safe else "generator_unavailable",
+        "git_mutations": [],
+        "poll_when_blocked": False,
     }
 
 
@@ -945,7 +430,7 @@ def negotiate_host_capability(
         "prompt_by_value",
         "fresh_history",
         "filesystem_none",
-        "tools_none",
+        "data_tools_none",
         "attribution",
         "nested_cli_required",
         "credential_probe_required",
@@ -967,7 +452,7 @@ def negotiate_host_capability(
             "prompt_by_value",
             "fresh_history",
             "filesystem_none",
-            "tools_none",
+            "data_tools_none",
             "attribution",
         )
     )
@@ -1022,254 +507,30 @@ def negotiate_host_capability(
     }
 
 
-def _validate_prompt_by_value(prompt: object, transaction: dict) -> str:
-    if not isinstance(prompt, str) or not prompt:
-        raise ValueError("complete prompt bytes are required by value")
-    separator = "## Compiled Prompt\n\n"
-    if prompt.count(separator) != 1:
-        raise ValueError("prompt envelope separator is invalid")
-    prefix, body = prompt.split(separator, 1)
-    lines = prefix.splitlines()
-    expected_title = "# {} 页面生成 Prompt".format(transaction["slide_id"])
-    if (
-        len(lines) != 13
-        or lines[0] != expected_title
-        or lines[1] != ""
-        or lines[2] != "## Snapshot metadata"
-        or lines[-1] != ""
-    ):
-        raise ValueError("prompt metadata envelope is incomplete")
-    metadata = {}
-    for line, field in zip(lines[3:12], GENERATION_PROMPT_METADATA_FIELDS):
-        marker = "- **{}**：".format(field)
-        if not line.startswith(marker) or not line[len(marker) :]:
-            raise ValueError("prompt metadata fields differ")
-        metadata[field] = line[len(marker) :]
-    if (
-        metadata["slide_id"] != transaction["slide_id"]
-        or metadata["prompt_snapshot_id"] != transaction["prompt_snapshot_id"]
-        or metadata["workspace_output_path"] != transaction["final_path"]
-        or metadata["format"] != "creative-brief-v1"
-        or not body.startswith("# Role")
-        or not body.endswith("\n")
-        or body.endswith("\n\n")
-    ):
-        raise ValueError("prompt envelope is incomplete")
-    body_sha256 = "sha256:" + hashlib.sha256(body.encode("utf-8")).hexdigest()
-    if body_sha256 != transaction["compiled_prompt_sha256"]:
-        raise ValueError("prompt body hash differs from transaction")
-    return prompt
 
 
-def schedule_epoch(
-    manifest: dict,
-    transactions: dict[str, dict],
-    capability: dict,
-) -> list[dict]:
-    validate_v2_manifest(manifest, transactions)
-    if capability.get("error") is not None:
-        return []
-    width = capability.get("selected_width")
-    if type(width) is not int or width < 1:
-        return []
-    reserved = {
-        ref for ref, transaction in transactions.items()
-        if transaction["state"] == "generating" or
-        (transaction["state"] == "compiled" and
-         (transaction["host_task_id"] is not None or transaction["host_attribution_id"] is not None))
-    }
-    available_slots = max(0, width - len(reserved))
-    if not available_slots:
-        return []
-    prompt_bytes_by_slide = capability.get("prompt_bytes_by_slide")
-    if not isinstance(prompt_bytes_by_slide, dict):
-        raise ValueError("prompt bytes by slide are required")
-    tasks = []
-    for slide_id, ref in zip(
-        manifest["ordered_slide_ids"],
-        manifest["transaction_refs"],
-    ):
-        transaction = transactions[ref]
-        if transaction["state"] != "compiled":
-            continue
-        # Old-epoch reservations remain occupied until durable host lookup
-        # resolves them; a new epoch alone never authorizes another spawn.
-        if ref in reserved:
-            continue
-        prompt = _validate_prompt_by_value(
-            prompt_bytes_by_slide.get(slide_id),
-            transaction,
-        )
-        tasks.append(
-            {
-                "slide_id": slide_id,
-                "transaction_id": transaction["transaction_id"],
-                "dispatch_epoch": manifest["dispatch_epoch"],
-                "prompt_by_value": prompt,
-                "fresh_history": True,
-                "filesystem": "none",
-                "tools": "none",
-                "output": "text",
-                "expected_fence": "xml",
-                "timeout_ms": 120000,
-                "cancellation": True,
-            }
-        )
-        if len(tasks) == available_slots:
-            break
-    return tasks
 
 
-def eligible_promotions(
-    manifest: dict,
-    transactions: dict[str, dict],
-) -> list[str]:
-    validate_v2_manifest(manifest, transactions)
-    return [
-        slide_id
-        for slide_id, ref in zip(
-            manifest["ordered_slide_ids"],
-            manifest["transaction_refs"],
-        )
-        if transactions[ref]["state"] == "validated"
-    ]
 
 
-def lowest_eligible_blocker(
-    manifest: dict,
-    transactions: dict[str, dict],
-):
-    validate_v2_manifest(manifest, transactions)
-    return next(
-        (
-            slide_id
-            for slide_id, ref in zip(
-                manifest["ordered_slide_ids"],
-                manifest["transaction_refs"],
-            )
-            if transactions[ref]["state"] == "failed"
-        ),
-        None,
-    )
 
 
-def promote_in_order(
-    manifest: dict,
-    transactions: dict[str, dict],
-    observed_final_sha256_by_slide: dict[str, str],
-) -> list[dict]:
-    refs_by_slide = dict(
-        zip(manifest["ordered_slide_ids"], manifest["transaction_refs"])
-    )
-    decisions = []
-    for slide_id in eligible_promotions(manifest, transactions):
-        transaction = transactions[refs_by_slide[slide_id]]
-        observed = observed_final_sha256_by_slide.get(slide_id)
-        if not isinstance(observed, str):
-            raise ValueError("observed final hash is required")
-        decisions.append(
-            {
-                "slide_id": slide_id,
-                "outcome": validated_final_outcome(transaction, observed),
-                "candidate_sha256": transaction["candidate_sha256"],
-                "prior_final_sha256": transaction["prior_final_sha256"],
-            }
-        )
-    return decisions
 
 
-_VISIBLE_INTERNAL_SOURCE_ID = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
-_BLOCK_ID = re.compile(r"S[0-9]+-B[1-9][0-9]*")
-_BLOCK_ID_LEAK = re.compile(r"S[0-9]+-B[1-9][0-9]*", re.IGNORECASE)
-_SOURCE_ID = re.compile(r"SRC-[0-9]+")
-_SOURCE_ID_LEAK = re.compile(r"SRC-[0-9]+", re.IGNORECASE)
+from _svg_runtime import (
+    _VISIBLE_INTERNAL_SOURCE_ID,
+    _BLOCK_ID,
+    _BLOCK_ID_LEAK,
+    _SOURCE_ID,
+    _SOURCE_ID_LEAK,
+    _is_source_attribute,
+    enrich_candidate_source_metadata,
+    fact_source_visible_text_result,
+)
 
 
-def _is_source_attribute(name: str) -> bool:
-    local_name = name.rsplit("}", 1)[-1]
-    normalized = re.sub(r"[^a-z0-9]", "", local_name.casefold())
-    return "source" in normalized
 
 
-def enrich_candidate_source_metadata(
-    svg_text: str,
-    ordered_source_ids_by_block: dict[str, list[str]],
-) -> bytes:
-    """Join transient block IDs to frozen source mappings before candidate I/O."""
-    try:
-        root = ET.fromstring(svg_text)
-    except ET.ParseError as exc:
-        raise ValueError("svg_contract_failed") from exc
-
-    block_nodes: dict[str, ET.Element] = {}
-    for element in root.iter():
-        for name, value in element.attrib.items():
-            if (
-                _is_source_attribute(name)
-                or _SOURCE_ID_LEAK.search(value or "") is not None
-                or (
-                    name != "data-block-id"
-                    and _BLOCK_ID_LEAK.search(value or "") is not None
-                )
-            ):
-                raise ValueError("fact_source_mismatch")
-        if (
-            _SOURCE_ID_LEAK.search(element.text or "") is not None
-            or _SOURCE_ID_LEAK.search(element.tail or "") is not None
-            or _BLOCK_ID_LEAK.search(element.text or "") is not None
-            or _BLOCK_ID_LEAK.search(element.tail or "") is not None
-        ):
-            raise ValueError("fact_source_mismatch")
-        if any(
-            name.casefold() == "data-block-id" and name != "data-block-id"
-            for name in element.attrib
-        ):
-            raise ValueError("fact_source_mismatch")
-        block_id = element.attrib.get("data-block-id")
-        if block_id is None:
-            continue
-        if element.tag.rsplit("}", 1)[-1] != "g" or _BLOCK_ID.fullmatch(block_id) is None:
-            raise ValueError("fact_source_mismatch")
-        if block_id in block_nodes:
-            raise ValueError("fact_source_mismatch")
-        block_nodes[block_id] = element
-
-    if set(block_nodes) != set(ordered_source_ids_by_block):
-        raise ValueError("fact_source_mismatch")
-
-    namespace = "http://www.w3.org/2000/svg"
-    if root.tag.startswith("{"):
-        namespace = root.tag[1:].split("}", 1)[0]
-    ET.register_namespace("", namespace)
-    group_tag = f"{{{namespace}}}g" if namespace else "g"
-
-    for block_id, node in block_nodes.items():
-        source_ids = ordered_source_ids_by_block[block_id]
-        if (
-            not isinstance(source_ids, list)
-            or len(source_ids) != len(set(source_ids))
-            or any(
-                not isinstance(source_id, str)
-                or _SOURCE_ID.fullmatch(source_id) is None
-                for source_id in source_ids
-            )
-        ):
-            raise ValueError("fact_source_mismatch")
-        del node.attrib["data-block-id"]
-        if not source_ids:
-            continue
-        node.set("data-source-id", source_ids[0])
-        current = node
-        for source_id in source_ids[1:]:
-            children = list(current)
-            wrapper = ET.Element(group_tag, {"data-source-id": source_id})
-            for child in children:
-                current.remove(child)
-                wrapper.append(child)
-            current.append(wrapper)
-            current = wrapper
-
-    return ET.tostring(root, encoding="utf-8", xml_declaration=False) + b"\n"
 
 
 def coordinator_enrich_hash_write(
@@ -1291,26 +552,6 @@ def coordinator_enrich_hash_write(
     return persisted, candidate_sha256
 
 
-def fact_source_visible_text_result(svg_text: str):
-    try:
-        root = ET.fromstring(svg_text)
-    except ET.ParseError:
-        return "svg_contract_failed"
-    visible = " ".join(
-        "".join(element.itertext())
-        for element in root.iter()
-        if isinstance(element.tag, str)
-        and element.tag.rsplit("}", 1)[-1] == "text"
-    )
-    if _VISIBLE_INTERNAL_SOURCE_ID.search(visible):
-        return "fact_source_mismatch"
-    human_citation_visible = re.search(
-        r"(?i)(?:来源\s*[:：]|source\s*:)",
-        visible,
-    ) is not None
-    if human_citation_visible:
-        return "fact_source_mismatch"
-    return None
 
 
 def validate_span(span: dict) -> None:
@@ -1511,6 +752,10 @@ class VisualGenerationContractTests(unittest.TestCase):
         self.transaction = repo_root() / "tests" / "fixtures" / "visual-generation-transaction-cases.json"
         self.batch_v2 = repo_root() / "tests" / "fixtures" / "visual-generation-batch-v2-cases.json"
         self.host_capabilities = repo_root() / "tests" / "fixtures" / "visual-generation-host-capability-cases.json"
+        self.claude_isolation = (
+            repo_root() / "tests" / "fixtures" / "claude-code-isolation-cases.json"
+        )
+        self.host_adapters = skill_root() / "references" / "host-isolation-adapters.md"
         self.timing_cases = repo_root() / "tests" / "fixtures" / "visual-generation-timing-cases.json"
 
     def test_telemetry_span_schema_and_dag_critical_path(self):
@@ -1636,6 +881,160 @@ class VisualGenerationContractTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, combined)
 
+    def test_claude_code_adapter_is_git_independent_and_never_uses_worktree(self):
+        payload = json.loads(read_text(self.claude_isolation))
+        self.assertEqual(payload["schema_version"], 1)
+        cases = {case["id"]: case for case in payload["cases"]}
+        self.assertEqual(payload["case_ids"], list(cases))
+
+        successful_ids = (
+            "plain-non-git-ordinary-agent",
+            "unborn-head-ordinary-agent",
+            "committed-git-ordinary-agent",
+        )
+        successful = []
+        for case_id in payload["case_ids"]:
+            case = cases[case_id]
+            with self.subTest(case=case_id):
+                result = negotiate_claude_code_adapter(case)
+                self.assertEqual(result, case["expected"])
+                self.assertFalse(result["requires_git"])
+                self.assertIsNone(result["isolation_argument"])
+                self.assertEqual(result["git_mutations"], [])
+                self.assertFalse(result["poll_when_blocked"])
+                self.assertTrue(case["observation"]["ambient_claude_md_allowed"])
+                self.assertTrue(case["observation"]["ambient_git_status_allowed"])
+                self.assertFalse(
+                    case["observation"]["parent_conversation_history"]
+                )
+                if result["error"] is not None:
+                    self.assertEqual(
+                        case["expected_side_effects"],
+                        {
+                            "blocker_writes": 1,
+                            "prompt_writes": 0,
+                            "transaction_writes": 0,
+                            "manifest_writes": 0,
+                            "candidate_writes": 0,
+                            "svg_writes": 0,
+                            "generator_calls": 0,
+                        },
+                    )
+                else:
+                    self.assertEqual(
+                        case["expected_side_effects"],
+                        {
+                            "blocker_writes": 0,
+                            "prompt_writes": 0,
+                            "transaction_writes": 0,
+                            "manifest_writes": 0,
+                            "candidate_writes": 0,
+                            "svg_writes": 0,
+                            "generator_calls": 0,
+                        },
+                    )
+            if case_id in successful_ids:
+                successful.append(result)
+        self.assertEqual(successful[0], successful[1])
+        self.assertEqual(successful[1], successful[2])
+
+        agent_path = (
+            repo_root()
+            / "hosts"
+            / "claude-code"
+            / "agents"
+            / "ppt-svg-generator.md"
+        )
+        prompt = "# complete prompt\nReturn one SVG."
+        dispatch = {
+            "subagent_type": parse_frontmatter(agent_path)["name"],
+            "prompt": prompt,
+        }
+        self.assertEqual(dispatch["subagent_type"], "ppt-svg-generator")
+        self.assertEqual(dispatch["prompt"], prompt)
+        self.assertNotIn("isolation", dispatch)
+        self.assertNotIn("prompt_path", dispatch)
+
+        for field in ("ambient_claude_md_allowed", "ambient_git_status_allowed"):
+            rejected = copy.deepcopy(cases["plain-non-git-ordinary-agent"])
+            rejected["observation"][field] = False
+            with self.subTest(ambient_policy=field):
+                self.assertEqual(
+                    negotiate_claude_code_adapter(rejected)["error"],
+                    "generator_unavailable",
+                )
+
+    def test_claude_adapter_contract_names_agent_and_forbids_git_unlocks(self):
+        text = read_text(self.host_adapters)
+        for token in (
+            "ppt-svg-generator",
+            "普通 fresh-context subagent",
+            "省略 `isolation`",
+            "data_tools=none",
+            "TodoWrite",
+            "`CLAUDE.md`",
+            "父会话的 Git status",
+            "不提供 byte-pure prompt-only",
+            "结构性不可用",
+            "不得轮询",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, text)
+        for forbidden_action in (
+            "`git init`",
+            "`git add`",
+            "`git commit`",
+            "`git push`",
+            "`isolation: worktree`",
+            "`isolation: remote`",
+        ):
+            with self.subTest(forbidden_action=forbidden_action):
+                self.assertRegex(
+                    text,
+                    r"(?:禁止|不得)[^。\n]{0,160}" + re.escape(forbidden_action),
+                )
+
+    def test_generator_unavailable_has_closed_run_level_blocker(self):
+        blocker = {
+            "state": "generator_unavailable",
+            "slide_id": "S01",
+            "reason": "generator_unavailable",
+            "selected_style_id": "minimal-business",
+            "resource": "none",
+            "storyboard_snapshot_id": "sha256:" + "1" * 64,
+            "theme_snapshot_id": "sha256:" + "2" * 64,
+            "status": "active",
+        }
+        self.assertEqual(set(blocker), VISUAL_GENERATION_BLOCKER_FIELDS)
+        self.assertTrue(is_closed_blocker_tuple(blocker))
+        for field, value in (
+            ("state", "generation_prompt_unavailable"),
+            ("reason", "prompt_file_missing"),
+            ("resource", "assets/styles/minimal-business/prompt.md"),
+        ):
+            mutated = copy.deepcopy(blocker)
+            mutated[field] = value
+            with self.subTest(field=field, value=value):
+                self.assertFalse(is_closed_blocker_tuple(mutated))
+
+        combined = "\n".join(
+            (
+                read_text(self.artifact),
+                read_text(skill_root() / "references" / "workflow.md"),
+                read_text(skill_root() / "references" / "redesign-prompt.md"),
+            )
+        )
+        for token in (
+            "`state: generator_unavailable`",
+            "`reason: generator_unavailable`",
+            "`resource: none`",
+            "manifest 写入",
+            "显式 resume",
+            "不得轮询",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, combined)
+
     def test_host_capability_matrix_is_portable_and_fail_closed(self):
         self.assertTrue(
             self.host_capabilities.is_file(),
@@ -1674,7 +1073,9 @@ class VisualGenerationContractTests(unittest.TestCase):
                         {
                             "prompt_writes": 0,
                             "transaction_writes": 0,
+                            "manifest_writes": 0,
                             "candidate_writes": 0,
+                            "svg_writes": 0,
                             "generator_calls": 0,
                         },
                     )
@@ -1772,7 +1173,7 @@ class VisualGenerationContractTests(unittest.TestCase):
                     "prompt_by_value",
                     "fresh_history",
                     "filesystem",
-                    "tools",
+                    "data_tools",
                     "output",
                     "expected_fence",
                     "timeout_ms",
@@ -1781,7 +1182,7 @@ class VisualGenerationContractTests(unittest.TestCase):
             )
             self.assertTrue(task["fresh_history"])
             self.assertEqual(task["filesystem"], "none")
-            self.assertEqual(task["tools"], "none")
+            self.assertEqual(task["data_tools"], "none")
             self.assertEqual(task["output"], "text")
             self.assertEqual(task["expected_fence"], "xml")
             self.assertNotIn("prompt_path", task)
@@ -1826,13 +1227,14 @@ class VisualGenerationContractTests(unittest.TestCase):
             "prompt_by_value",
             "fresh_history=true",
             "filesystem=none",
-            "tools=none",
+            "data_tools=none",
             "batch_width",
             "width 1",
             "generator_unavailable",
             "host_attribution_id",
             "host_task_id",
             "非 Git",
+            "host-isolation-adapters.md",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, combined)

@@ -5,11 +5,14 @@ import math
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import struct
+import stat
 import zlib
 from _xml_safety import parse_xml
+from _artifact_firewall import audit_artifacts
 
 STAGES = ('research', 'outline', 'storyboard', 'manuscript_review', 'theme',
           'anchor', 'production', 'qa', 'complete')
+WORKFLOW_STAGES = ('brief',) + STAGES
 MANUSCRIPT_FILES = ('.ppt-pilot/简报.md', '.ppt-pilot/研究.md', '.ppt-pilot/来源.md',
                     '大纲.md', '.ppt-pilot/故事板.md')
 
@@ -61,7 +64,13 @@ def unique_object(pairs):
 
 class Gate:
     def __init__(self, root):
-        self.root = Path(root).resolve(strict=True)
+        root = Path(root).absolute()
+        for component in (root,) + tuple(root.parents):
+            info = component.lstat()
+            require(not stat.S_ISLNK(info.st_mode) and not (
+                getattr(info, 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT),
+                'unsafe_evidence_path', 'brief', 'Replace linked run paths with owned directories.')
+        self.root = root.resolve(strict=True)
         self.stage = 'brief'
         self.hashes = {}
 
@@ -78,7 +87,12 @@ class Gate:
         cursor = self.root
         for part in parts:
             cursor = cursor / part
-            require(not cursor.is_symlink() and not getattr(cursor, 'is_junction', lambda: False)(),
+            try:
+                info = cursor.lstat()
+            except FileNotFoundError:
+                continue
+            require(not stat.S_ISLNK(info.st_mode) and not (
+                    getattr(info, 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT),
                     'unsafe_evidence_path', self.stage, 'Replace linked evidence with an owned regular file.')
         require(path.resolve().is_relative_to(self.root), 'unsafe_evidence_path', self.stage,
                 'Keep evidence inside this run.')
@@ -149,6 +163,31 @@ class Gate:
                 'invalid_schema', 'brief', 'Use supported run schema_version 1.')
         self.run = run
         return run
+
+    def conformance(self):
+        """Reject host-invented workflow branches and premature PPTX output."""
+        run = self.run
+        require(run.get('stage') in WORKFLOW_STAGES, 'workflow_escape_state', 'theme',
+                'Restore a canonical PPT Pilot stage before continuing.')
+        escape_fields = sorted(key for key in run if
+                               key.startswith('native_') or key in {
+                                   'anchor_plan', 'execution_hold', 'run_level_generator_blocker'})
+        require(not escape_fields, 'workflow_escape_state', 'theme',
+                'Archive noncanonical control fields and resume the canonical SVG workflow: ' +
+                ', '.join(escape_fields))
+
+        source_path = None
+        source = run.get('source_deck')
+        if isinstance(source, dict) and string(source.get('source_path')):
+            candidate = Path(source['source_path'])
+            if candidate.is_absolute():
+                source_path = candidate.resolve()
+
+        errors = audit_artifacts(self.root, run['stage'], source_path)
+        if errors:
+            error = GateError(errors[0]['code'], errors[0]['reentry_stage'], errors[0]['next_action'])
+            error.error.update(errors[0])
+            raise error
 
     def recovery(self, resume_active=False):
         run = self.run
@@ -291,6 +330,24 @@ def check_run(run_dir, before):
     return _check_run(run_dir, before)
 
 
+def audit_run(run_dir):
+    """Audit workflow control state and owned PPTX side effects without mutation."""
+    result = {'status': 'BLOCKED', 'before': 'audit', 'errors': []}
+    gate = None
+    try:
+        gate = Gate(run_dir)
+        gate.load_run()
+        gate.conformance()
+        result['status'] = 'PASS'
+    except GateError as error:
+        result['errors'].append(error.error)
+    except (OSError, ValueError, TypeError, KeyError, RecursionError) as error:
+        result['errors'].append({'code': 'invalid_or_unreadable_evidence',
+                                 'reentry_stage': gate.stage if gate else 'brief',
+                                 'next_action': 'Repair unreadable or malformed evidence (' + type(error).__name__ + ').'})
+    return result
+
+
 def check_active_batch(run_dir):
     """Revalidate import inputs before existing active-batch recovery side effects."""
     return _check_run(run_dir, None, resume_active=True)
@@ -303,14 +360,16 @@ def _check_run(run_dir, before, resume_active=False):
         require(resume_active or before in STAGES, 'invalid_stage', 'brief', 'Choose a supported before stage.')
         gate = Gate(run_dir)
         run = gate.load_run()
+        gate.conformance()
         if resume_active:
             before = run.get('stage')
             result['before'] = before
-            gate.recovery(resume_active=True)
-            gate.active_batch()
         if 'source_deck' not in run:
             result['status'] = 'NOT_APPLICABLE'
             return result
+        if resume_active:
+            gate.recovery(resume_active=True)
+            gate.active_batch()
         if not resume_active:
             gate.recovery()
         require(run.get('mode') in ('guided', 'auto'), 'invalid_schema', 'brief', 'Use guided or auto mode.')
@@ -336,6 +395,7 @@ def snapshot_run(run_dir):
     try:
         gate = Gate(run_dir)
         gate.load_run()
+        gate.conformance()
         pending = [gate.root]
         while pending:
             for path in pending.pop().iterdir():

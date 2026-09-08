@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "adapters": [
+    {
+      "host": "claude-code",
+      "adapter_id": "ppt-svg-generator",
+      "adapter_version": "1.0.0",
+      "adapter_digest": "sha256:6dfe51421c974f8f19f9b6c1ea1e4d1596792255115e100977c217b54afe62e7"
+    }
+  ]
+}

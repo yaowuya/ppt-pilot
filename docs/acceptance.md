@@ -6,7 +6,7 @@
 
 ## 前置条件
 
-1. 把未经修改的 `skills/ppt-start/` 与 `skills/ppt-editable/` 完整复制或链接到待测宿主的已记录发现路径；每个源/安装树分别记录文件数和摘要。
+1. 把未经修改的 `skills/ppt-start/` 与 `skills/ppt-editable/` 完整复制或链接到待测宿主的已记录发现路径；Claude Code 还必须把 `hosts/claude-code/agents/ppt-svg-generator.md` 安装到已记录的 Agent 发现路径。每个源/安装树与 Agent 文件分别记录摘要。
 2. 每个场景都从干净工作区开始。不得把运行产物写入已安装 Skill 或宿主配置目录。
 3. 执行 `source-driven.md` 前，把仓库中的 `tests/inputs/` 复制到干净工作区的 `inputs/`。这些文件明确标注为合成验收样例，绝不能描述成真实研究或客户数据。
 4. 执行 `resume-after-review.md` 前，创建 `ppt-output/resume-approved/`，把 `tests/fixtures/run-review-approved.json` 复制为其中的 `run.json`，再把 `tests/fixtures/resume-approved/` 的六个文件复制到同一目录，并把 `tests/inputs/` 复制到工作区的 `inputs/`。这是专门验证只读恢复能力的**旧英文运行兼容夹具**，所有文件名与内容必须保持不变，接收宿主不得自动重命名或迁移。
@@ -66,7 +66,7 @@ try {
 - deterministic preflight 与 fresh-isolation capability negotiation 在任何 prompt／transaction／candidate write 前完成；
 - active `visual_generation_blocker` 修复且 preflight 成功后，必须先原子移除 blocker、原样保留可能存在的 schema-v1 owner并重新进入全局顺序；不得跨过 v1 零模型迁移创建新 transaction；
 - transaction→manifest→`run.json.active_visual_generation_batch` pointer-last，manifest 不复制页面 state，cursor 不能授权；
-- native/remote isolated task 只收完整 `prompt_by_value`、fresh history、filesystem none、tools none；无 fresh isolation 零生产写入，缺 concurrency/lookup 降为 width 1，非 Git 不降级；
+- Claude Code 通过已注册的普通 `ppt-svg-generator` 接收完整 `prompt_by_value`，不传 worktree/remote isolation；抽象 isolated task 保持 fresh history、`filesystem=none`、`data_tools=none`。Claude 自动加载的 `CLAUDE.md`／Git status 必须作为 ambient host context 忽略，不宣称 byte-pure prompt-only；无安全 adapter 除闭合 run-level blocker 外零生产写入，缺 concurrency/lookup 降为 width 1，非 Git 不降级；
 - generator 与 per-slide validation 可重叠；coordinator 按 `ordered_slide_ids` 串行 promotion，并只发布最低 visible blocker；
 - `assets/styles/registry.json` 与 `canway-midyear-review` manifest/tokens/STYLE 的抽象边界，manifest 版本 `1.3.0`；
 - 内部 `SRC-<digits>` 不得成为可见文字，机器 `data-source-id` 必须保留；显式人类 citation 可显示名称／URL 但省略内部 ID；
@@ -96,7 +96,7 @@ try {
 
 - `static package`：本地测试和文件检查只证明包结构、书面契约和 fixture oracle，并验证 direct compile、单一活动 prompt template、schema-v2 per-slide transactions／batch manifest、host capability、ordered publication 与文档一致；测试中的 resolver／hash oracle 不是运行时代码，也不能证明宿主 Agent 会按这些规则执行。
 - `EVIDENCE_CLASS: DIAGNOSTIC`：诊断压力提示（例如 style isolation、registry identity-recovery、style blocker）只暴露风险或辅助复测，不得作为 Claude Code、Codex、fresh generator、浏览器或 PowerPoint 验收通过依据。
-- `deployment hash`：只证明部署的 `skills/ppt-start/` 与仓库源一致；`ppt-editable` 也必须以独立 per-Skill 摘要证明其安装树与 `skills/ppt-editable/` 一致。它不证明运行行为，且任何 `*.bak-*` 都必须位于 `skills/` 扫描根之外。
+- `deployment hash`：只证明部署的 `skills/ppt-start/` 与仓库源一致；`ppt-editable` 也必须以独立 per-Skill 摘要证明其安装树与 `skills/ppt-editable/` 一致。Claude Code 还需单独证明已安装 `ppt-svg-generator.md` 与仓库源一致。它不证明运行行为，且任何 `*.bak-*` 都必须位于扫描根之外。
 - `real host`：只有记录真实宿主版本、启动命令、transcript／协作日志、运行目录和必要截图／PPTX 的证据，才能更新当前 Claude Code、Codex、fresh、浏览器或 PowerPoint 行。
 
 Task 10 聚焦 GREEN 命令固定为：
@@ -134,7 +134,18 @@ python -m unittest discover -s tests -v
 
 ### Claude Code
 
-安装两个 Skill 到 `~/.claude/skills/<skill-id>/` 或 `.claude/skills/<skill-id>/`。分别使用 `/ppt-start` 与 `/ppt-editable` 显式启动；后者必须以一个完成运行为输入。记录精确 Claude Code 版本、发现证据与行为证据。
+安装 Skill 到 `~/.claude/skills/<skill-id>/` 或 `.claude/skills/<skill-id>/`，并安装 `ppt-svg-generator` 到 `~/.claude/agents/ppt-svg-generator.md` 或 `.claude/agents/ppt-svg-generator.md`；新增或更新 Agent 后重新开启会话。分别使用 `/ppt-start` 与 `/ppt-editable` 显式启动；后者必须以一个完成运行为输入。记录精确 Claude Code 版本、发现证据与行为证据。
+
+非 Git SVG isolation 的真实宿主验收必须记录：
+
+1. 在一个无 `.git` 目录的临时普通目录启动全新 Claude Code 会话；
+2. 运行前后均确认 `.git` 不存在；
+3. transcript 证明选择普通 `ppt-svg-generator`，且未请求 worktree 或 remote isolation；
+4. 记录 Claude 自动加载的 `CLAUDE.md`／Git status ambient context；使用不属于页面 Prompt 的无害 canary，确认 compiled Prompt 与返回 SVG 都不包含或派生该 canary；
+5. 完整 Prompt 按值传入，Agent 只返回 SVG 文本，只有 coordinator 写入运行目录；
+6. 保存宿主版本、运行目录、transcript 与 attribution/task ID。
+
+仓库静态测试只能证明 packaged adapter 和路由契约；没有上述 real host 证据时，结果保持 `PENDING`。
 
 ### Codex
 
@@ -224,6 +235,8 @@ python -m unittest discover -s tests -v
 
 > 2026-08-19 的宿主行为证据使用旧 Skill 标识 `ppt-pilot` 和当时的英文指令生成。它们保留为历史行为证据，不能证明重命名、中文化后的 `ppt-start` 在当前宿主中可发现或表现相同。浏览器 SVG 证据仍适用于未改变的 SVG 资产；当前宿主调用场景必须使用新命令重新执行后才能形成新的当前通过结论。
 
+2026-09-07 在 `<EXAMPLE_PROJECT>/ppt-output/example-restyle-run/` 捕获一例 DeepSeek Harness 负面行为：运行仍处于 `anchor` 时创建两个根目录 PPTX，并写入 `native_delivery`、`run_level_generator_blocker` 等非契约状态。由于该运行没有保存精确 harness 版本和完整 transcript，它不能填入下表作为正式版本验收；它作为本次 `--audit-run` 回归夹具的现实来源。修复后的 DeepSeek 行仍保持 PENDING，直到以精确版本、发现证据、调用 attribution 和完整运行目录重跑。
+
 | 场景 | 方向／宿主 | 运行日期 | 宿主版本 | 结果 | 证据路径 |
 |---|---|---|---|---|---|
 | 仅主题 guided | Claude Code | — | — | PENDING | — |
@@ -234,6 +247,7 @@ python -m unittest discover -s tests -v
 | 单页修订 | Claude Code | — | — | PENDING | — |
 | 文稿 inline fallback | Claude Code | — | — | PENDING | — |
 | schema-v2 isolated generation | Claude Code | — | — | PENDING | — |
+| Claude Code 非 Git SVG isolation | Claude Code | — | — | PENDING — packaged adapter added; real restarted-host transcript required | — |
 | 仅主题 guided | Codex | — | — | PENDING | — |
 | 资料驱动 | Codex | — | — | PENDING | — |
 | 审查阻断（历史旧标识） | Codex | 2026-08-19 | Codex CLI 0.146.1 | FAIL — 空等待并虚构子上下文／结果来源 | [`codex-blocker-v3-evaluation.md`](../acceptance-evidence/2026-08-19/host-runs/codex-blocker-v3/codex-blocker-v3-evaluation.md) |

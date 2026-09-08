@@ -71,7 +71,17 @@ python <skill-dir>/scripts/ppt_source_intake.py --source <旧稿.pptx绝对路�
 
 ## 3. 可执行阶段检查
 
+创建最小 `run.json` 后、任何入口继续之前，先执行一次独立运行审计：
+
+```text
+python <skill-dir>/scripts/ppt_workflow_gate.py --run-dir <run绝对路径> --audit-run
+```
+
+它不要求当前运行一定是外部旧稿，并且只读检查：顶层 stage/control 是否仍属于规范工作流；是否出现 `native_*`、`run_level_generator_blocker`、`anchor_plan`、`execution_hold` 等宿主自创旁路；`complete` 前是否写入绑定源稿之外的 `.pptx`；完成后的 `.pptx` 是否只位于 `delivery/editable/`。发现旁路时返回 `workflow_escape_state`、`precomplete_pptx` 或 `pptx_outside_delivery` 并停止。违规产物只能在保留审计副本后移出运行目录，再从 `theme` 或报告的更早阶段恢复；不得删除痕迹后沿用旁路状态。
+
 每次进入下表阶段**之前**执行，PASS 才进行阶段工作。每个新的 anchor／production 批次在生成 prompt、transaction、candidate 或调用 generator **之前**重新检查；恢复时先处理原全局恢复链，再在合法重入点检查，不清除或跨过 durable state。
+
+所有 `--before` 与 `--resume-active-batch` 调用都会先执行上述运行审计。因此 `before: anchor` 的上游材料 PASS 不再能够掩盖已提前生成的 PPTX 或平行 native control state。
 
 活跃批次是一个明确的重入点：按原恢复契约验证 manifest／per-slide owner 后，在任何 generator dispatch、candidate adoption 或 final promotion **之前**运行 `python <skill-dir>/scripts/ppt_workflow_gate.py --run-dir <run> --resume-active-batch`。它要求当前确有 active pointer，并按真实 `run.stage: anchor|production` 选择累计输入检查；前四类更高优先级控制仍阻断，不能以此跳过 pending、blocker 或 v1 迁移。PASS 只允许继续原 owner 的恢复前置检查，不替代 transaction／候选 hash 校验，不清除 pointer。源稿变更等失败时保留 owner 和 previous final，在对应 owner 内按既有阻断／失效协议处理，禁止先提升旧候选再检查。普通 `--before` 遇 active pointer 仍要求转入此恢复路径。
 
@@ -93,7 +103,7 @@ python <skill-dir>/scripts/ppt_workflow_gate.py --run-dir <run绝对路径> --be
 
 检查 JSON 的 `status` 和进程退出码。`BLOCKED` 返回退出码 2，`errors[]` 含 `code`、`reentry_stage`、`next_action`；向用户报告这些信息，并返回最早受影响阶段修复，不能把失败记录后继续生成。`NOT_APPLICABLE` 仅表示不是外部旧稿运行，不是整套工作流 PASS；当请求实际含外部旧稿时得到此状态，先修复缺失的 source_deck 绑定。
 
-`--snapshot`、`--before`、`--resume-active-batch` 三选一。`--snapshot` 仅输出当前文件 hash 供核对，**不批准、不写状态、不自动补审查证据**。不得事后取新 hash 给旧 PASS“续期”。所有检查都只读；gate 校验源 hash 和已审计库存的一致性，不重新解析原稿来认证手工伪造的库存。因此必须实际运行 intake 并进行源稿核对。脚本不能证明对话中的批准真实发生，也不能阻止 Agent 在其他工具中任意写文件；仍须按宿主真实交互、审查和生成日志验收。
+`--audit-run`、`--snapshot`、`--before`、`--resume-active-batch` 四选一。`--snapshot` 仅输出当前文件 hash 供核对，**不批准、不写状态、不自动补审查证据**。不得事后取新 hash 给旧 PASS“续期”。所有检查都只读；gate 校验源 hash 和已审计库存的一致性，不重新解析原稿来认证手工伪造的库存。因此必须实际运行 intake 并进行源稿核对。脚本不能阻止 Agent 在检查后的下一次工具调用中违规写文件；每个阶段重入必须重新检查，并仍须按宿主真实交互、审查和生成日志验收。
 
 ## 4. 检查点证据由谁更新
 

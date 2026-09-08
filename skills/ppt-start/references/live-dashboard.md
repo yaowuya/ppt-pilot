@@ -4,7 +4,7 @@
 
 ## 启动与生命周期
 
-从当前已加载 SKILL.md 的实际位置解析 scripts/ppt_dashboard.py，不能假定宿主工作目录就是插件源码目录。先确定唯一运行目录，新运行创建目录后即可启动，允许尚无 run.json；不能为了展示而擅自创建第二个演示运行。
+从当前已加载 SKILL.md 的实际位置解析 scripts/ppt_dashboard.py，不能假定宿主工作目录就是插件源码目录。先确定唯一运行目录。新建空运行创建目录后即可启动，允许尚无 run.json；已有运行先审计，只有 `ppt_workflow_gate.py --audit-run` PASS 后才可启动或复用。审计 BLOCKED 时不启动或重启 dashboard，因为服务会写元数据；同时停止其他写入。不能为了展示而擅自创建第二个演示运行。
 
 使用可用的 Python 3.9+ 执行（Windows 可用 `py -3` 替代 python，macOS/Linux 可用 python3）：
 

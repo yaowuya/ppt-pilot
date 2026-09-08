@@ -1,0 +1,25 @@
+{
+  "kind": "pre_deployment_readonly_evidence",
+  "final_install_performed": false,
+  "containment_scan": {
+    "status": "PASS",
+    "explicit_tree_roots": 23,
+    "entries_checked": 2165,
+    "reparse_entries": 0,
+    "scope": "Known PPT Skill trees, selected backup roots and DeepSeek plugin; ancestor checks and no-follow descendant traversal. No drive or unrelated plugin-cache scan."
+  },
+  "codex_cache_preservation": [
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/.git/HEAD",
+      "sha256": "28d25bf82af4c0e2b72f50959b2beb859e3e60b9630a5e8c603dad4ddb2b6e80"
+    },
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/.git/index",
+      "sha256": "ac3d4ee983aa341e9d81533944efab92dc9174891b81ab2464c22ee3386f9eac"
+    },
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/README.md",
+      "sha256": "7e41a370451d7d90e722073748fecc224133bfa500295fbb627cb6985733af8d"
+    }
+  ]
+}

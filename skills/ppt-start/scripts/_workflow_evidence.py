@@ -1,4 +1,5 @@
 """Phase evidence checks used by the additive source workflow gate."""
+from _run_store import anchor_snapshot_id
 from _workflow_gate import MANUSCRIPT_FILES, object_value, require, string, string_list
 
 
@@ -132,6 +133,9 @@ def anchor(gate):
     require(value.get('status') == expected, 'anchor_not_approved', gate.stage,
             'Approve guided anchors or record validated auto anchors.')
     if gate.run['mode'] == 'guided':
+        snapshot_id = anchor_snapshot_id(value)
+        require(value.get('artifact_snapshot_id') == snapshot_id, 'approval_stale', gate.stage,
+                'Reapprove the digest of the current sample files, target theme and reviewed manuscript.')
         approval(gate, 'anchor', anchor=value)
 
 

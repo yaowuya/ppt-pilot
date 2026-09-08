@@ -23,7 +23,7 @@
 - 旧运行兼容：已存在的 `.ppt-pilot/visual-briefs/` 惰性保留（只读历史，不迁移不重写）；已存在 `generation-prompts/` 只读保留；新运行不再创建 visual-briefs 目录
 - 锚点流程保留：两页锚点（封面 + 密度最高/最困难页）直接由 storyboard + theme.json 编译，guided 预渲染证据后提出锚点批准问题
 - 提交信息使用仓库既有风格（`fix(contracts):` / `feat(tools):` / `docs(spec):` 前缀），逐任务原子提交
-- 演示用运行目录（`ppt-output/demo-gate-check/`、旧 `D:\05-AI\...` 运行）不是契约测试目标，不修改
+- 演示用运行目录（`ppt-output/demo-gate-check/`、旧 `<EXPERIMENTS_ROOT>/...` 运行）不是契约测试目标，不修改
 
 ---
 

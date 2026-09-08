@@ -32,7 +32,7 @@
 
 - RED：5 tests，6 failures，1.857s。未显式启用的 5 个环境变量变体均没有 skip；production 运行触达 Office probe（被 tripwire 阻止）。
 - GREEN：同命令 `py -3 -m unittest discover -s tests -p test_office_activation_boundaries.py -q`，5 tests，0 failures，1.723s。
-- Python 3.9 优化模式：`D:/ProgramFiles/miniconda3/envs/py39/python.exe -O -m unittest discover -s tests -p test_office_activation_boundaries.py -q`，5 tests，0 failures，2.205s。
+- Python 3.9 优化模式：`<PYTHON_39> -O -m unittest discover -s tests -p test_office_activation_boundaries.py -q`，5 tests，0 failures，2.205s。
 - 第一次全量：690 tests，9 skipped，1 failure，76.403s。主任务同时运行 Python 3.9 测试，临时 `.pyc.<id>` 被安装摘要测试枚举后消失；失败来自字节码缓存竞争。没有修改安装器来隐藏失败。
 - 串行复验：设置仅当前测试进程环境 `PYTHONDONTWRITEBYTECODE=1` 后运行 `py -3 -B -m unittest discover -s tests -q`，**690 tests，9 skipped，0 failures，67.548s**。此时真实 Office opt-in 环境变量未设置，所有 live COM 路径保持未启用。存在一个 `TemporaryDirectory` 自动清理 ResourceWarning，不影响测试结果。
 

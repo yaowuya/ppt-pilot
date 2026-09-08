@@ -1,0 +1,252 @@
+{
+  "source_commit": "219c13d",
+  "version": "1.0.0+codex.20260908.219c13d",
+  "verified_at": "2026-09-08T00:06:29.8628291+08:00",
+  "targets": [
+    {
+      "path": "<USER_HOME>/.agents/skills/ppt-start",
+      "files": 75,
+      "digest": "dcb8f48eb12a189ce0cdbbecb9934aa79cc899cb5e1c0f5c1d9e433677b91666",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.agents/skill-backups/ppt-start.bak-20260908000519-12beb66f558945c8a004462672041061"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.agents/skills/ppt-editable",
+      "files": 24,
+      "digest": "93700baa1ed3a0b5cd70188a7a1b1fafe917a667b3baad58e0e3906193396985",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.agents/skill-backups/ppt-editable.bak-20260908000519-4cde517bf0c44dcaa218c5794bd8d65d"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.agents/skills/ppt-style-extract",
+      "files": 16,
+      "digest": "cf1196d53658c0ffe3203500c17139c2933c10aec6df61edce147e9c6aa595b2",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.agents/skill-backups/ppt-style-extract.bak-20260908000519-28d911f402bf439384318f2448f7d657"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.claude/skills/ppt-start",
+      "files": 75,
+      "digest": "dcb8f48eb12a189ce0cdbbecb9934aa79cc899cb5e1c0f5c1d9e433677b91666",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.claude/skill-backups/ppt-start.bak-20260908000519-bca0750379314cd885bb55e755b843c9"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.claude/skills/ppt-editable",
+      "files": 24,
+      "digest": "93700baa1ed3a0b5cd70188a7a1b1fafe917a667b3baad58e0e3906193396985",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.claude/skill-backups/ppt-editable.bak-20260908000519-30f9d0ae526d4e45b61b5c2373bde26d"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.claude/skills/ppt-style-extract",
+      "files": 16,
+      "digest": "cf1196d53658c0ffe3203500c17139c2933c10aec6df61edce147e9c6aa595b2",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.claude/skill-backups/ppt-style-extract.bak-20260908000519-69be6c0f84374f8dafdd36865fdf1db1"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<REPO_ROOT>/.agents/skills/ppt-start",
+      "files": 75,
+      "digest": "dcb8f48eb12a189ce0cdbbecb9934aa79cc899cb5e1c0f5c1d9e433677b91666",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<REPO_ROOT>/.agents/skill-backups/ppt-start.bak-20260908000519-af25ad471b4944c49766d57d71dfcecd"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<REPO_ROOT>/.agents/skills/ppt-editable",
+      "files": 24,
+      "digest": "93700baa1ed3a0b5cd70188a7a1b1fafe917a667b3baad58e0e3906193396985",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<REPO_ROOT>/.agents/skill-backups/ppt-editable.bak-20260908000519-afca6ee6b2e04e748cecb5d41a2b4951"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<REPO_ROOT>/.agents/skills/ppt-style-extract",
+      "files": 16,
+      "digest": "cf1196d53658c0ffe3203500c17139c2933c10aec6df61edce147e9c6aa595b2",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<REPO_ROOT>/.agents/skill-backups/ppt-style-extract.bak-20260908000519-bbca2fb0103048c99e017ab706bef32f"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<REPO_ROOT>/.claude/skills/ppt-start",
+      "files": 75,
+      "digest": "dcb8f48eb12a189ce0cdbbecb9934aa79cc899cb5e1c0f5c1d9e433677b91666",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<REPO_ROOT>/.claude/skill-backups/ppt-start.bak-20260908000519-9d55e52c655c40d3bb7d2fa82f54f972"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<REPO_ROOT>/.claude/skills/ppt-editable",
+      "files": 24,
+      "digest": "93700baa1ed3a0b5cd70188a7a1b1fafe917a667b3baad58e0e3906193396985",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<REPO_ROOT>/.claude/skill-backups/ppt-editable.bak-20260908000519-0795d4e0c46548aeb102efd30ec359f4"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<REPO_ROOT>/.claude/skills/ppt-style-extract",
+      "files": 16,
+      "digest": "cf1196d53658c0ffe3203500c17139c2933c10aec6df61edce147e9c6aa595b2",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<REPO_ROOT>/.claude/skill-backups/ppt-style-extract.bak-20260908000519-847a4287723a4916871c87a98a9095ce"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/skills/ppt-start",
+      "files": 75,
+      "digest": "dcb8f48eb12a189ce0cdbbecb9934aa79cc899cb5e1c0f5c1d9e433677b91666",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/skill-backups/ppt-start.bak-20260908000519-dbe626779faf49d9a0384961a122f7a1"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/skills/ppt-editable",
+      "files": 24,
+      "digest": "93700baa1ed3a0b5cd70188a7a1b1fafe917a667b3baad58e0e3906193396985",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/skill-backups/ppt-editable.bak-20260908000519-01fdb6d53b97472da29880cf51aded1b"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/skills/ppt-style-extract",
+      "files": 16,
+      "digest": "cf1196d53658c0ffe3203500c17139c2933c10aec6df61edce147e9c6aa595b2",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/skill-backups/ppt-style-extract.bak-20260908000519-6e3054521602453ea5c965f8d0eba581"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.agents/plugins/plugins/ppt-pilot/skills/ppt-start",
+      "files": 75,
+      "digest": "dcb8f48eb12a189ce0cdbbecb9934aa79cc899cb5e1c0f5c1d9e433677b91666",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.agents/plugins/plugins/ppt-pilot/backups/ppt-start.bak-20260908000519-238ba67cf4794084be464a49402f99e2"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.agents/plugins/plugins/ppt-pilot/skills/ppt-editable",
+      "files": 24,
+      "digest": "93700baa1ed3a0b5cd70188a7a1b1fafe917a667b3baad58e0e3906193396985",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.agents/plugins/plugins/ppt-pilot/backups/ppt-editable.bak-20260908000519-29f000f60ae44b2681444e6402948b69"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    },
+    {
+      "path": "<USER_HOME>/.agents/plugins/plugins/ppt-pilot/skills/ppt-style-extract",
+      "files": 16,
+      "digest": "cf1196d53658c0ffe3203500c17139c2933c10aec6df61edce147e9c6aa595b2",
+      "source_equal": true,
+      "cache_residue": 0,
+      "backup_path": [
+        "<USER_HOME>/.agents/plugins/plugins/ppt-pilot/backups/ppt-style-extract.bak-20260908000519-9958fd14f20c49689d125796afe2a93a"
+      ],
+      "previous_version_preserved": true,
+      "backup_count": 1
+    }
+  ],
+  "agents": [
+    {
+      "path": "<USER_HOME>/.claude/agents/ppt-svg-generator.md",
+      "sha256": "6dfe51421c974f8f19f9b6c1ea1e4d1596792255115e100977c217b54afe62e7",
+      "source_equal": true
+    },
+    {
+      "path": "<REPO_ROOT>/.claude/agents/ppt-svg-generator.md",
+      "sha256": "6dfe51421c974f8f19f9b6c1ea1e4d1596792255115e100977c217b54afe62e7",
+      "source_equal": true
+    }
+  ],
+  "protected": [
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/.git/HEAD",
+      "sha256": "28d25bf82af4c0e2b72f50959b2beb859e3e60b9630a5e8c603dad4ddb2b6e80",
+      "unchanged": true
+    },
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/.git/index",
+      "sha256": "ac3d4ee983aa341e9d81533944efab92dc9174891b81ab2464c22ee3386f9eac",
+      "unchanged": true
+    },
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/README.md",
+      "sha256": "7e41a370451d7d90e722073748fecc224133bfa500295fbb627cb6985733af8d",
+      "unchanged": true
+    }
+  ]
+}

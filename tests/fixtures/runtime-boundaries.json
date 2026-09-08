@@ -1,0 +1,5 @@
+{
+  "unsafe_input_paths": ["../request.json", "/tmp/request.json", "C:/request.json", ".ppt-pilot/runtime-inputs/../request.json", ".ppt-pilot/runtime-inputs/nested/request.json", ".ppt-pilot/runtime-inputs/helper.py.tmp"],
+  "unregistered_hosts": ["codex", "deepseek"],
+  "purpose": "Declarative boundary cases only; no host acceptance evidence."
+}

@@ -11,7 +11,7 @@
 - 有安全 fresh isolation、concurrent tasks 与 durable lookup，且容量已知时，按实际容量自动执行目标并发。
 - 缺并发或 durable lookup，但仍有完整安全 fresh isolation 时降为 **width 1**；容量未知也保守使用 1，并报告限制。
 - 已知可分配容量为 0 时返回 `WAIT`，等待已有任务／宿主容量变化，不记作 `generator_unavailable`，不忙轮询，不取消已有任务腾位。
-- 无安全 fresh isolation 时按原契约 `generator_unavailable` 阻断，禁止当前上下文生成、嵌套 CLI 或凭据探测。fresh isolation 的判定仍须包含 prompt-by-value、fresh history、filesystem none、tools none 与 attribution，不能只相信一个未验证布尔值。
+- 缺少或不安全的[宿主隔离适配器](host-isolation-adapters.md)时按原契约 `generator_unavailable` 阻断，禁止当前上下文生成、嵌套 CLI 或凭据探测。这是结构性不可用，不是 `WAIT` 容量状态，不得轮询；安全接口判定仍须包含 prompt-by-value、fresh history、`filesystem=none`、`data_tools=none`、text-only result 与 attribution，不能只相信一个未验证布尔值。
 
 本参考及入口文档中的“width 1”仅指实际调度上限为 1，不把 manifest 的 `batch_width` 改成 1。
 
@@ -59,7 +59,7 @@ python <skill-dir>/scripts/ppt_concurrency.py --input <观测快照.json的绝�
 2. 新批次按自动计算的目标选定 `batch_width`（5..10），选取最多该数量的有序页面；尾批可以只有 1 页，width 不因此写成 1。批内完整 preflight 和宿主安全能力协商通过后，仍按 pointer-last 持久化。活动批次绝不因升档扩大 inventory 或改写 width；下一批采用新目标。旧 3／4 页批次原位恢复，v1→v2 迁移仍保留原 width 4 的确定性字节。
 3. 每次初始 dispatch 或完成后的补位都重新读取 transactions 和实际宿主容量，传入当前 `batch_width`。`effective_concurrency = min(目标, 宿主安全容量, 活动批次上限, ready + in_flight 页数)`；新增任务最多 `max(0, effective_concurrency - in_flight 数)`，只派出返回的有序 `dispatch_slide_ids`。容量缩小到在途数以下时等待，不追加、不取消、不重复派发。
 4. coordinator 按既有一次派发协议串行预留／持久化 task attribution，并及时更新在途 inventory；再次补位前必须重新观测。禁止多次对同一旧快照调用规划器后重复 spawn，也禁止把旧 epoch 的归因任务当作空闲页。任务归因失败时保留原阻断／恢复路径，不擅自新建 epoch 重试。
-5. generator 按页隔离，完整 prompt 按值传入，fresh history、无文件系统、无工具、只返回文本。每页 validation 可与 sibling 生成重叠，但 candidate／transaction 写入、final promotion、最低 visible blocker 和 run pointer 仍只有 coordinator 按 `ordered_slide_ids` 串行提交。
+5. generator 按页隔离，coordinator 只传完整 prompt by value，`fresh_history=true`、`filesystem=none`、`data_tools=none`、只返回文本；Claude ambient host context 边界按[宿主隔离适配器](host-isolation-adapters.md)处理。每页 validation 可与 sibling 生成重叠，但 candidate／transaction 写入、final promotion、最低 visible blocker 和 run pointer 仍只有 coordinator 按 `ordered_slide_ids` 串行提交。
 6. 限流、超时和失败只会降低后续目标，**不授权立即重试**；先执行原有失败归因、退避、修复上限与恢复门禁，再观测是否可调度。某页耗尽修复策略后仍阻断时不能继续新派后续页。
 
 开始生产时提示“自动并发：目标 5，实际 X，上限 10”；目标或限制发生变化时简短更新，例如“目标 7，宿主仅可分配 3 路，实际 3”。不向用户提出并发选择，不把规划输出称作已经运行的任务数；实际在途数量以宿主任务及持久归因为准。

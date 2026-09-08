@@ -872,7 +872,7 @@ Skip unless the environment variable points to a valid run. Assert source owners
 - [ ] **Step 2: Run against supplied corpus**
 
 ```bash
-PPT_EDITABLE_REFERENCE_RUN='D:/05-AI/FY26H1-test/ppt-output/FY26H1-work-summary-machine-source-only' python -m unittest tests.test_ppt_editable_reference_integration -v
+PPT_EDITABLE_REFERENCE_RUN='<EXPERIMENTS_ROOT>/example-project/ppt-output/example-source-only-run' python -m unittest tests.test_ppt_editable_reference_integration -v
 ```
 
 Expected machine-only-source-ID reference oracle: 14 slides, 570 visible leaves, 63 groups, 633 recursive objects, no images, notes present, and no visible internal source IDs. On a genuine Microsoft PowerPoint 16+ host, normalization/reopen/four render streams/visual gates must produce `PASS`; without `POWERPNT.EXE`, the only valid result is `GENERATED_UNVERIFIED` with those Office/visual gates recorded `NOT RUN`. The original 584-leaf count included 14 erroneous visible internal-source labels and remains historical evidence only.
