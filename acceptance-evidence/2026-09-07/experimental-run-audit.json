@@ -1,0 +1,52 @@
+{
+  "checked_at": "2026-09-08T00:07:42.6807307+08:00",
+  "installed_tool": "<USER_HOME>/.agents/skills/ppt-start/scripts/ppt_workflow_gate.py",
+  "run": "<EXAMPLE_PROJECT>/ppt-output/example-optimized-run",
+  "exit": 2,
+  "read_only": true,
+  "result": {
+    "status": "BLOCKED",
+    "before": "audit",
+    "errors": [
+      {
+        "code": "unexpected_run_artifact",
+        "reentry_stage": "manuscript_review",
+        "next_action": "Quarantine unrecognized artifacts outside this run, then repeat the same gate.",
+        "artifacts": [
+          ".ppt-pilot/source-renders",
+          ".ppt-pilot/source-renders/SRC-S001.png",
+          ".ppt-pilot/source-renders/SRC-S002.png",
+          ".ppt-pilot/source-renders/SRC-S003.png",
+          ".ppt-pilot/source-renders/SRC-S004.png",
+          ".ppt-pilot/source-renders/SRC-S005.png",
+          ".ppt-pilot/source-renders/SRC-S006.png",
+          ".ppt-pilot/source-renders/SRC-S007.png",
+          ".ppt-pilot/source-renders/SRC-S008.png",
+          ".ppt-pilot/source-renders/SRC-S009.png",
+          ".ppt-pilot/source-renders/SRC-S010.png",
+          ".ppt-pilot/source-renders/SRC-S011.png",
+          ".ppt-pilot/source-renders/SRC-S012.png",
+          ".ppt-pilot/source-renders/SRC-S013.png",
+          ".ppt-pilot/source-renders/SRC-S014.png",
+          ".ppt-pilot/source-renders/SRC-S015.png",
+          ".ppt-pilot/source-renders/SRC-S016.png",
+          ".ppt-pilot/source-renders/SRC-S017.png",
+          ".ppt-pilot/source-renders/SRC-S018.png",
+          ".ppt-pilot/source-renders/SRC-S019.png",
+          ".ppt-pilot/source-renders/SRC-S020.png",
+          ".ppt-pilot/source-renders/SRC-S021.png",
+          ".ppt-pilot/source-renders/SRC-S022.png",
+          ".ppt-pilot/source-renders/SRC-S023.png",
+          ".ppt-pilot/source-renders/SRC-S024.png",
+          ".ppt-pilot/source-renders/SRC-S025.png",
+          ".ppt-pilot/source-renders/SRC-S026.png",
+          ".ppt-pilot/source-renders/SRC-S027.png",
+          ".ppt-pilot/source-renders/SRC-S028.png",
+          ".ppt-pilot/source-renders/SRC-S029.png",
+          ".ppt-pilot/source-renders/SRC-S030.png",
+          ".ppt-pilot/source-renders/SRC-S031.png"
+        ]
+      }
+    ]
+  }
+}

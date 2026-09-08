@@ -26,7 +26,7 @@
 | `py -3 -O -m unittest discover -s tests -p test_generation_concurrency.py -q`（实现 worker） | 15 tests，0 failures，1.090s |
 | `py -3 -m unittest discover -s tests -p test_adaptive_generation_contract.py -q`（契约 worker） | 7 tests，0 failures，0.089s |
 | `py -3 -m unittest discover -s tests -p test_visual_generation_contract.py -q`（契约 worker） | 33 tests，0 failures，0.218s |
-| `D:/ProgramFiles/miniconda3/envs/py39/python.exe -O -m unittest discover -s tests -p '*generation*' -q` | 55 tests，0 failures，0.986s；最低支持版本与优化模式 |
+| `<PYTHON_39> -O -m unittest discover -s tests -p '*generation*' -q` | 55 tests，0 failures，0.986s；最低支持版本与优化模式 |
 | 第一轮 `py -3 -m unittest discover -s tests -q` | 685 tests，8 skipped，1 failure，72.235s：README／design 改写遗漏 `batch_width` 说明 |
 | 修复后 `py -3 -m unittest discover -s tests -p test_skill_package.py -q` | 16 tests，0 failures，0.115s |
 | 第二轮完整套件 | 685 tests，8 skipped，1 failure，78.048s：既有 live Office COM 进程保留断言失败；并发／文档测试通过 |

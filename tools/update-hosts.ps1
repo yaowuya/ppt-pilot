@@ -1,196 +1,168 @@
-﻿<#
-.SYNOPSIS
-更新 ppt-start 与 ppt-editable 到 DeepSeek、Claude Code、Codex 及可选项目级技能目录。
-.DESCRIPTION
-两个 Skill 使用同一 descriptor 流程；备份位于 skills 扫描根之外的 skill-backups，按 Skill ID 各保留最近一份。
-#>
 [CmdletBinding()]
 param(
-    [string]$MarketplaceRoot = '',
-    [string]$ClaudeSkillsRoot = '',
-    [string]$CodexSkillsRoot = '',
-    [string]$RepoRoot = '',
-    [string]$Version = '',
-    [switch]$SkipDeepSeek,
-    [switch]$SkipClaudeCode,
-    [switch]$SkipCodex,
-    [switch]$ProjectClaude,
-    [switch]$ProjectCodex
+    [string]$MarketplaceRoot = '', [string]$ClaudeSkillsRoot = '', [string]$ClaudeAgentsRoot = '',
+    [string]$CodexSkillsRoot = '', [string]$CodexPluginRoot = '', [string[]]$ProjectRoot = @(),
+    [string]$RepoRoot = '', [string]$Version = '', [switch]$SkipDeepSeek,
+    [switch]$SkipClaudeCode, [switch]$SkipCodex, [switch]$ProjectClaude, [switch]$ProjectCodex,
+    [Parameter(DontShow)][switch]$SkipRepoProject
 )
-
 $ErrorActionPreference = 'Stop'
-$ts = (Get-Date).ToString('yyyyMMddHHmmss')
-if (-not $RepoRoot) {
-    if ($PSScriptRoot) { $RepoRoot = Split-Path -Parent $PSScriptRoot }
-    else { $RepoRoot = (Get-Location).Path }
-}
-
+$timestamp = (Get-Date).ToString('yyyyMMddHHmmss')
+if (-not $RepoRoot) { $RepoRoot = Split-Path -Parent $PSScriptRoot }
+$reportedVersion = if ($Version) { $Version } else { 'source' }
+. (Join-Path $PSScriptRoot 'packaging.ps1')
 $skills = @(
     [ordered]@{ Id = 'ppt-start'; Source = Join-Path $RepoRoot 'skills\ppt-start' },
     [ordered]@{ Id = 'ppt-editable'; Source = Join-Path $RepoRoot 'skills\ppt-editable' },
     [ordered]@{ Id = 'ppt-style-extract'; Source = Join-Path $RepoRoot 'skills\ppt-style-extract' }
 )
+$agentSource = Join-Path $RepoRoot 'hosts\claude-code\agents\ppt-svg-generator.md'
 foreach ($skill in $skills) {
-    if (-not (Test-Path -LiteralPath (Join-Path $skill.Source 'SKILL.md'))) {
-        throw "源 Skill 缺 SKILL.md：$($skill.Source)"
-    }
+    if (-not (Test-Path -LiteralPath (Join-Path $skill.Source 'SKILL.md') -PathType Leaf)) { throw "Incomplete source Skill: $($skill.Source)" }
 }
+if (-not (Test-Path -LiteralPath $agentSource -PathType Leaf)) { throw "Missing Claude Agent: $agentSource" }
+$updated = New-Object Collections.Generic.List[string]
+$rolledBack = New-Object Collections.Generic.List[string]
+$failed = New-Object Collections.Generic.List[string]
 
-function Get-FileSha256 {
-    param([string]$Path)
-    $fileStream = [IO.File]::OpenRead($Path)
-    $sha = [Security.Cryptography.SHA256]::Create()
-    try {
-        return ([BitConverter]::ToString($sha.ComputeHash($fileStream))).Replace('-', '').ToLowerInvariant()
-    }
-    finally {
-        $sha.Dispose()
-        $fileStream.Dispose()
-    }
+function Invoke-Scope {
+    param([string]$Label, [scriptblock]$Action)
+    try { & $Action; $updated.Add($Label) }
+    catch { $failed.Add("$Label :: $($_.Exception.Message)") }
 }
-
-function Get-SkillTreeInfo {
-    param([string]$Root)
-    $rootPath = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
-    $files = @(
-        Get-ChildItem -LiteralPath $rootPath -File -Recurse -Force |
-            Sort-Object FullName
-    )
-    $stream = New-Object IO.MemoryStream
-    $encoding = New-Object Text.UTF8Encoding($false)
-    try {
-        foreach ($file in $files) {
-            $relative = $file.FullName.Substring($rootPath.Length).TrimStart('\', '/').Replace('\', '/')
-            $contentHash = Get-FileSha256 -Path $file.FullName
-            $frame = "$relative`0$($file.Length)`0$contentHash`n"
-            $bytes = $encoding.GetBytes($frame)
-            $stream.Write($bytes, 0, $bytes.Length)
-        }
-        $sha = [Security.Cryptography.SHA256]::Create()
-        try { $digest = ([BitConverter]::ToString($sha.ComputeHash($stream.ToArray()))).Replace('-', '').ToLowerInvariant() }
-        finally { $sha.Dispose() }
-    }
-    finally { $stream.Dispose() }
-    return [pscustomobject]@{ Count = $files.Count; Digest = $digest }
-}
-
-function Copy-SkillWithBackup {
-    param([System.Collections.IDictionary]$Descriptor, [string]$Destination)
-    $id = [string]$Descriptor.Id
-    $source = [string]$Descriptor.Source
-    $skillsRoot = Split-Path -Parent $Destination
-    $harnessRoot = Split-Path -Parent $skillsRoot
-    $backupRoot = Join-Path $harnessRoot 'skill-backups'
-    $filter = "$id.bak-*"
-    $createdBackup = $null
-    $destinationExisted = Test-Path -LiteralPath $Destination
-    $backupMoved = $false
-
-    New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null
-    $legacyBackups = @(Get-ChildItem -LiteralPath $skillsRoot -Directory -Filter $filter -ErrorAction SilentlyContinue)
-    if ($legacyBackups.Count -gt 0) {
-        New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
-        $index = 0
-        foreach ($legacy in $legacyBackups) {
-            $target = Join-Path $backupRoot $legacy.Name
-            while (Test-Path -LiteralPath $target) {
-                $index += 1
-                $target = Join-Path $backupRoot ($legacy.Name + ".migrated-$ts-$index")
-            }
-            Move-Item -LiteralPath $legacy.FullName -Destination $target
-        }
-    }
-
-    try {
-        if ($destinationExisted) {
-            New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
-            $backupCandidate = Join-Path $backupRoot "$id.bak-$ts"
-            if (Test-Path -LiteralPath $backupCandidate) {
-                $backupCandidate += "." + [guid]::NewGuid().ToString('N')
-            }
-            Move-Item -LiteralPath $Destination -Destination $backupCandidate
-            $createdBackup = $backupCandidate
-            $backupMoved = $true
-            Write-Host "  备份 $id -> $createdBackup"
-        }
-        Copy-Item -LiteralPath $source -Destination $Destination -Recurse -Force
-        $sourceInfo = Get-SkillTreeInfo $source
-        $destinationInfo = Get-SkillTreeInfo $Destination
-        if ($sourceInfo.Count -ne $destinationInfo.Count -or $sourceInfo.Digest -ne $destinationInfo.Digest) {
-            throw "$id 安装树摘要不一致"
-        }
-        if (-not (Test-Path -LiteralPath (Join-Path $Destination 'SKILL.md'))) {
-            throw "$id 安装缺 SKILL.md"
-        }
-    }
-    catch {
-        if ($backupMoved) {
-            if (Test-Path -LiteralPath $Destination) {
-                Remove-Item -LiteralPath $Destination -Recurse -Force
-            }
-            if (Test-Path -LiteralPath $createdBackup) {
-                Move-Item -LiteralPath $createdBackup -Destination $Destination
-            }
-        }
-        elseif (-not $destinationExisted -and (Test-Path -LiteralPath $Destination)) {
-            Remove-Item -LiteralPath $Destination -Recurse -Force
-        }
-        throw
-    }
-
-    if (Test-Path -LiteralPath $backupRoot) {
-        $backups = @(
-            Get-ChildItem -LiteralPath $backupRoot -Directory -Filter $filter -ErrorAction SilentlyContinue |
-                Sort-Object LastWriteTimeUtc, Name -Descending
-        )
-        $preserve = $createdBackup
-        if (-not $preserve -and $backups.Count -gt 0) {
-            $preserve = $backups[0].FullName
-        }
-        foreach ($backup in $backups) {
-            if (-not $preserve -or $backup.FullName -ne $preserve) {
-                Remove-Item -LiteralPath $backup.FullName -Recurse -Force
-            }
-        }
-    }
-}
-
-function Install-SkillsToRoot {
+function Install-SkillsRoot {
     param([string]$SkillsRoot, [string]$Label)
+    try { Assert-NoShadowingSkills $SkillsRoot }
+    catch { [void]$failed.Add("$([IO.Path]::GetFullPath($SkillsRoot)) :: $($_.Exception.Message)"); return $false }
+    $backupRoot = Join-Path (Split-Path -Parent $SkillsRoot) 'skill-backups'
+    $allSucceeded = $true
     foreach ($skill in $skills) {
         $destination = Join-Path $SkillsRoot $skill.Id
-        Copy-SkillWithBackup $skill $destination
-        Write-Host "  $Label 已更新 -> $destination"
+        $existed = Test-Path -LiteralPath $destination
+        try {
+            $result = Install-PptPilotTree $skill.Source $destination $backupRoot $skill.Id $timestamp
+            [void]$updated.Add($result.Path)
+            Write-Host ("installed scope={0} version={1} path={2} files={3} digest={4}" -f $Label, $reportedVersion, $result.Path, $result.Count, $result.Digest)
+        }
+        catch {
+            $allSucceeded = $false
+            [void]$failed.Add("$([IO.Path]::GetFullPath($destination)) :: $($_.Exception.Message)")
+            if ($_.Exception.Data['PptPilotBackupRestored']) { [void]$rolledBack.Add([IO.Path]::GetFullPath($destination)) }
+        }
     }
+    return $allSucceeded
+}
+function Install-ClaudeAgent {
+    param([string]$AgentsRoot, [string]$Label)
+    $destination = Join-Path $AgentsRoot 'ppt-svg-generator.md'
+    $backupRoot = Join-Path (Split-Path -Parent $AgentsRoot) 'agent-backups'
+    $backup = $null
+    $destinationExisted = Test-Path -LiteralPath $destination
+    $backupMoved = $false
+    $newCopied = $false
+    try {
+        New-Item -ItemType Directory -Force -Path $AgentsRoot | Out-Null
+        if (Test-Path -LiteralPath $destination) {
+            New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
+            $backup = Join-Path $backupRoot ("ppt-svg-generator.bak-$timestamp-" + [guid]::NewGuid().ToString('N') + '.md')
+            Move-Item -LiteralPath $destination -Destination $backup
+            $backupMoved = $true
+        }
+        $newCopied = $true
+        Copy-Item -LiteralPath $agentSource -Destination $destination -Force
+        $digest = Get-PptPilotFileSha256 $destination
+        if ($digest -ne (Get-PptPilotFileSha256 $agentSource)) { throw 'Agent installed digest mismatch' }
+        [void]$updated.Add([IO.Path]::GetFullPath($destination))
+        Write-Host ("installed scope={0} version={1} path={2} files=1 digest={3}" -f $Label, $reportedVersion, [IO.Path]::GetFullPath($destination), $digest)
+        return $true
+    }
+    catch {
+        if ($newCopied -and (Test-Path -LiteralPath $destination)) { Remove-Item -LiteralPath $destination -Force }
+        if ($backupMoved -and (Test-Path -LiteralPath $backup)) { Move-Item -LiteralPath $backup -Destination $destination }
+        [void]$failed.Add("$([IO.Path]::GetFullPath($destination)) :: $($_.Exception.Message)")
+        if ($destinationExisted -and (Test-Path -LiteralPath $destination)) { [void]$rolledBack.Add([IO.Path]::GetFullPath($destination)) }
+        return $false
+    }
+}
+
+function Install-ClaudePairedScope {
+    param([string]$SkillsRoot, [string]$AgentsRoot, [string]$Label)
+    try { Assert-NoShadowingSkills $SkillsRoot }
+    catch { [void]$failed.Add("$([IO.Path]::GetFullPath($SkillsRoot)) :: $($_.Exception.Message)"); return }
+    $snapshot = Join-Path ([IO.Path]::GetTempPath()) ('ppt-claude-scope-' + [guid]::NewGuid().ToString('N'))
+    $agentDestination = Join-Path $AgentsRoot 'ppt-svg-generator.md'
+    $targets = @([pscustomobject]@{ Path = $agentDestination; Snapshot = Join-Path $snapshot 'agent.md'; IsDirectory = $false })
+    foreach ($skill in $skills) {
+        $targets += [pscustomobject]@{ Path = Join-Path $SkillsRoot $skill.Id; Snapshot = Join-Path $snapshot $skill.Id; IsDirectory = $true }
+    }
+    $failedBefore = $failed.Count
+    try {
+        New-Item -ItemType Directory -Force -Path $snapshot | Out-Null
+        foreach ($target in $targets) {
+            if (Test-Path -LiteralPath $target.Path) {
+                if ($target.IsDirectory) { Copy-Item -LiteralPath $target.Path -Destination $target.Snapshot -Recurse -Force }
+                else { Copy-Item -LiteralPath $target.Path -Destination $target.Snapshot -Force }
+            }
+        }
+        if (-not (Install-ClaudeAgent $AgentsRoot "$Label-agent")) { return }
+        [void](Install-SkillsRoot $SkillsRoot $Label)
+        if ($failed.Count -eq $failedBefore) { return }
+        foreach ($target in $targets) {
+            $full = [IO.Path]::GetFullPath($target.Path)
+            if (Test-Path -LiteralPath $target.Path) { Remove-Item -LiteralPath $target.Path -Recurse -Force }
+            if (Test-Path -LiteralPath $target.Snapshot) {
+                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target.Path) | Out-Null
+                Copy-Item -LiteralPath $target.Snapshot -Destination $target.Path -Recurse:$target.IsDirectory -Force
+                if (-not $rolledBack.Contains($full)) { [void]$rolledBack.Add($full) }
+            }
+            [void]$updated.Remove($full)
+        }
+    }
+    finally { if (Test-Path -LiteralPath $snapshot) { Remove-Item -LiteralPath $snapshot -Recurse -Force } }
 }
 
 if (-not $SkipDeepSeek) {
-    Write-Host '[1/3] DeepSeek harness（插件市场）...'
-    $args2 = @{ }
-    $args2.RepoRoot = $RepoRoot
-    if ($MarketplaceRoot) { $args2.MarketplaceRoot = $MarketplaceRoot }
-    if ($Version) { $args2.Version = $Version }
-    powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'install-deepseek-plugin.ps1') @args2
-    if ($LASTEXITCODE -ne 0) { throw "DeepSeek 安装器退出码 $LASTEXITCODE" }
+    Invoke-Scope 'deepseek-plugin' {
+        $arguments = @{ RepoRoot = $RepoRoot }
+        if ($MarketplaceRoot) { $arguments.MarketplaceRoot = $MarketplaceRoot }
+        if ($Version) { $arguments.Version = $Version }
+        & (Join-Path $PSScriptRoot 'install-deepseek-plugin.ps1') @arguments
+        if ($LASTEXITCODE -ne 0) { throw "DeepSeek installer exit $LASTEXITCODE" }
+    }
 }
-else { Write-Host '[1/3] 跳过 DeepSeek。' }
-
 if (-not $SkipClaudeCode) {
-    Write-Host '[2/3] Claude Code（用户级技能）...'
     if (-not $ClaudeSkillsRoot) { $ClaudeSkillsRoot = Join-Path $env:USERPROFILE '.claude\skills' }
-    Install-SkillsToRoot $ClaudeSkillsRoot 'Claude Code'
+    if (-not $ClaudeAgentsRoot) { $ClaudeAgentsRoot = Join-Path (Split-Path -Parent $ClaudeSkillsRoot) 'agents' }
+    try { Install-ClaudePairedScope $ClaudeSkillsRoot $ClaudeAgentsRoot 'claude-user' }
+    catch { [void]$failed.Add("$([IO.Path]::GetFullPath($ClaudeSkillsRoot)) :: $($_.Exception.Message)") }
 }
-else { Write-Host '[2/3] 跳过 Claude Code。' }
-
 if (-not $SkipCodex) {
-    Write-Host '[3/3] Codex（用户级技能）...'
     if (-not $CodexSkillsRoot) { $CodexSkillsRoot = Join-Path $env:USERPROFILE '.agents\skills' }
-    Install-SkillsToRoot $CodexSkillsRoot 'Codex'
+    [void](Install-SkillsRoot $CodexSkillsRoot 'codex-user')
 }
-else { Write-Host '[3/3] 跳过 Codex。' }
+if ($CodexPluginRoot) { [void](Install-SkillsRoot (Join-Path $CodexPluginRoot 'skills') 'codex-plugin') }
 
-if ($ProjectClaude) { Install-SkillsToRoot (Join-Path $RepoRoot '.claude\skills') '项目级 Claude' }
-if ($ProjectCodex) { Install-SkillsToRoot (Join-Path $RepoRoot '.agents\skills') '项目级 Codex' }
-
-Write-Host ''
-Write-Host '全部完成。Claude Code：/ppt-start、/ppt-editable；Codex：$ppt-start、$ppt-editable；DeepSeek：ppt-start、ppt-editable。'
+$projects = New-Object Collections.Generic.List[string]
+$repoFull = [IO.Path]::GetFullPath($RepoRoot)
+if (-not $SkipRepoProject) { $projects.Add($repoFull) }
+foreach ($projectValue in $ProjectRoot) {
+    $full = [IO.Path]::GetFullPath($projectValue)
+    if (-not $projects.Contains($full)) { $projects.Add($full) }
+}
+foreach ($project in $projects) {
+    try {
+        if (-not (Test-Path -LiteralPath $project -PathType Container)) { throw "selected project root is not a directory: $project" }
+        $claudeSkills = Join-Path $project '.claude\skills'; $codexSkills = Join-Path $project '.agents\skills'
+        $refreshClaude = (Test-Path -LiteralPath $claudeSkills -PathType Container) -or ($project -eq $repoFull -and $ProjectClaude)
+        $refreshCodex = (Test-Path -LiteralPath $codexSkills -PathType Container) -or ($project -eq $repoFull -and $ProjectCodex)
+        if ($refreshClaude) { Install-ClaudePairedScope $claudeSkills (Join-Path $project '.claude\agents') 'claude-project' }
+        if ($refreshCodex) { [void](Install-SkillsRoot $codexSkills 'codex-project') }
+        if (-not $refreshClaude -and -not $refreshCodex) { Write-Host "skipped project=$project reason=no-existing-discovery-scope" }
+    }
+    catch { $failed.Add("project:$project :: $($_.Exception.Message)") }
+}
+if ($failed.Count -gt 0) {
+    Write-Host 'PARTIAL_FAILURE'; Write-Host ('updated: ' + ($updated -join '; '))
+    Write-Host ('rolled_back: ' + ($rolledBack -join '; ')); Write-Host ('failed: ' + ($failed -join '; ')); exit 2
+}
+Write-Host ('SUCCESS updated: ' + ($updated -join '; ')); Write-Host 'New session required after Skill or Agent replacement.'; exit 0

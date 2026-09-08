@@ -145,7 +145,7 @@ identity recovery 只在 no-follow／`lstat` 确认 `assets/styles/registry.json
 3. 在内存验证 outline/storyboard/theme snapshots 相等；素材事实底线（数字/单位/限定词/因果/来源映射）与故事板一致；narrative bullets 与 outline 一致；theme identity、64 px safe area、字号下限、`path+A` 与 Office-safe allowlist 完整。
 4. 复用第 8 步已按 manifest → tokens → guidance → prompt 固定 traversal 解析并验证的 `files.prompt_template`；不得重新跳读 prompt 或绕过前序资产。在内存只替换一次 whole-line `{{NARRATIVE}}`，注入不含来源注解的已批准叙事／素材与非来源 `block_id`。
 5. 验证模板与 compiled body 的 canonical byte derivation、自包含性、无外部文件指令、无未解析 marker、无 raw revision material，并计算 template/body/compiled prompt/composite snapshot hashes。
-6. 只有批内所有页面的步骤 1–5 全部成功后，才执行宿主能力协商；无安全 fresh isolation 时保持零 prompt／transaction／candidate 写入，只写 run-level `generator_unavailable` blocker。
+6. 只有批内所有页面的步骤 1–5 全部成功后，才执行宿主能力协商；无安全 fresh isolation 时保持零 prompt／transaction／manifest／candidate／SVG 写入与零 generator 调用，只以一次原子 `run.json` 替换写入 [artifact-contract.md](artifact-contract.md) 定义的 `state/reason: generator_unavailable`、`resource: none` blocker。
 7. 能力通过后，按 `ordered_slide_ids` 为每页原子写入 schema-v2 transaction `state: compiling`；随后写 `.ppt-pilot/generation-prompts/<slide-id>.md`，关闭、复读、核对 hash，再提交该页 `compiled`。全部 transaction 完整后写入并复读 batch manifest，最后原子发布 `run.json.active_visual_generation_batch`。
 8. active pointer、manifest 与完整 transaction inventory 一致后才按协商宽度 dispatch；generator 返回后由 coordinator 处理 candidate 写入／hash、fact-source 与 SVG/visual QA、validated 和 ordered serial promotion。
 
@@ -157,13 +157,13 @@ identity recovery 只在 no-follow／`lstat` 确认 `assets/styles/registry.json
 
 ### `visual_generation_blocker` 生命周期
 
-风格身份／资产解析失败时写入 `state: style_assets_unavailable`；规范模板读取、编译或 pre-dispatch gate 失败时写入 `state: generation_prompt_unavailable`。两类情况都必须以单次原子 `run.json` 替换写入 `visual_generation_blocker`，字段和 reason 集合遵循 [artifact-contract.md](artifact-contract.md)。写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，受影响 `slide_id` 必须继续留在 `dirty_slides`。阻断期间不得启动 fresh generator、不得创建／覆盖 SVG、不得降级为 patch、不得改用其他风格或 stale cached generation prompt。
+风格身份／资产解析失败时写入 `state: style_assets_unavailable`；规范模板读取或编译失败时写入 `state: generation_prompt_unavailable`；完整 preflight 成功但宿主 adapter 不安全时写入 `state: generator_unavailable`。三类情况都必须以单次原子 `run.json` 替换写入 `visual_generation_blocker`，字段和 reason 集合遵循 [artifact-contract.md](artifact-contract.md)。写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，受影响 `slide_id` 必须继续留在 `dirty_slides`。阻断期间不得启动 fresh generator、不得创建／覆盖 SVG、不得降级为 patch、不得改用其他风格或 stale cached generation prompt。
 
 `resource` 只允许保存已经通过 containment 和 no-follow 检查的 Skill 相对路径：风格资产与已声明模板状态使用 `assets/styles/...`。路径安全前失败、绝对路径、Windows 盘符、UNC、URL、`.`／`..` 越界、link／junction／reparse 或任何工作区／机密路径，都写 `none`；repository authoring seed 不属于运行时 resource。
 
-恢复时的全局顺序固定为 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > schema-v1 visual_generation_transaction migration > active_visual_generation_batch > stage scan`。前五类 durable control state 均不存在或已完成前不得扫描普通阶段。schema-v1 `visual_generation_transaction` 必须先进入 Task 3 的零模型调用迁移，不得直接 dispatch；blocker 存续期间保持该 v1 owner 原样不变，blocker 修复后先原子移除 blocker，再重新进入全局顺序完成 pointer-last 迁移，不能跨过 v1 直接创建新 transaction。只要前序 owner 存在，就不得解析新页面、编译 generation prompt 或启动 generator。已有 blocker 与当前目标为同一 slide 时，重新验证同一资源与快照并幂等刷新；另一 slide 已有 active blocker 时必须先处理原 blocker。仍失败时 transaction writes、prompt writes、generator calls 与 SVG writes 都保持 0。
+恢复时的全局顺序固定为 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > schema-v1 visual_generation_transaction migration > active_visual_generation_batch > stage scan`。前五类 durable control state 均不存在或已完成前不得扫描普通阶段。schema-v1 `visual_generation_transaction` 必须先进入 Task 3 的零模型调用迁移，不得直接 dispatch；blocker 存续期间保持该 v1 owner 原样不变，blocker 修复后先原子移除 blocker，再重新进入全局顺序完成 pointer-last 迁移，不能跨过 v1 直接创建新 transaction。只要前序 owner 存在，就不得解析新页面、编译 generation prompt 或启动 generator。已有 blocker 与当前目标为同一 slide 时，style/prompt state 重新验证同一资源与快照，`generator_unavailable` state 在显式 resume 时复核快照并重新协商 adapter；仍失败则幂等刷新。另一 slide 已有 active blocker 时必须先处理原 blocker。仍失败时 transaction writes、prompt writes、generator calls 与 SVG writes 都保持 0。
 
-canonical blocker 必须在 preflight 已失败、且没有为本次尝试创建 transaction 或 prompt 后独立写入；blocker 与同一尝试的 `compiling` transaction 不得共存。历史 crash 若留下旧协议的 prompt／`compiling`／blocker 组合，只能把 prompt 当作不可信派生产物：保留 previous final，清理或隔离 orphan candidate，重新从步骤 1 执行无副作用 preflight；不得用旧 prompt 直接补提交 `compiled`。
+canonical blocker 必须在 preflight 已失败，或 preflight 成功而 adapter 协商失败，且没有为本次尝试创建 transaction、prompt 或 manifest 后独立写入；blocker 与同一尝试的 `compiling` transaction 不得共存。历史 crash 若留下旧协议的 prompt／`compiling`／blocker 组合，只能把 prompt 当作不可信派生产物：保留 previous final，清理或隔离 orphan candidate，重新从步骤 1 执行无副作用 preflight；不得用旧 prompt 直接补提交 `compiled`。
 
 ### schema-v2 batch／per-slide transaction 生成边界
 
@@ -185,14 +185,14 @@ schema-v1 顶层 `visual_generation_transaction` 只按 [artifact-contract.md](a
 
 ## 独立执行与宿主能力接口
 
-coordinator 先关闭、复读并验证 durable generation prompt，再把完整 Prompt bytes **按值**传给隔离任务；隔离任务永远不接收 prompt 路径，也不能读取工作区。
+coordinator 先关闭、复读并验证 durable generation prompt，再把完整 Prompt bytes **按值**传给隔离任务；coordinator 永远不传 prompt 路径或工作区内容，worker 无数据工具、不能主动读取工作区。Claude Code 自动加载并必须忽略的 `CLAUDE.md`／Git status ambient context 例外统一由[页面生成宿主隔离适配器](host-isolation-adapters.md)界定。
 
 ```text
 spawn_isolated_text_task(
   prompt_by_value,
   fresh_history=true,
   filesystem=none,
-  tools=none,
+  data_tools=none,
   timeout,
   cancellation
 ) -> attribution_id, task_id, text, status, error_code
@@ -200,7 +200,7 @@ spawn_isolated_text_task(
 get_isolated_text_task_result(attribution_id | task_id)
 ```
 
-宿主能力协商优先使用 native fresh isolation，其次是受支持的 remote fresh isolation。支持并发且有 durable lookup 时按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，不询问用户选择；coordinator 在每次 dispatch／补位前调用只读规划器，并按实际 worker capacity、活动批次上限和已在途任务限流。缺少并发或 durable lookup 但仍有 fresh isolation 时安全降级为 width 1，容量未知也保守为 1；容量为 0 则等待。工作区是否为 Git 不参与能力判断，非 Git 工作区仍可自动并发。没有 fresh isolation、prompt-by-value、fresh history、`filesystem=none`、`tools=none` 或 attribution 时，在任何 prompt／transaction／candidate 写入前以 `generator_unavailable` fail closed。
+宿主能力协商与具体宿主映射统一遵循[页面生成宿主隔离适配器](host-isolation-adapters.md)。支持并发且有 durable lookup 时按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，不询问用户选择；coordinator 在每次 dispatch／补位前调用只读规划器，并按实际 worker capacity、活动批次上限和已在途任务限流。缺少并发或 durable lookup 但仍有完整安全接口时安全降级为 width 1，容量未知也保守为 1；容量为 0 则等待。工作区是否为 Git 不参与能力判断，非 Git 工作区不降级。没有 prompt-by-value、fresh history、`filesystem=none`、`data_tools=none`、text-only result、attribution 或该宿主要求的安全 adapter 时，在任何 prompt／transaction／candidate 写入前以 `generator_unavailable` fail closed；结构性不可用不得作为容量等待轮询。
 
 每个 `(transaction_id, dispatch_epoch)` 最多调用一次 spawn；同 epoch 已有 `host_attribution_id`／`host_task_id` 时只能 durable lookup，不得重复派发。`refused`、`timeout` 与 unknown durable result 分别映射为稳定失败，且 coordinator 保留 transaction 与 previous final。禁止嵌套调用 Claude、Codex 或 DeepSeek CLI；不得探测凭据或 profile；不得使用 coordinator 当前上下文作为 generator fallback；不得要求 Git 或 worktree。
 

@@ -1,0 +1,37 @@
+{
+  "checks": [
+    {
+      "path": "<USER_HOME>/.agents/skills/ppt-start/scripts/ppt_runtime.py",
+      "exit": 0,
+      "commands_present": true
+    },
+    {
+      "path": "<USER_HOME>/.claude/skills/ppt-start/scripts/ppt_runtime.py",
+      "exit": 0,
+      "commands_present": true
+    },
+    {
+      "path": "<REPO_ROOT>/.agents/skills/ppt-start/scripts/ppt_runtime.py",
+      "exit": 0,
+      "commands_present": true
+    },
+    {
+      "path": "<REPO_ROOT>/.claude/skills/ppt-start/scripts/ppt_runtime.py",
+      "exit": 0,
+      "commands_present": true
+    },
+    {
+      "path": "<USER_HOME>/.codex/plugins/cache/personal/ppt-pilot/local/skills/ppt-start/scripts/ppt_runtime.py",
+      "exit": 0,
+      "commands_present": true
+    },
+    {
+      "path": "<USER_HOME>/.agents/plugins/plugins/ppt-pilot/skills/ppt-start/scripts/ppt_runtime.py",
+      "exit": 0,
+      "commands_present": true
+    }
+  ],
+  "deepseek_manifest_name": "ppt-pilot",
+  "deepseek_manifest_version": "1.0.0+codex.20260908.219c13d",
+  "live_host_acceptance": false
+}

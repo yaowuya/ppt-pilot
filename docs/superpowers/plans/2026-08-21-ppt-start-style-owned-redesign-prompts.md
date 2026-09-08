@@ -15,14 +15,14 @@
 - 规范源是 [`2026-08-21-ppt-start-style-owned-redesign-prompts-design.md`](../specs/2026-08-21-ppt-start-style-owned-redesign-prompts-design.md)；计划与规范冲突时以规范为准。
 - 当前工作区已有大量用户修改和 acceptance-evidence staged removals。只修改本计划列出的文件；不得 reset、restore、clean、stage、commit、push 或改写历史。
 - 用户没有授权 commit；每个任务以测试和 review checkpoint 结束，不包含 commit 步骤。
-- 开始前把 `git status --short -- acceptance-evidence ppt-output` 保存到仓库外的 `C:/Users/Lenovo/AppData/Local/Temp/ppt-start-runtime-artifacts.before.txt`。不得修改 `acceptance-evidence/` 或 `ppt-output/`。
-- 所有临时副本、诊断、manifest 和 hash 输出写入 `C:/Users/Lenovo/AppData/Local/Temp/`，不得进入仓库。
+- 开始前把 `git status --short -- acceptance-evidence ppt-output` 保存到仓库外的 `<USER_HOME>/AppData/Local/Temp/ppt-start-runtime-artifacts.before.txt`。不得修改 `acceptance-evidence/` 或 `ppt-output/`。
+- 所有临时副本、诊断、manifest 和 hash 输出写入 `<USER_HOME>/AppData/Local/Temp/`，不得进入仓库。
 - 每个实现任务严格执行 RED → 观察正确失败 → 最小 GREEN → 聚焦回归；RED 不能来自语法、导入或无关既有失败。
 - registry 与 manifest `schema_version` 保持整数 `1`。Canway 内容版本精确升级为 `1.2.0`；legacy `style_manifest_version` 使用字符串 `none`。
 - 四个完整 prompt 使用规范定义的十个 hard-constraint IDs 和十一个独占行占位符。
 - 不新增运行时脚本、SDK、服务、MCP 或宿主专属 API。测试 helper 是规范 oracle，不得描述成 Skill 运行时实现。
 - 静态包测试、通用 Agent 压力诊断、Claude Code 安装 hash 和真实 Claude Code／Codex／浏览器／PowerPoint 验收是四类不同证据。
-- 只有全部静态 gate 通过后才能同步 `C:/Users/Lenovo/.claude/skills/ppt-start`。
+- 只有全部静态 gate 通过后才能同步 `<USER_HOME>/.claude/skills/ppt-start`。
 
 ---
 
@@ -33,8 +33,8 @@
 - Create: `tests/prompts/style-prompt-isolation-pressure.md`
 - Create: `tests/prompts/style-prompt-fallback-pressure.md`
 - Create: `tests/prompts/style-prompt-blocker-pressure.md`
-- External: `C:/Users/Lenovo/AppData/Local/Temp/ppt-start-runtime-artifacts.before.txt`
-- External: `C:/Users/Lenovo/AppData/Local/Temp/ppt-start-style-owned-redesign-baseline/`
+- External: `<USER_HOME>/AppData/Local/Temp/ppt-start-runtime-artifacts.before.txt`
+- External: `<USER_HOME>/AppData/Local/Temp/ppt-start-style-owned-redesign-baseline/`
 
 **Interfaces:**
 - Consumes: 当前未修改的 `skills/ppt-start/`。
@@ -43,11 +43,11 @@
 - [ ] **Step 1: 保存 runtime-artifact 状态与旧 Skill**
 
 ```bash
-git -C D:/01-code/ppt-pilot status --short -- acceptance-evidence ppt-output > C:/Users/Lenovo/AppData/Local/Temp/ppt-start-runtime-artifacts.before.txt
+git -C <REPO_ROOT> status --short -- acceptance-evidence ppt-output > <USER_HOME>/AppData/Local/Temp/ppt-start-runtime-artifacts.before.txt
 ```
 
 ```bash
-python -c "from pathlib import Path; import shutil; s=Path(r'D:\01-code\ppt-pilot\skills\ppt-start'); d=Path(r'C:\Users\Lenovo\AppData\Local\Temp\ppt-start-style-owned-redesign-baseline'); shutil.rmtree(d,ignore_errors=True); shutil.copytree(s,d)"
+python -c "from pathlib import Path; import shutil; s=Path(r'<REPO_ROOT>/skills/ppt-start'); d=Path(r'<USER_HOME>/AppData/Local/Temp/ppt-start-style-owned-redesign-baseline'); shutil.rmtree(d,ignore_errors=True); shutil.copytree(s,d)"
 ```
 
 Expected: 两个命令成功，仓库状态未改变。
@@ -847,8 +847,8 @@ Expected: PASS。
 - Verify: `tests/`
 - Verify: `skills/ppt-start/`
 - Verify: `README.md`, `docs/`
-- External: `C:/Users/Lenovo/AppData/Local/Temp/ppt-start-runtime-artifacts.*.txt`
-- External: `C:/Users/Lenovo/AppData/Local/Temp/ppt-start-style-owned-redesign-updated/`
+- External: `<USER_HOME>/AppData/Local/Temp/ppt-start-runtime-artifacts.*.txt`
+- External: `<USER_HOME>/AppData/Local/Temp/ppt-start-style-owned-redesign-updated/`
 
 **Interfaces:**
 - Produces: 静态 release verdict、独立 code review、强制 before／after 诊断；不产生仓库 acceptance evidence。
@@ -872,11 +872,11 @@ Expected: 0 failures/errors。
 - [ ] **Step 3: 检查 diff 与运行产物漂移**
 
 ```bash
-git -C D:/01-code/ppt-pilot diff --check
+git -C <REPO_ROOT> diff --check
 ```
 
 ```bash
-git -C D:/01-code/ppt-pilot status --short -- acceptance-evidence ppt-output > C:/Users/Lenovo/AppData/Local/Temp/ppt-start-runtime-artifacts.after-static.txt && cmp C:/Users/Lenovo/AppData/Local/Temp/ppt-start-runtime-artifacts.before.txt C:/Users/Lenovo/AppData/Local/Temp/ppt-start-runtime-artifacts.after-static.txt
+git -C <REPO_ROOT> status --short -- acceptance-evidence ppt-output > <USER_HOME>/AppData/Local/Temp/ppt-start-runtime-artifacts.after-static.txt && cmp <USER_HOME>/AppData/Local/Temp/ppt-start-runtime-artifacts.before.txt <USER_HOME>/AppData/Local/Temp/ppt-start-runtime-artifacts.after-static.txt
 ```
 
 Expected: diff check clean；artifact status 与基线逐字节相同。
@@ -887,11 +887,11 @@ Review scope：四 prompt 是否独立完整；共享 resolver 是否无 style l
 
 - [ ] **Step 5: 强制执行 before／after pressure diagnostics**
 
-对三个场景各启动两个 fresh context：一个显式只读 `C:/Users/Lenovo/AppData/Local/Temp/ppt-start-style-owned-redesign-baseline/`，另一个只读更新后的临时副本。先保存 old 输出，再运行同一输入的 new 输出；每份记录都写 host/model、package path／hash、`EVIDENCE_CLASS: DIAGNOSTIC`。
+对三个场景各启动两个 fresh context：一个显式只读 `<USER_HOME>/AppData/Local/Temp/ppt-start-style-owned-redesign-baseline/`，另一个只读更新后的临时副本。先保存 old 输出，再运行同一输入的 new 输出；每份记录都写 host/model、package path／hash、`EVIDENCE_CLASS: DIAGNOSTIC`。
 
 必须观察并保存旧版跨风格 Bento／unsafe fallback／缺 blocker 中至少一个实际缺陷，再核对新版是否遵循 style isolation、完整六文件 fallback 和 no-generator/no-SVG blocker。若 fresh delegation 不可用，记录 `DIAGNOSTIC NOT RUN` 并把本任务标为未完成；不得跳过后仍宣称规范的 pressure step 完成，也不得进入 Task 12。
 
-所有输出只写 `C:/Users/Lenovo/AppData/Local/Temp/ppt-start-style-owned-redesign-diagnostics/`；不得改 acceptance rows 或仓库文件。
+所有输出只写 `<USER_HOME>/AppData/Local/Temp/ppt-start-style-owned-redesign-diagnostics/`；不得改 acceptance rows 或仓库文件。
 
 **Checkpoint:** 只有静态 gate 和 mandatory pressure pass 都完成才能进入 Task 12。
 
@@ -900,11 +900,11 @@ Review scope：四 prompt 是否独立完整；共享 resolver 是否无 style l
 ### Task 12: 精确同步到 Claude Code 用户级 Skill
 
 **Files:**
-- Source: `D:/01-code/ppt-pilot/skills/ppt-start/`
-- Destination: `C:/Users/Lenovo/.claude/skills/ppt-start/`
-- Temporary: `C:/Users/Lenovo/.claude/skills/ppt-start.sync-tmp/`
-- Backup: `C:/Users/Lenovo/.claude/skills/ppt-start.sync-backup/`
-- Preserved invalid copy: `C:/Users/Lenovo/.claude/skills/ppt-start.sync-broken/`
+- Source: `<REPO_ROOT>/skills/ppt-start/`
+- Destination: `<USER_HOME>/.claude/skills/ppt-start/`
+- Temporary: `<USER_HOME>/.claude/skills/ppt-start.sync-tmp/`
+- Backup: `<USER_HOME>/.claude/skills/ppt-start.sync-backup/`
+- Preserved invalid copy: `<USER_HOME>/.claude/skills/ppt-start.sync-broken/`
 
 **Interfaces:**
 - Consumes: Task 11 全绿的标准 Skill。
@@ -913,7 +913,7 @@ Review scope：四 prompt 是否独立完整；共享 resolver 是否无 style l
 - [ ] **Step 1: 先比较 manifest，观察 deployment RED**
 
 ```bash
-python -c "from pathlib import Path; import hashlib; s=Path(r'D:\01-code\ppt-pilot\skills\ppt-start'); d=Path(r'C:\Users\Lenovo\.claude\skills\ppt-start'); m=lambda r:{p.relative_to(r).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in r.rglob('*') if p.is_file()}; sm=m(s); dm=m(d) if d.exists() else {}; print('missing',sorted(sm.keys()-dm.keys())); print('stale',sorted(dm.keys()-sm.keys())); print('mismatched',sorted(k for k in sm.keys()&dm.keys() if sm[k]!=dm[k])); raise SystemExit(0 if sm==dm else 1)"
+python -c "from pathlib import Path; import hashlib; s=Path(r'<REPO_ROOT>/skills/ppt-start'); d=Path(r'<USER_HOME>/.claude/skills/ppt-start'); m=lambda r:{p.relative_to(r).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in r.rglob('*') if p.is_file()}; sm=m(s); dm=m(d) if d.exists() else {}; print('missing',sorted(sm.keys()-dm.keys())); print('stale',sorted(dm.keys()-sm.keys())); print('mismatched',sorted(k for k in sm.keys()&dm.keys() if sm[k]!=dm[k])); raise SystemExit(0 if sm==dm else 1)"
 ```
 
 Expected: 实现后至少有新增／变更文件，因此非零；若已经完全相等，记录 already synchronized，不强制 swap。
@@ -921,7 +921,7 @@ Expected: 实现后至少有新增／变更文件，因此非零；若已经完�
 - [ ] **Step 2: 创建并验证 staging**
 
 ```bash
-python -c "from pathlib import Path; import hashlib,shutil; s=Path(r'D:\01-code\ppt-pilot\skills\ppt-start'); t=Path(r'C:\Users\Lenovo\.claude\skills\ppt-start.sync-tmp'); shutil.rmtree(t,ignore_errors=True); shutil.copytree(s,t); m=lambda r:{p.relative_to(r).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in r.rglob('*') if p.is_file()}; assert m(s)==m(t)"
+python -c "from pathlib import Path; import hashlib,shutil; s=Path(r'<REPO_ROOT>/skills/ppt-start'); t=Path(r'<USER_HOME>/.claude/skills/ppt-start.sync-tmp'); shutil.rmtree(t,ignore_errors=True); shutil.copytree(s,t); m=lambda r:{p.relative_to(r).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in r.rglob('*') if p.is_file()}; assert m(s)==m(t)"
 ```
 
 - [ ] **Step 3: rollback-safe swap**
@@ -934,11 +934,11 @@ from hashlib import sha256
 from pathlib import Path
 import shutil
 
-source = Path(r"D:\01-code\ppt-pilot\skills\ppt-start")
-destination = Path(r"C:\Users\Lenovo\.claude\skills\ppt-start")
-staging = Path(r"C:\Users\Lenovo\.claude\skills\ppt-start.sync-tmp")
-backup = Path(r"C:\Users\Lenovo\.claude\skills\ppt-start.sync-backup")
-broken = Path(r"C:\Users\Lenovo\.claude\skills\ppt-start.sync-broken")
+source = Path(r"<REPO_ROOT>/skills/ppt-start")
+destination = Path(r"<USER_HOME>/.claude/skills/ppt-start")
+staging = Path(r"<USER_HOME>/.claude/skills/ppt-start.sync-tmp")
+backup = Path(r"<USER_HOME>/.claude/skills/ppt-start.sync-backup")
+broken = Path(r"<USER_HOME>/.claude/skills/ppt-start.sync-broken")
 
 def manifest(root: Path) -> dict[str, str]:
     if not root.is_dir() or not (root / "SKILL.md").is_file():

@@ -64,6 +64,12 @@ EXPECTED_CONFIG_BYTES = (
 
 EXPECTED_FAILURE_REASONS = frozenset(
     {
+        "artifact_firewall_unavailable",
+        "runtime_code_artifact",
+        "unexpected_run_artifact",
+        "unsafe_evidence_path",
+        "precomplete_pptx",
+        "pptx_outside_delivery",
         "run_not_found",
         "run_ambiguous",
         "run_not_complete",
@@ -584,12 +590,7 @@ class RunContractTests(unittest.TestCase):
         candidates = run / "samples" / ".candidates"
         candidates.mkdir()
         shutil.copy2(run / "samples" / "S01.svg", candidates / "S99.svg")
-        context = contract.validate_completed_run(run)
-        storyboard = contract.parse_storyboard(context.storyboard_path)
-        self._assert_reason(
-            "slide_set_invalid",
-            lambda: contract.resolve_slide_sources(context, storyboard),
-        )
+        self._assert_reason("unexpected_run_artifact", lambda: contract.validate_completed_run(run))
 
     def test_resolve_sources_rejects_nested_and_malformed_svg_files(self):
         contract = self._contract()
@@ -598,12 +599,7 @@ class RunContractTests(unittest.TestCase):
         nested = nested_run / "slides" / "nested"
         nested.mkdir()
         shutil.copy2(nested_run / "slides" / "S02.svg", nested / "S03.svg")
-        context = contract.validate_completed_run(nested_run)
-        storyboard = contract.parse_storyboard(context.storyboard_path)
-        self._assert_reason(
-            "slide_set_invalid",
-            lambda: contract.resolve_slide_sources(context, storyboard),
-        )
+        self._assert_reason("unexpected_run_artifact", lambda: contract.validate_completed_run(nested_run))
 
         malformed_run = self._write_run(temp / "malformed")
         shutil.copy2(

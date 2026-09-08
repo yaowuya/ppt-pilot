@@ -23,7 +23,7 @@
 - 全部文本先转纯文本并转义 `&`、`<`、`>`、`"`、`'`；禁止注入 `[[...]]` marker、Markdown 标题、JSON 围栏、绝对路径、外部指令（沿用 `_reject_unsafe_replacement` 约束，`tests/test_redesign_prompt_contract.py:592`）
 - 风格解析 oracle（`tests/test_redesign_prompt_contract.py::resolve_style_case`）是“宿主解析该契约”的模拟；让 style pack tokens 接受 `schema_version: 2` 需要同步扩展它，失败态仍为 `style_asset_schema_unsupported`（reason 枚举不变）
 - 提交信息使用仓库既有风格（`feat(contracts):` / `docs(spec):` / `test(contracts):` 前缀），逐任务原子提交
-- 演示用运行目录（`ppt-output/demo-gate-check/`、旧 `D:\05-AI\...` 运行）不是契约测试目标，不修改
+- 演示用运行目录（`ppt-output/demo-gate-check/`、旧 `<EXPERIMENTS_ROOT>/...` 运行）不是契约测试目标，不修改
 
 ---
 

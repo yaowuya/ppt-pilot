@@ -1,0 +1,270 @@
+{
+  "source_commit": "6fff469",
+  "kind": "hermetic_packaged_runtime_fixtures",
+  "live_host_acceptance": false,
+  "method": "Existing unittest fixture methods invoked unchanged; CLI wrappers recorded returned status/write lists; disposable fixture directories cleaned with registered test cleanup.",
+  "fixtures": [
+    {
+      "test": "test_real_lifecycle_and_replays",
+      "result": "PASS",
+      "cli_events": [
+        {
+          "command": "prepare-batch",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/generation-prompts/S01.md",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json",
+            ".ppt-pilot/visual-generation-batches/batch-774862f58beec24fd315f1caca5fe28fa825af64f21cd190fba05a0c87621957.json",
+            ".ppt-pilot/run.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "dispatch-plan",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [],
+          "next_command": null
+        },
+        {
+          "command": "reserve-dispatch",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/visual-generation-dispatches/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b-e0.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "reserve-dispatch",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [],
+          "next_command": null
+        },
+        {
+          "command": "bind-task",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/visual-generation-dispatches/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b-e0.json",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "bind-task",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [],
+          "next_command": null
+        },
+        {
+          "command": "ingest-result",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            "slides/.candidates/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.svg",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "ingest-result",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [],
+          "next_command": null
+        },
+        {
+          "command": "record-validation",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/质量检查报告.md",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "record-validation",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [],
+          "next_command": null
+        },
+        {
+          "command": "promote",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            "slides/S01.svg",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json",
+            ".ppt-pilot/visual-generation-batches/batch-774862f58beec24fd315f1caca5fe28fa825af64f21cd190fba05a0c87621957.json",
+            ".ppt-pilot/run.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "promote",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [],
+          "next_command": null
+        },
+        {
+          "command": "resume",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [],
+          "next_command": "stage_scan"
+        }
+      ],
+      "inventory": [
+        ".ppt-pilot/generation-prompts/S01.md",
+        ".ppt-pilot/run.json",
+        ".ppt-pilot/runtime-inputs/cap.json",
+        ".ppt-pilot/runtime-inputs/qa.json",
+        ".ppt-pilot/runtime-inputs/request.json",
+        ".ppt-pilot/runtime-inputs/response.txt",
+        ".ppt-pilot/samples/S01.svg",
+        ".ppt-pilot/theme.json",
+        ".ppt-pilot/visual-generation-batches/batch-774862f58beec24fd315f1caca5fe28fa825af64f21cd190fba05a0c87621957.json",
+        ".ppt-pilot/visual-generation-dispatches/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b-e0.json",
+        ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json",
+        ".ppt-pilot/故事板.md",
+        ".ppt-pilot/文稿审查.md",
+        ".ppt-pilot/来源.md",
+        ".ppt-pilot/研究.md",
+        ".ppt-pilot/简报.md",
+        ".ppt-pilot/质量检查报告.md",
+        "slides/.candidates/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.svg",
+        "slides/S01.svg",
+        "大纲.md"
+      ]
+    },
+    {
+      "test": "test_source_guided_accepts_published_anchor_evidence",
+      "result": "PASS",
+      "cli_events": [
+        {
+          "command": "prepare-batch",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/generation-prompts/S01.md",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json",
+            ".ppt-pilot/visual-generation-batches/batch-774862f58beec24fd315f1caca5fe28fa825af64f21cd190fba05a0c87621957.json",
+            ".ppt-pilot/run.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "resume",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [],
+          "next_command": "prepare-batch"
+        },
+        {
+          "command": "prepare-batch",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/generation-prompts/S01.md",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json",
+            ".ppt-pilot/visual-generation-batches/batch-c6bbfec9633edeffe9f482a58062bab415aeed5d453c35c5aef84f2811164973.json",
+            ".ppt-pilot/run.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "reserve-dispatch",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/visual-generation-dispatches/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b-e0.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "bind-task",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/visual-generation-dispatches/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b-e0.json",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "ingest-result",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            "slides/.candidates/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.svg",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "record-validation",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/质量检查报告.md",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json"
+          ],
+          "next_command": null
+        },
+        {
+          "command": "publish-anchors",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            ".ppt-pilot/samples/S01.svg"
+          ],
+          "next_command": "anchor_review"
+        },
+        {
+          "command": "promote",
+          "exit": 0,
+          "status": "PASS",
+          "writes": [
+            "slides/S01.svg",
+            ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json",
+            ".ppt-pilot/visual-generation-batches/batch-c6bbfec9633edeffe9f482a58062bab415aeed5d453c35c5aef84f2811164973.json",
+            ".ppt-pilot/run.json"
+          ],
+          "next_command": null
+        }
+      ],
+      "inventory": [
+        ".ppt-pilot/generation-prompts/S01.md",
+        ".ppt-pilot/run.json",
+        ".ppt-pilot/runtime-inputs/cap.json",
+        ".ppt-pilot/runtime-inputs/qa.json",
+        ".ppt-pilot/runtime-inputs/request.json",
+        ".ppt-pilot/runtime-inputs/response.txt",
+        ".ppt-pilot/samples/S01.svg",
+        ".ppt-pilot/theme.json",
+        ".ppt-pilot/visual-generation-batches/batch-c6bbfec9633edeffe9f482a58062bab415aeed5d453c35c5aef84f2811164973.json",
+        ".ppt-pilot/visual-generation-dispatches/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b-e0.json",
+        ".ppt-pilot/visual-generation-transactions/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.json",
+        ".ppt-pilot/导入检查点.json",
+        ".ppt-pilot/故事板.md",
+        ".ppt-pilot/文稿审查.md",
+        ".ppt-pilot/来源.md",
+        ".ppt-pilot/源稿清单.json",
+        ".ppt-pilot/源页映射.json",
+        ".ppt-pilot/研究.md",
+        ".ppt-pilot/简报.md",
+        ".ppt-pilot/质量检查报告.md",
+        "slides/.candidates/S01-695ab4955fe3fbc7fb6cde4b5076da320506995151b9b1a4487002db17ff556b.svg",
+        "slides/S01.svg",
+        "大纲.md"
+      ]
+    }
+  ]
+}

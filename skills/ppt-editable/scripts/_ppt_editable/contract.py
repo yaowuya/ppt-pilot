@@ -252,6 +252,23 @@ def validate_completed_run(run_dir: Path) -> RunContext:
     control_dir = run_dir / ".ppt-pilot"
     run_path = validate_safe_regular_file(control_dir / "run.json", (control_dir,))
     run_data = _load_run_json(run_path)
+    # Resolve only the sibling installed skill: never import a module from the run.
+    import importlib.util
+    firewall_path = Path(__file__).resolve().parents[3] / "ppt-start/scripts/_artifact_firewall.py"
+    try:
+        spec = importlib.util.spec_from_file_location("_ppt_editable_artifact_firewall", firewall_path)
+        firewall = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(firewall)
+    except (OSError, ImportError, AttributeError, TypeError, SyntaxError, ValueError) as exc:
+        raise _error("artifact_firewall_unavailable", "Shared artifact firewall dependency is unavailable",
+                     "Restore the sibling installed ppt-start skill before delivery.") from exc
+    source = run_data.get("source_deck", {})
+    source_path = source.get("source_path") if isinstance(source, Mapping) else None
+    failures = firewall.audit_artifacts(run_dir, run_data.get("stage", "brief"), source_path)
+    if failures:
+        failure = failures[0]
+        raise _error(failure["code"], "Run artifact preflight failed: " +
+                     ", ".join(failure["artifacts"][:10]), failure["next_action"])
     if run_data.get("stage") != "complete":
         raise _error("run_not_complete", "run.json.stage must equal complete")
     deck_id = run_data.get("deck_id")

@@ -57,23 +57,23 @@
     {
       "id": "missing-powerpoint-no-false-pass",
       "prompt_sha256": "01d18f254278fce14ab153f8f2a47fa81eef78438cf5ea25a423d86faa5c6141",
-      "skill_sha256": "060a5dbdb70b0bd85cd5db26b7baa63586acb832e6a12cb70a00e4b2c9df2bc3",
+      "skill_sha256": "83d4ebfcd43a04ed4eb5b8e0a373799c9df51b956a85b3a83df736a13a7aa353",
       "run_kind": "fresh-agent",
-      "model": "sonnet"
+      "model": "gpt-5.6-sol"
     },
     {
       "id": "unsupported-transform-no-image-fallback",
       "prompt_sha256": "32d428d980321156c159cacdf9dc515d6f354f71d8bdca0f4733a2f80da63d34",
-      "skill_sha256": "060a5dbdb70b0bd85cd5db26b7baa63586acb832e6a12cb70a00e4b2c9df2bc3",
+      "skill_sha256": "83d4ebfcd43a04ed4eb5b8e0a373799c9df51b956a85b3a83df736a13a7aa353",
       "run_kind": "fresh-agent",
-      "model": "sonnet"
+      "model": "gpt-5.6-sol"
     },
     {
       "id": "unverified-never-overwrites-pass",
       "prompt_sha256": "25ecad354811bfc645723749135af2ea9960d9a14223c7da970ba62f9a131eb2",
-      "skill_sha256": "060a5dbdb70b0bd85cd5db26b7baa63586acb832e6a12cb70a00e4b2c9df2bc3",
+      "skill_sha256": "83d4ebfcd43a04ed4eb5b8e0a373799c9df51b956a85b3a83df736a13a7aa353",
       "run_kind": "fresh-agent",
-      "model": "sonnet"
+      "model": "gpt-5.6-sol"
     }
   ]
 }

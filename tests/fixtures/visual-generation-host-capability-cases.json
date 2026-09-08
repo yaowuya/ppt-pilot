@@ -32,7 +32,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -48,7 +48,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -65,7 +67,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -81,7 +83,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -98,7 +102,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -114,7 +118,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -131,7 +137,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -147,7 +153,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -164,7 +172,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -180,7 +188,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -197,7 +207,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -213,7 +223,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -230,7 +242,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": false,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -246,7 +258,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -263,7 +277,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": false,
+        "data_tools_none": false,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -279,7 +293,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -296,7 +312,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": true,
         "credential_probe_required": false,
@@ -312,7 +328,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -329,7 +347,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": true,
@@ -345,7 +363,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -362,7 +382,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -378,7 +398,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -395,7 +417,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": false,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -411,7 +433,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     },
@@ -428,7 +452,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -444,6 +468,7 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
         "generator_calls": 1
       }
@@ -461,7 +486,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -477,6 +502,7 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
         "generator_calls": 1
       }
@@ -494,7 +520,7 @@
         "prompt_by_value": true,
         "fresh_history": true,
         "filesystem_none": true,
-        "tools_none": true,
+        "data_tools_none": true,
         "attribution": true,
         "nested_cli_required": false,
         "credential_probe_required": false,
@@ -510,7 +536,9 @@
       "expected_side_effects": {
         "prompt_writes": 0,
         "transaction_writes": 0,
+        "manifest_writes": 0,
         "candidate_writes": 0,
+        "svg_writes": 0,
         "generator_calls": 0
       }
     }

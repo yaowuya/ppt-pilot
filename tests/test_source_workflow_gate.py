@@ -105,13 +105,30 @@ class Fixture:
                 'kind': 'approval', 'approval_attempt': 1, 'decision': 'approve', 'artifact_snapshot_id': stage + '-v1'}
             self.evidence['approvals'][stage] = {'interaction_id': interaction_id,
                 'artifact_snapshot_id': stage + '-v1', 'artifact_sha256': self.sha(filename)}
+        binding = {key: self.evidence['anchor'][key] for key in ('files', 'style_sha256', 'review_snapshot_id')}
+        anchor_id = 'sha256:' + hashlib.sha256(json.dumps(binding, ensure_ascii=False, sort_keys=True,
+            separators=(',', ':')).encode('utf-8')).hexdigest()
         self.run['interaction_history']['anchor-approval'] = {'checkpoint': 'anchor', 'status': 'applied',
-            'kind': 'approval', 'approval_attempt': 1, 'decision': 'approve', 'artifact_snapshot_id': 'anchor-v1'}
-        self.evidence['anchor'].update(status='approved', approval_interaction_id='anchor-approval', artifact_snapshot_id='anchor-v1')
+            'kind': 'approval', 'approval_attempt': 1, 'decision': 'approve', 'artifact_snapshot_id': anchor_id}
+        self.evidence['anchor'].update(status='approved', approval_interaction_id='anchor-approval', artifact_snapshot_id=anchor_id)
         self.save()
 
 
 class SourceGateTests(unittest.TestCase):
+    def test_guided_anchor_replacement_requires_reapproval(self):
+        self.fixture.guided()
+        self.assertEqual(check_run(self.root, 'production')['status'], 'PASS')
+        name = '.ppt-pilot/samples/S01.svg'
+        self.fixture.write(name, '<svg viewBox="0 0 1280 720">replacement</svg>')
+        self.fixture.evidence['anchor']['files'][name] = self.fixture.sha(name)
+        self.blocked('production', 'approval_stale', 'anchor')
+
+    def test_opaque_guided_anchor_approval_fails_closed(self):
+        self.fixture.guided()
+        self.fixture.evidence['anchor']['artifact_snapshot_id'] = 'anchor-v1'
+        self.fixture.run['interaction_history']['anchor-approval']['artifact_snapshot_id'] = 'anchor-v1'
+        self.blocked('production', 'approval_stale', 'anchor')
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -129,6 +146,15 @@ class SourceGateTests(unittest.TestCase):
         self.assertTrue(result['errors'][0]['next_action'])
         return result
 
+    def audit(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS / 'ppt_workflow_gate.py'),
+             '--run-dir', str(self.root), '--audit-run'],
+            capture_output=True, text=True, encoding='utf-8')
+        if result.returncode not in (0, 2):
+            self.fail(result.stderr + result.stdout)
+        return result, json.loads(result.stdout)
+
     def test_all_nine_cumulative_stages_pass_without_mutation(self):
         initial = {path.relative_to(self.root).as_posix(): path.read_bytes() for path in self.root.rglob('*') if path.is_file()}
         for stage in STAGES:
@@ -136,6 +162,41 @@ class SourceGateTests(unittest.TestCase):
                 self.assertEqual(check_run(self.root, stage)['status'], 'PASS')
         final = {path.relative_to(self.root).as_posix(): path.read_bytes() for path in self.root.rglob('*') if path.is_file()}
         self.assertEqual(initial, final)
+
+    def test_precomplete_pptx_blocks_every_gate(self):
+        self.fixture.write('unexpected.pptx', 'native detour')
+        self.blocked('anchor', 'precomplete_pptx', 'theme')
+
+    def test_noncanonical_native_control_state_blocks(self):
+        for field in ('native_delivery', 'run_level_generator_blocker'):
+            with self.subTest(field=field):
+                self.fixture.run[field] = {'status': 'active'}
+                self.blocked('anchor', 'workflow_escape_state', 'theme')
+                del self.fixture.run[field]
+
+    def test_audit_cli_is_read_only(self):
+        before = {path.relative_to(self.root).as_posix(): path.read_bytes()
+                  for path in self.root.rglob('*') if path.is_file()}
+        result, payload = self.audit()
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertEqual(payload, {
+            'status': 'PASS', 'before': 'audit', 'errors': []})
+        after = {path.relative_to(self.root).as_posix(): path.read_bytes()
+                 for path in self.root.rglob('*') if path.is_file()}
+        self.assertEqual(before, after)
+
+    def test_complete_delivery_pptx_is_only_allowed_in_editable_directory(self):
+        self.fixture.run['stage'] = 'complete'
+        self.fixture.write('delivery/editable/deck-editable.pptx', 'validated delivery')
+        self.fixture.save()
+        result, payload = self.audit()
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertEqual(payload['status'], 'PASS')
+        self.fixture.write('deck-editable.pptx', 'wrong delivery location')
+        result, payload = self.audit()
+        self.assertEqual(result.returncode, 2, result.stderr + result.stdout)
+        self.assertEqual(payload['status'], 'BLOCKED', payload)
+        self.assertEqual(payload['errors'][0]['code'], 'pptx_outside_delivery')
 
     def test_guided_valid_and_latest_approval_is_authoritative(self):
         self.fixture.guided()
@@ -290,6 +351,7 @@ class SourceGateTests(unittest.TestCase):
 
     def test_non_import_is_not_applicable(self):
         del self.fixture.run['source_deck']
+        self.fixture.source.unlink()
         self.fixture.save()
         self.assertEqual(check_run(self.root, 'complete')['status'], 'NOT_APPLICABLE')
 
@@ -317,10 +379,10 @@ class SourceGateTests(unittest.TestCase):
         self.blocked('complete', 'pending_interaction')
 
     def test_snapshot_hashes_empty_files_without_approval(self):
-        self.fixture.write('empty-log.txt', '')
+        self.fixture.write('.ppt-pilot/dashboard.log', '')
         result = snapshot_run(self.root)
         self.assertEqual(result['status'], 'SNAPSHOT', result)
-        self.assertEqual(result['files']['empty-log.txt'], hashlib.sha256(b'').hexdigest())
+        self.assertEqual(result['files']['.ppt-pilot/dashboard.log'], hashlib.sha256(b'').hexdigest())
 
     def test_anchor_must_be_an_actual_svg(self):
         name = '.ppt-pilot/samples/S01.svg'

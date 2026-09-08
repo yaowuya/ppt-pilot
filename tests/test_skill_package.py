@@ -128,6 +128,49 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("不保证", text)
         self.assertIn("完全可编辑", text)
         self.assertIn("powerpoint", lower)
+        for token in (
+            "hosts/claude-code/agents/ppt-svg-generator.md",
+            "~/.claude/agents/ppt-svg-generator.md",
+            "普通 fresh-context subagent",
+            "不需要 Git",
+            "`CLAUDE.md`",
+            "byte-pure prompt-only",
+            "重新开启 Claude Code 会话",
+        ):
+            self.assertIn(token, text)
+
+    def test_claude_agent_install_and_real_host_evidence_are_explicit(self):
+        install = read_text(repo_root() / "docs" / "INSTALL.md")
+        acceptance = read_text(repo_root() / "docs" / "acceptance.md")
+        for token in (
+            "-ClaudeAgentsRoot",
+            "~/.claude/agents/ppt-svg-generator.md",
+            "hosts/claude-code/agents/ppt-svg-generator.md",
+            "非 Git",
+            "重新开启",
+            "项目级 Skill 或 Agent",
+        ):
+            with self.subTest(document="install", token=token):
+                self.assertIn(token, install)
+        for token in (
+            "Claude Code 非 Git SVG isolation",
+            "ppt-svg-generator",
+            "无 `.git` 目录",
+            "ambient host context",
+            "PENDING",
+            "static package",
+            "real host",
+        ):
+            with self.subTest(document="acceptance", token=token):
+                self.assertIn(token, acceptance)
+
+    def test_active_architecture_docs_use_no_data_tool_adapter_semantics(self):
+        for path in (self.architecture, self.design):
+            text = read_text(path)
+            with self.subTest(path=path.name):
+                self.assertNotRegex(text, r"(?<!data_)tools[ =]none")
+                self.assertIn("data_tools=none", text)
+                self.assertIn("host-isolation-adapters.md", text)
 
     def test_readme_and_design_show_root_outline_and_internal_run_layout(self):
         readme = read_text(self.readme)
@@ -453,6 +496,61 @@ class SkillPackageTests(unittest.TestCase):
         tokens = json.loads(read_text(style_root / "canway-midyear-review/tokens.json"))
         self.assertEqual(tokens["schema_version"], 2)
         self.assertIn("prompt_baseline", tokens)
+
+
+class ClaudeSvgGeneratorAgentTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.agent_path = (
+            repo_root()
+            / "hosts"
+            / "claude-code"
+            / "agents"
+            / "ppt-svg-generator.md"
+        )
+
+    def test_agent_has_exact_identity_and_non_data_tool_surface(self) -> None:
+        self.assertTrue(self.agent_path.is_file())
+        fields = parse_frontmatter(self.agent_path)
+        self.assertEqual(
+            fields,
+            {
+                "name": "ppt-svg-generator",
+                "description": (
+                    "Generates one PPT Pilot SVG page solely from a complete "
+                    "prompt supplied by value."
+                ),
+                "tools": "TodoWrite",
+            },
+        )
+        self.assertNotIn("isolation", fields)
+
+    def test_agent_forbids_workspace_access_and_returns_one_xml_fence(self) -> None:
+        fields = parse_frontmatter(self.agent_path)
+        text = read_text(self.agent_path)
+        for token in (
+            "Do not call tools",
+            "Do not inspect or read the working directory",
+            "Do not write files",
+            "Claude Code may preload `CLAUDE.md` and the parent session's git status",
+            "Ignore that ambient metadata when choosing slide content",
+            "exactly one fenced `xml` code block",
+            "no commentary before or after",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, text)
+        for forbidden_tool in (
+            "Read,",
+            "Write,",
+            "Edit,",
+            "Bash,",
+            "Glob,",
+            "Grep,",
+            "WebFetch,",
+            "WebSearch,",
+            "Skill,",
+            "MCP,",
+        ):
+            self.assertNotIn(forbidden_tool, fields["tools"])
 
 
 if __name__ == "__main__":

@@ -197,7 +197,7 @@ python -m unittest tests.test_manuscript_review_gate tests.test_workflow_contrac
 
 **Files:**
 - Verify: all repository tests
-- Sync: `skills/ppt-start/` → `C:/Users/Lenovo/.claude/skills/ppt-start/`
+- Sync: `skills/ppt-start/` → `<USER_HOME>/.claude/skills/ppt-start/`
 - Update: branch and PR #1
 
 - [ ] **Step 1: 完整验证**

@@ -12,6 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'packaging.ps1')
 $utf8NoBom = New-Object Text.UTF8Encoding($false)
 $timestamp = (Get-Date).ToString('yyyyMMddHHmmss')
 if (-not $RepoRoot) {
@@ -32,40 +33,8 @@ foreach ($skill in $skills) {
     }
 }
 
-function Get-FileSha256 {
-    param([string]$Path)
-    $fileStream = [IO.File]::OpenRead($Path)
-    $sha = [Security.Cryptography.SHA256]::Create()
-    try {
-        return ([BitConverter]::ToString($sha.ComputeHash($fileStream))).Replace('-', '').ToLowerInvariant()
-    }
-    finally {
-        $sha.Dispose()
-        $fileStream.Dispose()
-    }
-}
-
-function Get-SkillTreeInfo {
-    param([string]$Root)
-    $rootPath = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
-    $files = @(Get-ChildItem -LiteralPath $rootPath -File -Recurse -Force | Sort-Object FullName)
-    $stream = New-Object IO.MemoryStream
-    $encoding = New-Object Text.UTF8Encoding($false)
-    try {
-        foreach ($file in $files) {
-            $relative = $file.FullName.Substring($rootPath.Length).TrimStart('\', '/').Replace('\', '/')
-            $contentHash = Get-FileSha256 -Path $file.FullName
-            $frame = "$relative`0$($file.Length)`0$contentHash`n"
-            $bytes = $encoding.GetBytes($frame)
-            $stream.Write($bytes, 0, $bytes.Length)
-        }
-        $sha = [Security.Cryptography.SHA256]::Create()
-        try { $digest = ([BitConverter]::ToString($sha.ComputeHash($stream.ToArray()))).Replace('-', '').ToLowerInvariant() }
-        finally { $sha.Dispose() }
-    }
-    finally { $stream.Dispose() }
-    return [pscustomobject]@{ Count = $files.Count; Digest = $digest }
-}
+function Get-FileSha256 { param([string]$Path) Get-PptPilotFileSha256 $Path }
+function Get-SkillTreeInfo { param([string]$Root) Get-PptPilotTreeInfo $Root }
 
 function Copy-PluginSkill {
     param([System.Collections.IDictionary]$Descriptor, [string]$SkillsRoot, [string]$BackupRoot)
@@ -103,7 +72,7 @@ function Copy-PluginSkill {
             $createdBackup = $backupCandidate
             $backupMoved = $true
         }
-        Copy-Item -LiteralPath $source -Destination $destination -Recurse -Force
+        Copy-PptPilotFilteredTree $source $destination
         $sourceInfo = Get-SkillTreeInfo $source
         $destinationInfo = Get-SkillTreeInfo $destination
         if ($sourceInfo.Count -ne $destinationInfo.Count -or $sourceInfo.Digest -ne $destinationInfo.Digest) {
@@ -155,6 +124,8 @@ $marketplaceSnapshot = Join-Path $transactionRoot 'marketplace.json'
 $pluginExisted = Test-Path -LiteralPath $pluginDir
 $marketplaceExisted = Test-Path -LiteralPath $marketplacePath
 $marketplaceAttemptBackup = $null
+try { Assert-NoShadowingSkills $skillsRoot }
+catch { Write-Host "failed: $($_.Exception.Message)"; throw }
 New-Item -ItemType Directory -Force -Path $transactionRoot | Out-Null
 if ($pluginExisted) { Copy-Item -LiteralPath $pluginDir -Destination $pluginSnapshot -Recurse -Force }
 if ($marketplaceExisted) { Copy-Item -LiteralPath $marketplacePath -Destination $marketplaceSnapshot -Force }
@@ -162,7 +133,12 @@ if ($marketplaceExisted) { Copy-Item -LiteralPath $marketplacePath -Destination 
 try {
     New-Item -ItemType Directory -Force -Path (Join-Path $pluginDir '.codex-plugin') | Out-Null
     New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null
-    foreach ($skill in $skills) { Copy-PluginSkill $skill $skillsRoot $backupRoot }
+    foreach ($skill in $skills) {
+        $destination = Join-Path $skillsRoot $skill.Id
+        [void](Install-PptPilotTree $skill.Source $destination $backupRoot $skill.Id $timestamp)
+        $installedInfo = Get-SkillTreeInfo $destination
+        Write-Host ("installed scope=deepseek-plugin version={0} path={1} files={2} digest={3}" -f $Version, (Join-Path $skillsRoot $skill.Id), $installedInfo.Count, $installedInfo.Digest)
+    }
 
 $manifest = [ordered]@{
     name        = 'ppt-pilot'

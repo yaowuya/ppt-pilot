@@ -11,7 +11,7 @@ Add an independently invocable Skill that converts the completed standalone SVG 
 The design generalizes the successful process recorded in:
 
 ```text
-D:\05-AI\FY26H1-test\ppt-output\FY26H1-work-summary\.ppt-pilot\可编辑PPTX生成过程记录.md
+<EXPERIMENTS_ROOT>/example-project/ppt-output/example-work-summary-run/.ppt-pilot/可编辑PPTX生成过程记录.md
 ```
 
 That process is treated as a proof of concept, not as reusable production code. Its hard-coded paths, fixed slide list, content-specific assertions, flattened groups, and inconsistent visual thresholds must not be carried into the Skill.

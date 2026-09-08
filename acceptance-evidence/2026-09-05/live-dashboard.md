@@ -24,7 +24,7 @@
 - 最终安装版本：manuscript_approved 显示“内容审查 · 已批准”，manuscript_blocked 显示“内容审查 · 审查阻断”，此前故事板仍为 complete、当前审查为 blocked。
 - 重载最终静态资产后正常连接时，控制台 0 错误、0 警告；刻意停止服务期间的网络错误属于预期断线验收。
 
-本机截图（忽略于版本控制）：`output/playwright/dashboard-desktop.png`、`dashboard-mobile.png`、`dashboard-final.png`。最后一张连接既有 demo-fy26-h1 运行，显示 4/4 正式页，未更改其 production 阶段或伪称 QA 完成。
+本机截图（忽略于版本控制）：`output/playwright/dashboard-desktop.png`、`dashboard-mobile.png`、`dashboard-final.png`。最后一张连接既有 example-dashboard-run 运行，显示 4/4 正式页，未更改其 production 阶段或伪称 QA 完成。
 
 ## 安装与使用边界
 
@@ -32,10 +32,10 @@
 
 三个宿主位置的入口都成功执行 status；最后从安装后的 Codex 用户 Skill 启动服务、加载静态资产并完成浏览器检查。新会话加载更新后的 ppt-start 指令，才会执行自动启动；已开启的会话不保证即时重读 Skill。此证据证明安装与本地服务可运行，不证明三个模型都严格执行过新指令。
 
-验收结束时停止合成运行的服务，并启动既有 demo-fy26-h1 的只读面板，返回 `http://127.0.0.1:8011/` 且 browser_opened=true。地址只在该本机服务存活时有效。不再查看时可运行：
+验收结束时停止合成运行的服务，并启动既有 example-dashboard-run 的只读面板，返回 `http://127.0.0.1:8011/` 且 browser_opened=true。地址只在该本机服务存活时有效。不再查看时可运行：
 
 ```powershell
-py -3 skills/ppt-start/scripts/ppt_dashboard.py stop --run-dir ppt-output/demo-fy26-h1
+py -3 skills/ppt-start/scripts/ppt_dashboard.py stop --run-dir ppt-output/example-dashboard-run
 ```
 
 观察面板不批准任何步骤、不替代内容审查/视觉质量门。文件更新时间不是模型心跳；正式页计数不是耗时百分比。

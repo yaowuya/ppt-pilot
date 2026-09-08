@@ -66,7 +66,7 @@ PPT Pilot 是一个装进 **Claude Code / OpenAI Codex / DeepSeek Harness** 就�
 
 直接对正在对话的 Agent 说一句，它会自己去下载并装好：
 
-> 请把 https://github.com/yaowuya/ppt-pilot 克隆到本机，然后按 README 把 `skills/ppt-start` 和 `skills/ppt-editable` 装到当前宿主的技能目录。
+> 请把 https://github.com/yaowuya/ppt-pilot 克隆到本机，然后按 README 运行 `tools/update-hosts.ps1` 更新当前宿主；Claude Code 还要安装随仓库提供的 `ppt-svg-generator` Agent。
 
 在 Claude Code、Codex、DeepSeek Harness 里分别说，就会分别装到各自宿主。
 
@@ -78,7 +78,9 @@ cd ppt-pilot
 powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 ```
 
-一个脚本装好三个宿主（**DeepSeek Harness、Claude Code、Codex**），旧版按 Skill ID 自动备份。只想装 DeepSeek，就跑 `tools/install-deepseek-plugin.ps1`；复制或**符号链接**的逐宿主命令，见[安装指南](docs/INSTALL.md)。
+一个脚本装好三个宿主（**DeepSeek Harness、Claude Code、Codex**），用过滤后的 staging/摘要做备份替换，并自动刷新所选项目中已经存在的 `.agents/skills`／`.claude/skills`；Claude project Skill 会与匹配 Agent 一起更新。额外项目用 `-ProjectRoot`，物理 Codex 插件副本用 `-CodexPluginRoot`，混合失败会明确返回非零 `PARTIAL_FAILURE`。只想装 DeepSeek，就跑 `tools/install-deepseek-plugin.ps1`；完整参数见[安装指南](docs/INSTALL.md)。
+
+Claude Code 的 SVG fresh-context 生成还需要仓库随附的 `hosts/claude-code/agents/ppt-svg-generator.md`；更新脚本会把它安装到 `~/.claude/agents/ppt-svg-generator.md`。它使用普通 fresh-context subagent 且不请求 worktree，所以 PPT 工作目录不需要 Git、首个提交或可解析的 `HEAD`。Claude Code 会自动加载 `CLAUDE.md` 与父会话 Git status；该 Agent 明确忽略这些 ambient host context，并且没有文件／网络数据工具，但这不等同于 byte-pure prompt-only。新增或更新 Agent 后，请重新开启 Claude Code 会话；只复制 `skills/ppt-start/` 不足以启用这条生成路径。
 
 执行过程可在[本地实时面板](docs/LIVE-DASHBOARD.md)查看阶段任务、待确认问题和自动刷新的 SVG 预览。更新后的 `ppt-start` 会启动面板并给出浏览器地址；也可手动执行 `py -3 skills/ppt-start/scripts/ppt_dashboard.py start --run-dir ppt-output/<deck-id> --open`（Python 3.9+，无第三方依赖）。
 

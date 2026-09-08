@@ -14,7 +14,7 @@
 
 ## 全局约束
 
-- 只改仓库（`skills/ppt-start`、`tests`、`docs`），不改用户项目 `D:\05-AI\FY26H1-test\ppt-output\...\compile_prompt.py`。
+- 只改仓库（`skills/ppt-start`、`tests`、`docs`），不改用户项目 `<EXPERIMENTS_ROOT>/example-project/ppt-output/.../compile_prompt.py`。
 - 任何 style 编译出的 prompt 不得含 `source=`、`SRC-<digits>`、`data-source-id`、`[[STYLE_BASELINE]]`、`[[CANONICAL_NARRATIVE_BULLETS]]`、`{{NARRATIVE}}`（注入后不得残留）。
 - 源文件统一 UTF-8；JSON 文件缩进 2 空格；蛇形文件名。
 - 保留证据层来源语义：`svg-contract.md`/`qa-and-revision.md`/`narrative-and-storyboard.md` 中的 `source_ids`/`fact_source_consistency` 不动。
@@ -63,7 +63,7 @@ def test_style_owned_template_compiles_and_rejects_source(self):
 
 - [ ] **步骤 2：运行测试并确认其失败**
 
-运行：`python -m unittest tests.test_redesign_prompt_contract.RedesignPromptContractTests.test_style_owned_template_compiles_and_rejects_source -v`（从 `D:\01-code\ppt-pilot`）
+运行：`python -m unittest tests.test_redesign_prompt_contract.RedesignPromptContractTests.test_style_owned_template_compiles_and_rejects_source -v`（从 `<REPO_ROOT>`）
 预期：失败，提示 `compile_style_prompt` 未定义（若函数已存在并曾通过，先删除旧实现再进入本任务）。
 
 - [ ] **步骤 3：编写最小实现**（确保 `compile_style_prompt` 已存在并满足：模板 `{{NARRATIVE}}` 恰好一次；叙事 `_reject_unsafe_replacement` + 拒 source；body 无遗留 marker）：
