@@ -754,6 +754,38 @@ class MultiSkillInstallerTests(unittest.TestCase):
             market = json.loads((marketplace / "marketplace.json").read_text(encoding="utf-8-sig"))
             self.assertEqual([entry["name"] for entry in market["plugins"]], ["ppt-pilot"])
     @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+    def test_deepseek_installer_never_changes_host_profile(self):
+        for legacy_flag in (False, True):
+            with self.subTest(legacy_flag=legacy_flag), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                marketplace = root / "marketplace"
+                marketplace.mkdir()
+                market = marketplace / "marketplace.json"
+                market.write_text(json.dumps({"name": "personal", "plugins": []}), encoding="utf-8")
+                original_market = market.read_bytes()
+                profile = root / "host" / "profiles" / "web"
+                profile.mkdir(parents=True)
+                patch = profile / "cordis.patch.yml"
+                patch.write_bytes(b"# keep user settings\r\n[]\r\n")
+                original_patch = patch.read_bytes()
+                command = [shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                    "-File", str(self.deepseek_path), "-RepoRoot", str(repo_root()),
+                    "-MarketplaceRoot", str(marketplace)]
+                if legacy_flag:
+                    command += ["-DshWebProfileRoot", str(profile)]
+                completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8",
+                    errors="replace", timeout=120, check=False,
+                    env=dict(os.environ, DSH_HOME=str(root / "host")))
+                self.assertEqual(patch.read_bytes(), original_patch)
+                if legacy_flag:
+                    self.assertNotEqual(completed.returncode, 0)
+                    self.assertEqual(market.read_bytes(), original_market)
+                    self.assertFalse((marketplace / "plugins").exists())
+                else:
+                    self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                    self.assertTrue((marketplace / "plugins/ppt-pilot/skills/ppt-start/SKILL.md").is_file())
+
+    @unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
     def test_deepseek_post_copy_failure_restores_live_plugin_and_marketplace(self):
         with tempfile.TemporaryDirectory() as directory:
             marketplace = Path(directory) / "marketplace"

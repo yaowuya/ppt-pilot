@@ -121,6 +121,10 @@ $ppt-editable
 
 按 harness 插件约定安装到 `$HOME/.agents/plugins/plugins/ppt-pilot/`：一个 `ppt-pilot` 插件条目，`skills/` 下同时包含完整的 `skills/ppt-start/` 与 `skills/ppt-editable/`；per-ID 备份位于扫描根之外的插件 `backups/`。
 
+SVG 生成使用插件已接受的 `deepseek-harness / native-subagent / 1.0.0` 适配器，直接调用当前宿主公开的普通 `functions.subagent`（`run_in_background: true`）。不安装专用 generator，不读取／修改 DSH 配置，不要求 profile patch、DSH 重启或 DSH 部署。普通 subagent 不可用时按契约停止，不通过配置探测解锁。
+
+worker 获得 fresh context，但仍继承工具；“不调用工具、不再委派、只返回文本”是提示策略，不是硬工具隔离。coordinator 传入冻结完整 Prompt，独占运行目录写入；返回的 durable `subagent_id` 绑定为 `host_task_id`，不当作 `jobId` 交给 `job_output`。生成、补位与恢复前必须读取[DSH 协议](../skills/ppt-start/references/deepseek-harness.md)。实际并发受可观察容量和当前固定运行时新批次上限 5 约束；容量未知时为 1，不承诺五路活动任务。
+
 手动安装时，在用户级/项目级 agents 根下分别复制两个 Skill 目录：
 
 若目标已存在，先使用更新脚本备份并替换；下面的内容复制形式不会创建 `ppt-start/ppt-start/` 或 `ppt-editable/ppt-editable/`。

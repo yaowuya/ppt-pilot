@@ -209,6 +209,7 @@ class Runtime:
             ensure([txs[ref]['transaction_id'] for ref in manifest['transaction_refs']] == [c[0] for c in compiled])
             if not self.run.get('active_visual_generation_batch') and manifest['state'] != 'completed':
                 validate_capability(receipt)
+                self.run.pop('visual_generation_blocker', None)
                 self.run['active_visual_generation_batch'] = {'schema_version': 2, 'batch_id': batch_id, 'manifest_path': path}
                 self.write_run()
             return {'batch_id': batch_id, 'replay': True}
@@ -309,7 +310,7 @@ class Runtime:
                      (tx['state'] == 'compiled' and ref in reservations)]
         ready = [txs[ref]['slide_id'] for ref in manifest['transaction_refs'] if txs[ref]['state'] == 'compiled' and ref not in reservations]
         obs = capability['observation']
-        planned = plan_dispatch({'schema_version': 1, 'capabilities': {'fresh_isolation': True,
+        planned = plan_dispatch({'schema_version': 1, 'capabilities': {'fresh_isolation': obs['fresh_history'],
             'concurrent_tasks': obs['concurrent_tasks'], 'durable_lookup': obs['durable_lookup'], 'worker_capacity': obs['worker_capacity']},
             'ready_slide_ids': ready, 'in_flight_slide_ids': in_flight, 'batch_width': manifest['batch_width'],
             'blocked': manifest['state'] == 'blocked'})
@@ -321,7 +322,10 @@ class Runtime:
                 _validate_prompt_by_value(text, tx)
                 items.append({'slide_id': tx['slide_id'], 'transaction_id': tx['transaction_id'],
                     'dispatch_epoch': tx['dispatch_epoch'], 'prompt_by_value': text,
-                    'fresh_history': True, 'filesystem': 'none', 'data_tools': 'none', 'output': 'text', 'expected_fence': 'xml'})
+                    'fresh_history': obs['fresh_history'],
+                    'filesystem': 'none' if obs['filesystem_none'] else 'host-inherited',
+                    'data_tools': 'none' if obs['data_tools_none'] else 'host-inherited',
+                    'output': 'text', 'expected_fence': 'xml'})
         return {'items': items, 'reservations': [d for _, d in reservations.values()], 'capacity': planned}
 
     def dispatch_plan(self, args):
@@ -659,7 +663,11 @@ class Runtime:
                    for d in records[0]['patch_defects']), 'recovery_not_allowed')
 
     def resume(self, args):
-        self.priority(allow_legacy=True)
+        blocker = self.run.get('visual_generation_blocker')
+        retrying_generator = (isinstance(blocker, dict) and not self.run.get('active_visual_generation_batch') and
+            blocker.get('state') == blocker.get('reason') == 'generator_unavailable' and
+            blocker.get('resource') == 'none' and blocker.get('status') == 'active')
+        self.priority(allow_blocker=retrying_generator, allow_legacy=True)
         from _runtime_recovery import pending
         recoveries = pending(self)
         if recoveries:
@@ -695,6 +703,11 @@ class Runtime:
                 ensure(self.store.hash(current[sid]['final_path']) == current[sid]['candidate_sha256'], 'final_promotion_conflict')
             if self.run.get('stage') in ('anchor', 'production'):
                 owners = Owners(self.store, self.run)
+                if retrying_generator:
+                    ensure(blocker.get('selected_style_id') == owners.theme['selected_style_id'] and
+                        blocker.get('storyboard_snapshot_id') == owners.snapshots['storyboard_snapshot_id'] and
+                        blocker.get('theme_snapshot_id') == owners.snapshots['theme_snapshot_id'],
+                        'prompt_snapshot_conflict')
                 operations = []
                 for sid in owners.slides:
                     if sid not in self.run.get('dirty_slides', []):
@@ -712,6 +725,8 @@ class Runtime:
                         operations.append(operation)
                 operations = operations[:5]
                 slides = [op['slide_id'] for op in operations]
+                if retrying_generator:
+                    ensure(slides and slides[0] == blocker.get('slide_id'))
                 if slides:
                     request = {'schema_version': 1, 'kind': 'prepare_visual_generation_batch',
                         'expected_snapshots': owners.snapshots, 'ordered_slide_ids': slides,

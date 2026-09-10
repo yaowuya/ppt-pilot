@@ -127,7 +127,7 @@ $marketplaceAttemptBackup = $null
 try { Assert-NoShadowingSkills $skillsRoot }
 catch { Write-Host "failed: $($_.Exception.Message)"; throw }
 New-Item -ItemType Directory -Force -Path $transactionRoot | Out-Null
-if ($pluginExisted) { Copy-Item -LiteralPath $pluginDir -Destination $pluginSnapshot -Recurse -Force }
+if ($pluginExisted) { Copy-PptPilotFilteredTree $pluginDir $pluginSnapshot }
 if ($marketplaceExisted) { Copy-Item -LiteralPath $marketplacePath -Destination $marketplaceSnapshot -Force }
 
 try {

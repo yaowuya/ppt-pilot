@@ -6,7 +6,7 @@
 
 生成锚点或正式页面前必须读取本参考。每个视觉阶段都要求 `run.json.manuscript_review.state` 精确为 `manuscript_approved`，同时具有有效且已批准的故事板和审查产物。顶层阶段依次经过 `theme`、`anchor` 并进入 `production` 后才能生产，而且必须已有验证通过的 `theme.json`。
 
-正式页面按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，无需用户选择。每次 dispatch／补位调用只读 `ppt_concurrency.py`，以实际宿主容量和在途任务数限制新增任务；不足 5 时说明限制。旧 3／4 页批次原位恢复。批内所有页面先完成确定性内存 preflight，再按[页面生成宿主隔离适配器](host-isolation-adapters.md)协商能力，随后才可 pointer-last 写 per-slide transactions／manifest／active pointer；缺少或不安全 adapter 时以 `generator_unavailable` 结构性阻断，保持零 prompt／transaction／candidate 写入且不得轮询。generation 与 per-slide validation 可重叠，但 coordinator 独占 candidate/transaction/final 写入，并按 `ordered_slide_ids` 串行 promotion 与最低 blocker publication。页面只有在 transaction promoted、页面 QA 与整套 QA 都通过后才从 `dirty_slides` 清除。每完成一个批次都更新可恢复状态，使另一个宿主无需对话历史即可继续。
+正式页面按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，无需用户选择；当前固定运行时新批次上限为 5，规划目标不代表已启动数量或运行时扩容。DSH 生成／恢复先读[普通 subagent 协议](deepseek-harness.md)，接受 fresh context + 禁工具提示策略，不宣称硬工具隔离，也不以此放宽任何内容或 QA 门禁。每次 dispatch／补位调用只读 `ppt_concurrency.py`，以实际宿主容量和在途任务数限制新增任务；不足 5 时说明限制。旧 3／4 页批次原位恢复。批内所有页面先完成确定性内存 preflight，再按[页面生成宿主隔离适配器](host-isolation-adapters.md)协商能力，随后才可 pointer-last 写 per-slide transactions／manifest／active pointer；缺少或不安全 adapter 时以 `generator_unavailable` 结构性阻断，保持零 prompt／transaction／candidate 写入且不得轮询。generation 与 per-slide validation 可重叠，但 coordinator 独占 candidate/transaction/final 写入，并按 `ordered_slide_ids` 串行 promotion 与最低 blocker publication。页面只有在 transaction promoted、页面 QA 与整套 QA 都通过后才从 `dirty_slides` 清除。每完成一个批次都更新可恢复状态，使另一个宿主无需对话历史即可继续。
 
 某页耗尽修复与回退策略后仍有硬检查失败时，不得继续生成后续页面。
 
@@ -109,7 +109,8 @@ QA 以冻结故事板为事实基准，不要求逐字拷贝；阅读顺序预�
 ```text
 direct-compile projection = approved storyboard + theme.json + applicable applied visual revisions
 patch = complete direct-compile inputs + 当前 SVG + one exact defect
-initial/recompose generator = durable generation prompt only
+initial/recompose generator content = complete frozen durable generation prompt only
+DSH execution wrapper = non-content no-tools/no-delegation/text-only policy (not a sandbox)
 ```
 
 `patch` 必须读取完整直接编译输入、当前 SVG 与一个精确 `patch_defect`；只修复该 defect，并把受影响页面 SVG 与 QA 标脏。`recompose` 必须先把已应用修订投影回故事板或 `theme.json` 的相应所有权，再从这两个权威 owner 重新编译持久化 Prompt 并从空白构图生成候选。旧 SVG 不得提供给 `recompose` 生成上下文，也不得作为几何底稿、坐标参考、卡片骨架或复制起点。模式无法唯一判断时，持久化一个直接澄清问题并停止。
@@ -125,7 +126,7 @@ initial/recompose generator = durable generation prompt only
 - 验证 `.ppt-pilot/generation-prompts/<slide-id>.md` 的 `prompt_snapshot_id`、`storyboard_snapshot_id`、`theme_snapshot_id` 与已应用视觉修订 ID；
 - 风格身份／资产或 authoritative outline／storyboard／theme 验证失败时返回对应 owner；缺少 `files.prompt_template` 属于 `style_assets_unavailable: style_asset_field_missing`。只有当前解析出的 style-owned generation prompt 模板／字节或无法唯一解释的 snapshot／provenance 自身失败，才按产物契约独立写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 和 dirty slide，不启动 generator、不写 prompt/SVG、不改用其他风格、不降级为 patch；
 - 对每个候选重新检查冻结故事板的 `fact_source_consistency` 与 `narrative_integrity`，并检查 `theme.json` 的软风格基线；
-- coordinator 只向 fresh 独立生成上下文传入该持久化 Prompt；首次生成不传其他页面，`recompose` 还不得传旧 SVG 或创作对话；Claude 自动 ambient context 的接受与忽略边界以[宿主隔离适配器](host-isolation-adapters.md)为准；
+- coordinator 向 fresh 独立生成上下文按值传入完整冻结 Prompt；DSH 允许的非内容执行 wrapper 按[普通 subagent 协议](deepseek-harness.md)，不得改写 Prompt 或添加页面内容。首次生成不传其他页面，`recompose` 还不得传旧 SVG 或创作对话；工具与 ambient context 边界以[宿主隔离适配器](host-isolation-adapters.md)为准；
 - 生成回复必须恰好一个 `xml` 代码围栏；提取后裸内容从 `<svg` 开始并以 `</svg>` 结束；不得把代码围栏写入工作区 SVG；
 - 圆角卡片拒绝 `rect[rx]`／`rect[ry]`，必须检查 `path` 与 `A` 圆弧；普通直角 `rect` 仍允许；
 - 每个可见行一个独立 `text`，每个 `text` 一个简单 `tspan`；拒绝 nested tspan、混合 run 和自动换行；
@@ -174,7 +175,7 @@ SVG transaction 中的 `checks.office` 表示 Office-safe SVG 子集的静态兼
 
 ## 请求预算与派发可观测
 
-generator 交互是严格单轮的：一次请求提交完整输入，一次响应返回恰好一个围栏；禁止与生成上下文多轮往返（追问、确认、迭代修改）。"反复优化"只允许通过上面的离散阶梯表达，每个阶梯都是一次全新的单轮调用。
+generator 生成是严格单轮的：一次请求提交完整输入，一次响应返回恰好一个围栏；禁止向生成上下文追问、确认或迭代修改。"反复优化"只允许通过上面的离散阶梯表达，每个阶梯都是一次全新的单轮生成。[DSH 恢复](deepseek-harness.md)允许向已绑定的同一 child 用 `send_message` 取回已经完成的原答案；这是原结果重放，不是新生成，不追加内容或改写 SVG，也不因为没有取回结果就再次 spawn。
 
 每个候选的宿主请求上限固定为 **4 次**：首次生成／`recompose` 1 次 + `patch` ≤2 次 + 确定性回退 1 次（transport retry 计入同一 transaction 的 `generation_attempt`，不额外占用该预算）。用尽即停：写 blocker 或按阻断记录，不得静默开启第 5 次请求，也不得通过"新周期""换个说法重试"绕过计数。
 

@@ -1,6 +1,7 @@
 """Real facade/store integration, without a model or Office dependency."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -41,7 +42,7 @@ class RuntimeTests(unittest.TestCase):
         (self.root / name).write_text('# Canonical owner\n\n```ppt-pilot-json\n' +
                                      json.dumps(value, ensure_ascii=False) + '\n```\n', encoding='utf-8')
 
-    def prepared_fixture(self):
+    def prepared_fixture(self, host='claude-code', slide_count=1):
         from _run_store import sha, canonical
         from _runtime_owners import Owners
         import _prompt_runtime
@@ -64,8 +65,16 @@ class RuntimeTests(unittest.TestCase):
                 'reading_order': 1, 'claim_id': 'none', 'source_ids': [], 'qualifiers': [], 'metric': 'none'}],
             'visual_intent': 'Clear message', 'layout_family': 'single-assertion', 'density_budget': 'low',
             'previous_link': 'START', 'next_link': 'END'}
+        slides = []
+        for number in range(1, slide_count + 1):
+            item = json.loads(json.dumps(slide))
+            item.update(slide_id=f'S{number:02d}', previous_link='START' if number == 1 else f'S{number-1:02d}',
+                        next_link='END' if number == slide_count else f'S{number+1:02d}')
+            item['content_blocks'][0]['block_id'] = item['slide_id'] + '-B1'
+            slides.append(item)
+        slide_ids = [item['slide_id'] for item in slides]
         self.document('.ppt-pilot/故事板.md', {'outline_snapshot_id': outline_id,
-            'storyboard_snapshot_id': storyboard_id, 'applied_visual_revision_ids': [], 'slides': [slide]})
+            'storyboard_snapshot_id': storyboard_id, 'applied_visual_revision_ids': [], 'slides': slides})
         for name in ('简报', '研究', '来源'):
             (self.root / '.ppt-pilot' / (name + '.md')).write_text('# ' + name + '\n', encoding='utf-8')
         files = ['.ppt-pilot/简报.md', '.ppt-pilot/研究.md', '.ppt-pilot/来源.md', '大纲.md', '.ppt-pilot/故事板.md']
@@ -74,7 +83,7 @@ class RuntimeTests(unittest.TestCase):
             'reviewed_file_snapshot': {'snapshot_id': 'review-1', 'files': files,
                 'file_hashes': {name: hashlib.sha256((self.root / name).read_bytes()).hexdigest() for name in files}}}
         self.document('.ppt-pilot/文稿审查.md', latest)
-        self.run = {'schema_version': 1, 'deck_id': 'test', 'mode': 'auto', 'stage': 'production', 'dirty_slides': ['S01'],
+        self.run = {'schema_version': 1, 'deck_id': 'test', 'mode': 'auto', 'stage': 'production', 'dirty_slides': slide_ids,
             'manuscript_review': {'required': True, 'cycle': 1, 'round': 1, 'mode': 'inline_fallback',
                 'state': 'manuscript_approved', 'status': 'PASSED', 'latest_report': '文稿审查.md',
                 'open_blocking_findings': [], 'review_history': [latest]}}
@@ -90,21 +99,41 @@ class RuntimeTests(unittest.TestCase):
         from _run_store import RunStore
         owners = Owners(RunStore(self.root), self.run)
         self.request = {'schema_version': 1, 'kind': 'prepare_visual_generation_batch', 'expected_snapshots': owners.snapshots,
-            'ordered_slide_ids': ['S01'], 'generation_operations': [{'slide_id': 'S01', 'generation_intent': 'initial_generation',
-                'generation_trigger_id': 'initial:S01:' + storyboard_id}]}
+            'ordered_slide_ids': slide_ids, 'generation_operations': [{'slide_id': sid, 'generation_intent': 'initial_generation',
+                'generation_trigger_id': 'initial:' + sid + ':' + storyboard_id} for sid in slide_ids]}
         self.request['request_id'] = sha(canonical(self.request).rstrip(b'\n'))
         self.request['expected_run_sha256'] = sha((self.root / '.ppt-pilot/run.json').read_bytes())
         self.put('.ppt-pilot/runtime-inputs/request.json', self.request)
-        registry = json.loads((SCRIPTS.parent / 'assets/host-adapters.json').read_text())['adapters'][0]
+        registry = next((entry for entry in json.loads(
+            (SCRIPTS.parent / 'assets/host-adapters.json').read_text())['adapters']
+            if entry['host'] == host), None)
+        self.assertIsNotNone(registry, f'missing registered host adapter: {host}')
+        if host == 'deepseek-harness':
+            # No host config is installed or read by this compatibility route.
+            environment = mock.patch.dict(os.environ, {'DSH_HOME': str(Path(self.temp.name) / 'absent-dsh-home')})
+            environment.start()
+            self.addCleanup(environment.stop)
+            evidence = {
+                'tool_name': 'subagent', 'instruction_sha256': registry['adapter_digest'],
+                'spawn_primitive': 'fresh-context-subagent', 'tool_policy': 'inherited-not-isolated',
+                'ambient_context': ['deployment_system_prompt', 'agent_preset', 'workspace_instructions'],
+                'result_type': 'text', 'attribution_type': 'subagent_id',
+                'session_id': 'hermetic-test-not-host-acceptance'}
+            worker_capacity = 5
+        else:
+            evidence = {
+                'agent_name': 'ppt-svg-generator', 'loaded_agent_sha256': registry['adapter_digest'],
+                'spawn_primitive': 'fresh-context-subagent', 'allowed_tools': ['TodoWrite'],
+                'ambient_context': ['CLAUDE.md', 'parent_git_status'], 'isolation': 'omitted',
+                'result_type': 'text', 'session_id': 'hermetic-test-not-host-acceptance'}
+            worker_capacity = 5
         self.capability = dict(registry, schema_version=1, kind='host_capability', observation={
             'native_fresh_isolation': True, 'remote_fresh_isolation': False, 'concurrent_tasks': True,
-            'durable_lookup': True, 'worker_capacity': 5, 'prompt_by_value': True, 'fresh_history': True,
-            'filesystem_none': True, 'data_tools_none': True, 'attribution': True, 'nested_cli_required': False,
-            'credential_probe_required': False, 'current_context_only': False}, evidence={
-            'agent_name': 'ppt-svg-generator', 'loaded_agent_sha256': registry['adapter_digest'],
-            'spawn_primitive': 'fresh-context-subagent', 'allowed_tools': ['TodoWrite'],
-            'ambient_context': ['CLAUDE.md', 'parent_git_status'], 'isolation': 'omitted',
-            'result_type': 'text', 'session_id': 'hermetic-test-not-host-acceptance'})
+            'durable_lookup': True, 'worker_capacity': worker_capacity, 'prompt_by_value': True,
+            'fresh_history': True, 'filesystem_none': host != 'deepseek-harness',
+            'data_tools_none': host != 'deepseek-harness', 'attribution': True,
+            'nested_cli_required': False, 'credential_probe_required': False,
+            'current_context_only': False}, evidence=evidence)
         self.put('.ppt-pilot/runtime-inputs/cap.json', self.capability)
         if hasattr(self, 'prior_final'):
             (self.root / 'slides').mkdir(exist_ok=True)
@@ -204,6 +233,35 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, body)
         self.assertEqual(body['writes'], ['.ppt-pilot/run.json'])
 
+    def test_repaired_blocker_pointer_replay_restores_dispatch(self):
+        self.prepared_fixture('deepseek-harness')
+        for name in ('generation-prompts', 'visual-generation-transactions', 'visual-generation-batches'):
+            shutil.rmtree(self.root / '.ppt-pilot' / name)
+        self.put('.ppt-pilot/run.json', self.run)
+        self.put('.ppt-pilot/runtime-inputs/cap.json', dict(self.capability, host='unsupported'))
+        result, body = self.invoke('prepare-batch', '--input', '.ppt-pilot/runtime-inputs/request.json',
+                                  '--capability', '.ppt-pilot/runtime-inputs/cap.json')
+        self.assertEqual(body['errors'][0]['code'], 'generator_unavailable')
+        run_path = self.root / '.ppt-pilot/run.json'
+        blocked_run = run_path.read_bytes()
+        result, body = self.invoke('resume')
+        self.assertEqual(result.returncode, 0, body)
+        self.put('.ppt-pilot/runtime-inputs/request.json', body['result']['prepare_request'])
+        self.put('.ppt-pilot/runtime-inputs/cap.json', self.capability)
+        result, body = self.invoke('prepare-batch', '--input', '.ppt-pilot/runtime-inputs/request.json',
+                                  '--capability', '.ppt-pilot/runtime-inputs/cap.json')
+        self.assertEqual(result.returncode, 0, body)
+        # Crash boundary: graph is durable, but the final run replacement was lost.
+        run_path.write_bytes(blocked_run)
+        result, body = self.invoke('resume')
+        self.assertTrue(body['result']['pointer_missing'])
+        result, body = self.invoke('prepare-batch', '--input', '.ppt-pilot/runtime-inputs/request.json',
+                                  '--capability', '.ppt-pilot/runtime-inputs/cap.json')
+        self.assertEqual(result.returncode, 0, body)
+        self.assertEqual(body['writes'], ['.ppt-pilot/run.json'])
+        self.assertNotIn('visual_generation_blocker', json.loads(run_path.read_text(encoding='utf-8')))
+        self.assertTrue(self.reserve()['result']['spawn_authorized'])
+
     def test_reserved_before_spawn_never_reselected(self):
         self.prepared_fixture()
         self.reserve()
@@ -248,6 +306,71 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(self.tx()['failure_reason'], 'generator_unavailable')
         self.assertFalse((self.root / '.ppt-pilot/visual-generation-dispatches').exists())
 
+    def test_deepseek_native_subagent_lifecycle_without_host_config(self):
+        self.prepared_fixture('deepseek-harness')
+        result, planned = self.invoke('dispatch-plan', '--batch-id', self.batch,
+                                     '--capability', '.ppt-pilot/runtime-inputs/cap.json')
+        self.assertEqual(result.returncode, 0, planned)
+        task = planned['result']['items'][0]
+        self.assertTrue(task['fresh_history'])
+        self.assertEqual(task['filesystem'], 'host-inherited')
+        self.assertEqual(task['data_tools'], 'host-inherited')
+        self.assertTrue(self.reserve()['result']['spawn_authorized'])
+        self.assertFalse(self.reserve()['result']['spawn_authorized'])
+        self.bind()
+        self.candidate()
+        self.assertEqual(self.candidate()['writes'], [])
+        self.validate()
+        from _run_store import sha
+        result, body = self.invoke('promote', '--batch-id', self.batch, '--expected-manifest-sha256',
+                                  sha((self.root / self.manifest_name).read_bytes()))
+        self.assertEqual(result.returncode, 0, body)
+        self.assertTrue((self.root / 'slides/S01.svg').is_file())
+
+    def test_deepseek_native_parallel_reservations_and_capacity(self):
+        self.prepared_fixture('deepseek-harness', slide_count=3)
+        for capacity, expected in ((None, 1), (0, 0), (2, 2), (5, 3)):
+            self.capability['observation']['worker_capacity'] = capacity
+            self.put('.ppt-pilot/runtime-inputs/cap.json', self.capability)
+            result, body = self.invoke('dispatch-plan', '--batch-id', self.batch,
+                                      '--capability', '.ppt-pilot/runtime-inputs/cap.json')
+            self.assertEqual(result.returncode, 0, body)
+            self.assertEqual(len(body['result']['items']), expected)
+        self.reserve()
+        result, resumed = self.invoke('resume')
+        self.assertEqual(resumed['result']['next_command'], 'durable_lookup')
+        self.assertEqual(resumed['result']['reservations'][0]['dispatch_id'], self.dispatch)
+        self.bind()
+        result, body = self.invoke('dispatch-plan', '--batch-id', self.batch,
+                                  '--capability', '.ppt-pilot/runtime-inputs/cap.json')
+        self.assertEqual([item['slide_id'] for item in body['result']['items']], ['S02', 'S03'])
+        self.assertEqual(body['result']['reservations'][0]['host_task_id'], 'fixture-task')
+
+    def test_deepseek_native_rejects_false_isolation_and_wrong_tool(self):
+        self.prepared_fixture('deepseek-harness')
+        from _host_adapter_runtime import validate_capability
+        cases = [('observation', 'filesystem_none', True), ('observation', 'data_tools_none', True),
+                 ('observation', 'fresh_history', False), ('observation', 'current_context_only', True),
+                 ('evidence', 'tool_name', 'subagent_fork'), ('evidence', 'tool_name', 'ppt_svg_generator'),
+                 ('evidence', 'attribution_type', 'background_job_id'), ('evidence', 'session_id', '')]
+        for section, key, value in cases:
+            receipt = json.loads(json.dumps(self.capability))
+            receipt[section][key] = value
+            with self.subTest(key=key, value=value), self.assertRaisesRegex(ValueError, 'generator_unavailable'):
+                validate_capability(receipt)
+
+    def test_deepseek_native_rejects_tampered_plugin_instructions(self):
+        self.prepared_fixture('deepseek-harness')
+        instruction = self.scripts.parent / 'references/deepseek-harness.md'
+        self.assertTrue(instruction.is_file())
+        instruction.write_text('Tampered adapter policy', encoding='utf-8')
+        result, body = self.invoke('reserve-dispatch', '--batch-id', self.batch,
+            '--slide-id', 'S01', '--transaction-id', self.txid,
+            '--capability', '.ppt-pilot/runtime-inputs/cap.json')
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(body['errors'][0]['code'], 'generator_unavailable')
+        self.assertFalse((self.root / '.ppt-pilot/visual-generation-dispatches').exists())
+
     def test_deepseek_prepare_records_only_canonical_blocker(self):
         self.prepared_fixture()
         # Start another clean run with the same frozen manuscript, no generation owners.
@@ -264,6 +387,13 @@ class RuntimeTests(unittest.TestCase):
         run = json.loads((self.root / '.ppt-pilot/run.json').read_text(encoding='utf-8'))
         self.assertEqual(run['visual_generation_blocker']['state'], 'generator_unavailable')
         self.assertFalse((self.root / '.ppt-pilot/visual-generation-batches').exists())
+        result, resumed = self.invoke('resume')
+        self.assertEqual(result.returncode, 0, resumed)
+        self.assertEqual(resumed['result']['next_command'], 'prepare-batch')
+        self.assertEqual(resumed['result']['prepare_request']['ordered_slide_ids'], ['S01'])
+        self.assertEqual(resumed['writes'], [])
+        self.assertIn('visual_generation_blocker', json.loads(
+            (self.root / '.ppt-pilot/run.json').read_text(encoding='utf-8')))
 
     def test_malformed_response_records_failure_without_candidate(self):
         self.prepared_fixture()

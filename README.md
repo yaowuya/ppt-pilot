@@ -78,7 +78,7 @@ cd ppt-pilot
 powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 ```
 
-一个脚本装好三个宿主（**DeepSeek Harness、Claude Code、Codex**），用过滤后的 staging/摘要做备份替换，并自动刷新所选项目中已经存在的 `.agents/skills`／`.claude/skills`；Claude project Skill 会与匹配 Agent 一起更新。额外项目用 `-ProjectRoot`，物理 Codex 插件副本用 `-CodexPluginRoot`，混合失败会明确返回非零 `PARTIAL_FAILURE`。只想装 DeepSeek，就跑 `tools/install-deepseek-plugin.ps1`；完整参数见[安装指南](docs/INSTALL.md)。
+一个脚本装好三个宿主（**DeepSeek Harness、Claude Code、Codex**），用过滤后的 staging/摘要做备份替换，并自动刷新所选项目中已经存在的 `.agents/skills`／`.claude/skills`；Claude project Skill 会与匹配 Agent 一起更新。额外项目用 `-ProjectRoot`，物理 Codex 插件副本用 `-CodexPluginRoot`，混合失败会明确返回非零 `PARTIAL_FAILURE`。只想装 DeepSeek，就跑 `tools/install-deepseek-plugin.ps1`；SVG 生成直接使用当前宿主的普通 `functions.subagent`，不需要读取／修改 DSH 配置、profile patch 或重启 DSH。该路径是 fresh-context + 不调用工具的提示策略，不是硬工具隔离；调用与恢复见[DSH 协议](skills/ppt-start/references/deepseek-harness.md)。完整参数见[安装指南](docs/INSTALL.md)。
 
 Claude Code 的 SVG fresh-context 生成还需要仓库随附的 `hosts/claude-code/agents/ppt-svg-generator.md`；更新脚本会把它安装到 `~/.claude/agents/ppt-svg-generator.md`。它使用普通 fresh-context subagent 且不请求 worktree，所以 PPT 工作目录不需要 Git、首个提交或可解析的 `HEAD`。Claude Code 会自动加载 `CLAUDE.md` 与父会话 Git status；该 Agent 明确忽略这些 ambient host context，并且没有文件／网络数据工具，但这不等同于 byte-pure prompt-only。新增或更新 Agent 后，请重新开启 Claude Code 会话；只复制 `skills/ppt-start/` 不足以启用这条生成路径。
 
@@ -216,7 +216,7 @@ inline PASS 和独立审查用的是**同一道严格质量门**，都能进 `ma
 几个核心实现要点（想深挖请去 [架构与工作原理](docs/ARCHITECTURE.md)）：
 
 - **生成范式**：活动视觉路径是**故事板 + `theme.json` 直接编译**——把已批准叙事注入所选风格包的单一 `{{NARRATIVE}}` 注点，产出 `creative-brief-v1` Prompt。早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃为迁移历史。
-- **并发批次**：无需用户选择，[自动策略](skills/ppt-start/references/adaptive-concurrency.md)从目标 5 路起，根据稳定通过检查的结果提升至最多 10 路；只读 `ppt_concurrency.py` 按宿主实际容量、批次上限 `batch_width` 和在途任务规划补位，容量／页数不足时明确报告限制。以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 与 `run.json.active_visual_generation_batch`，用 `prompt_by_value` 派出 fresh isolated generator（缺并发或 durable lookup 时降为 width 1，非 Git 不降级）；generator 与每页 validation 可**并发**，但 candidate/final、visible blocker 与 pointer 只由 coordinator 按 `ordered_slide_ids` **串行**提交。
+- **并发批次**：无需用户选择，[自动策略](skills/ppt-start/references/adaptive-concurrency.md)的纯规划器目标为 5→10；当前固定运行时新批次上限仍为 5，不保证五个活动任务。只读 `ppt_concurrency.py` 按真实宿主容量、批次上限 `batch_width` 和在途任务规划补位，容量未知时为 1，受限时如实报告。以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 与 `run.json.active_visual_generation_batch`，用完整 `prompt_by_value` 派出 fresh-context generator（工具边界见[宿主适配器](skills/ppt-start/references/host-isolation-adapters.md)，DSH 是禁工具提示策略而非硬工具隔离；缺并发或 durable lookup 时 width 1，非 Git 不降级）；generation 与每页 validation 可**并发**，但 candidate/final、visible blocker 与 pointer 只由 coordinator 按 `ordered_slide_ids` **串行**提交。
 - **风格**：经 `assets/styles/registry.json` 发现，内置五套 style pack——`canway-midyear-review`（嘉为年中总结风格，manifest `1.3.0`）、`jiawei-product`、`minimal-business`、`tech-dark`、`bold-editorial`。
 
 ---
