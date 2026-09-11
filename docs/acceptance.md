@@ -2,7 +2,7 @@
 
 本文档给出标准 `skills/ppt-start/` 与 `skills/ppt-editable/` 在 Claude Code、OpenAI Codex 与 DeepSeek Harness 中的可重复验收矩阵。自动一致性测试验证书面契约，但不能代替真实宿主、浏览器、PowerPoint 或 FY26H1 集成证据。
 
-未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前活动架构是**故事板 + `theme.json` 直接编译**：每个可选择 `style_pack` 都必须由 manifest `files.prompt_template` 声明并携带经过 tokens 精确绑定验证的 style-owned 完整模板；字段缺失立即 fail closed。运行时固定执行 manifest → tokens → guidance → prompt traversal；所有模板 hard prefix/suffix 字节相同，只有 Step 2 的七条 closed typed 风格指令由同包 tokens 确定性变化。仓库 `generation-prompt-template.md` 仅是建包 authoring seed，运行时不可执行。模板只有一个 whole-line `{{NARRATIVE}}` 注点，编译器只注入已批准、逐块带稳定 `block_id` 且不含来源注解的叙事／素材，持久格式为 `creative-brief-v1`。generator 仅可把每个 `block_id` 临时回显一次于规范 `data-block-id` 精确属性值；text／tail／其他属性泄漏以 `fact_source_mismatch` 零 candidate write 阻断。`tokens.json.prompt_baseline` 只作为闭合类型风格数据、QA 与 snapshot provenance，不是第二个正文注入域。早期 legacy `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃，新运行必须拒绝。新运行使用 schema-v2 per-slide transaction/batch manifest 与 `active_visual_generation_batch`，无需用户选择的规划目标 5→10 自动 fresh-context generation（当前固定运行时新批次上限 5，实际并发受宿主容量与在途任务约束；DSH 工具边界按其已接受适配器，不宣称硬工具隔离）、per-slide validation 并发、coordinator ordered serial publication。Canway manifest 版本为 `1.3.0`。历史 visual briefs 与 singular v1 transaction 只作 inert migration evidence。
+未执行的项目一律保持 `PENDING`。只有记录运行日期、精确宿主版本和证据路径后，才能更新结果；没有可检查证据就不能标为通过。当前活动架构是**故事板 + `theme.json` 直接编译**：每个可选择 `style_pack` 都必须由 manifest `files.prompt_template` 声明并携带经过 tokens 精确绑定验证的 style-owned 完整模板；字段缺失立即 fail closed。运行时固定执行 manifest → tokens → guidance → prompt traversal；模板仅允许同包已验证 tokens 确定性选择闭合 `prompt_role`、独立布尔 `composition.strict_brand_rules` 引言变体与 Step 2 七条 closed typed 风格指令，其余 hard shell 字节不变。仓库 `generation-prompt-template.md` 仅是建包 authoring seed，运行时不可执行。模板只有一个 whole-line `{{NARRATIVE}}` 注点，编译器只注入已批准、逐块带稳定 `block_id` 且不含来源注解的叙事／素材，持久格式为 `creative-brief-v1`。generator 仅可把每个 `block_id` 临时回显一次于规范 `data-block-id` 精确属性值；text／tail／其他属性泄漏以 `fact_source_mismatch` 零 candidate write 阻断。`tokens.json.prompt_baseline` 只作为闭合类型风格数据、QA 与 snapshot provenance，不是第二个正文注入域。早期 legacy `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃，新运行必须拒绝。新运行使用 schema-v2 per-slide transaction/batch manifest 与 `active_visual_generation_batch`，无需用户选择的规划目标 5→10 自动 fresh-context generation（当前固定运行时新批次上限 5，实际并发受宿主容量与在途任务约束；DSH 工具边界按其已接受适配器，不宣称硬工具隔离）、per-slide validation 并发、coordinator ordered serial publication。Canway manifest 版本为 `1.3.0`。历史 visual briefs 与 singular v1 transaction 只作 inert migration evidence。
 
 ## 前置条件
 
@@ -61,14 +61,14 @@ try {
 
 - storyboard + `theme.json` 只向解析模板的唯一 whole-line `{{NARRATIVE}}` 注点投影已批准叙事／素材，并拒绝来源注解；`tokens.json.prompt_baseline` 只参与风格数据、QA 与 snapshot provenance，format 精确为 `creative-brief-v1`；
 - style resolver 必须按 manifest → tokens → guidance → prompt 的 no-follow traversal 执行，前序资产失败不得触碰后序资产；每个 manifest 必须恰好声明 tokens、guidance、prompt 三个固定目标；
-- 每份 style-owned prompt 的 hard prefix/suffix 必须字节一致，只有 Step 2 七条 closed typed 行可随 tokens 改变，且整份 prompt 必须与同包 tokens 的确定性合成结果精确相等；
+- 每份 style-owned prompt 只接受[字节契约](../skills/ppt-start/references/generation-prompt-byte-grammar.md)规定的 `prompt_role` 闭合枚举、独立布尔 `composition.strict_brand_rules` 引言变体与七条 typed 风格行；其余 hard shell 字节不变，整份 prompt 必须与同包 tokens 的确定性合成结果精确相等，省略新字段时默认 bytes 不变；
 - 每个 `block_id` 只能临时出现一次于规范 `<g data-block-id>` 精确属性值，禁止进入 text／tail／其他属性名值；任何泄漏以 `fact_source_mismatch` 在 candidate write/hash 前失败且 candidate writes 为 0；
 - deterministic preflight 与已接受宿主边界的 capability negotiation 在任何 prompt／transaction／candidate write 前完成；
 - active `visual_generation_blocker` 修复且 preflight 成功后，必须先原子移除 blocker、原样保留可能存在的 schema-v1 owner并重新进入全局顺序；不得跨过 v1 零模型迁移创建新 transaction；
 - transaction→manifest→`run.json.active_visual_generation_batch` pointer-last，manifest 不复制页面 state，cursor 不能授权；
 - Claude Code 通过已注册的普通 `ppt-svg-generator` 接收完整 `prompt_by_value`，不传 worktree/remote isolation；该宿主的 isolated task 保持 fresh history、`filesystem=none`、`data_tools=none`。Claude 自动加载的 `CLAUDE.md`／Git status 必须作为 ambient host context 忽略，不宣称 byte-pure prompt-only；无安全 adapter 除闭合 run-level blocker 外零生产写入，缺 concurrency/lookup 降为 width 1，非 Git 不降级；
 - generator 与 per-slide validation 可重叠；coordinator 按 `ordered_slide_ids` 串行 promotion，并只发布最低 visible blocker；
-- `assets/styles/registry.json` 与 `canway-midyear-review` manifest/tokens/STYLE 的抽象边界，manifest 版本 `1.3.0`；
+- `assets/styles/registry.json` 与 `canway-midyear-review` manifest/tokens/STYLE 的抽象边界，manifest 版本 `1.3.0`；builtin `jiawei-product` 为 `1.1.0`，使用 `product_manager`、`strict_brand_rules: true` 与 36px／700／`#000000` 标题；
 - 内部 `SRC-<digits>` 不得成为可见文字，机器 `data-source-id` 必须保留；显式人类 citation 可显示名称／URL 但省略内部 ID；
 - telemetry critical path 使用 DAG max、batch wall 使用真实跨度，损坏只记 `telemetry_diagnostic_failed`。
 

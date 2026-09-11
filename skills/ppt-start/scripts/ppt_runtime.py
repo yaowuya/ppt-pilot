@@ -6,11 +6,15 @@ import argparse
 import json
 from _runtime_commands import Runtime
 from _workflow_gate import GateError
+from _host_adapter_runtime import CapabilityError, inspect_host
 
 
 def parser():
     value = argparse.ArgumentParser(description=__doc__)
     commands = value.add_subparsers(dest='command', required=True)
+    diagnostic = commands.add_parser('inspect-host', help='Read-only adapter/receipt check; no run or live host attestation')
+    diagnostic.add_argument('--host', required=True)
+    diagnostic.add_argument('--capability', help='Optional regular local JSON receipt; no UNC/device paths or writes')
     definitions = {
         'prepare-batch': ('input', 'capability'), 'dispatch-plan': ('batch-id', 'capability'),
         'reserve-dispatch': ('batch-id', 'slide-id', 'transaction-id', 'capability'),
@@ -35,10 +39,17 @@ def main(argv=None):
     runtime = None
     result, error = None, None
     try:
-        runtime = Runtime(args.run_dir)
-        result = runtime.execute(args)
+        if args.command == 'inspect-host':
+            result = inspect_host(args.host, args.capability)
+        else:
+            runtime = Runtime(args.run_dir)
+            result = runtime.execute(args)
     except GateError as exc:
         error = exc.error
+    except CapabilityError as exc:
+        error = {'code': 'generator_unavailable', 'details': exc.details,
+                 'reentry_stage': runtime.run.get('stage', 'brief') if runtime else 'installation',
+                 'next_action': exc.next_action}
     except (OSError, ValueError, TypeError, KeyError, RecursionError) as exc:
         code = str(exc) if isinstance(exc, ValueError) and str(exc).replace('_', '').isalnum() else 'invalid_or_unreadable_evidence'
         error = {'code': code, 'reentry_stage': runtime.run.get('stage', 'brief') if runtime else 'brief',

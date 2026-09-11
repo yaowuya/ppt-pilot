@@ -170,9 +170,19 @@ class Owners:
                                'style_kind': manifest['kind'], 'style_manifest_version': manifest['version']}.items():
             if self.theme.get(key) != expected:
                 raise ValueError('style_identity_mismatch')
-        tokens = parse_json(prompt._read_regular_asset(pack / 'tokens.json', path_reason='style_asset_path_unsafe',
-            missing_reason='style_asset_target_invalid', target_reason='style_asset_target_invalid', unreadable_reason='style_asset_unreadable'))
-        self.baseline = prompt.normalize_lf(prompt._style_verifier().render_prompt_style_directives(tokens).encode())
+        tokens_raw = prompt._read_regular_asset(pack / 'tokens.json', path_reason='style_asset_path_unsafe',
+            missing_reason='style_asset_target_invalid', target_reason='style_asset_target_invalid', unreadable_reason='style_asset_unreadable')
+        verifier = prompt._style_verifier()
+        try:
+            tokens = parse_json(tokens_raw)
+            verifier.verify_tokens(tokens)
+            verifier.verify_prompt_style_binding(tokens, self.template.decode('utf-8'))
+        except (verifier.VerificationError, ValueError, TypeError, KeyError) as error:
+            raise ValueError('prompt_snapshot_conflict') from error
+        self.title_min_size = 40
+        if tokens['composition'].get('strict_brand_rules', False):
+            self.title_min_size = tokens['typography'].get('page_title', tokens['typography'].get('slide_title'))
+        self.baseline = prompt.normalize_lf(verifier.render_prompt_style_directives(tokens).encode())
         slides = self.storyboard.get('slides')
         if not isinstance(slides, list) or not slides:
             raise ValueError('canonical_owner_missing')

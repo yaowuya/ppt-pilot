@@ -1049,9 +1049,9 @@ class RedesignPromptContractTests(unittest.TestCase):
             "- **层级执行**: 核心信息放大展示；支撑信息缩小放置。\n"
         ).encode("utf-8")
         body = compile_style_prompt(narrative, template_bytes)
-        self.assertIn("# Role: 高级信息架构师 & SVG 可视化编码专家".encode("utf-8"), body)
+        self.assertIn("# Role:产品经理& SVG 可视化编码专家".encode("utf-8"), body)
         self.assertIn("### 步骤 2: 应用风格基线并设计视觉表达".encode("utf-8"), body)
-        self.assertIn(b"layout_family=\"asymmetric_modular\"", body)
+        self.assertIn(b"layout_family=\"content_driven\"", body)
         self.assertNotIn(b"{{NARRATIVE}}", body)
         self.assertNotIn(b"[[STYLE_BASELINE]]", body)
         self.assertNotIn(b"[[CANONICAL_NARRATIVE_BULLETS]]", body)
@@ -2543,8 +2543,9 @@ class RedesignPromptContractTests(unittest.TestCase):
         reselected = copy.deepcopy(payload)
         reselected["snapshot_inputs"].update(
             {
-                "selected_style_id": "minimal-business",
-                "selected_style_display_name": "极简商务",
+                "selected_style_id": "jiawei-product",
+                "selected_style_display_name": "嘉为产品",
+                "style_manifest_version": "1.1.0",
             }
         )
         switched = self._render_generation_prompt_fixture(reselected)

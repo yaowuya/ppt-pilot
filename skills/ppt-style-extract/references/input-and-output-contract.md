@@ -34,7 +34,7 @@
 
 ## 幂等与重跑
 
-同一 `--style-id` 重新运行：先通过完整 verify，然后覆盖这四个包文件（每个文件先写临时文件再原子替换），registry 只更新既有条目（不新增重复 id）。任何一次运行在 verify 失败时都不覆盖已有文件。
+同一 `--style-id` 重新运行：先通过完整 verify，仅四个包文件字节完全一致时幂等复用，registry 在锁内重读并以 pointer-last 完成注册（不新增重复 id）。任一字节变化均以 `style_pack_immutable_conflict` 停止，必须使用新 immutable ID；不得原地覆盖。完整发布与 orphan 重试规则见[风格包验证](style-pack-verification.md)。
 
 ## 不变量
 

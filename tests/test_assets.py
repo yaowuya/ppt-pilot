@@ -10,13 +10,7 @@ from helpers import read_text, skill_root
 
 
 HEX_COLOR = re.compile(r"^#[0-9A-F]{6}$")
-STYLE_PACK_IDS = {
-    "minimal-business",
-    "tech-dark",
-    "bold-editorial",
-    "canway-midyear-review",
-    "jiawei-product",
-}
+STYLE_PACK_IDS = {"canway-midyear-review", "jiawei-product"}
 TOKEN_FILE = "tokens.json"
 MANIFEST_FILE = "manifest.json"
 PROMPT_FILE = "prompt.md"
@@ -76,7 +70,8 @@ class StyleAssetTests(unittest.TestCase):
                 title_keys = [key for key in ("slide_title", "page_title") if key in typography]
                 self.assertEqual(len(title_keys), 1, f"{style_id} needs one canonical title-size token")
                 title_key = title_keys[0]
-                self.assertGreaterEqual(typography[title_key], 40, f"{style_id}:{title_key}")
+                title_floor = 34 if tokens["composition"].get("strict_brand_rules") is True else 40
+                self.assertGreaterEqual(typography[title_key], title_floor, f"{style_id}:{title_key}")
 
                 spacing = tokens["spacing"]
                 self.assertEqual(spacing["outer_margin"], 64)
@@ -131,9 +126,8 @@ class StyleAssetTests(unittest.TestCase):
             "<tspan>",
             "对比度",
             "主导色",
-            "minimal-business",
-            "tech-dark",
-            "bold-editorial",
+            "jiawei-product",
+            "canway-midyear-review",
         ):
             self.assertIn(token, design, f"design-system.md 缺少 {token}")
         for prohibition in ("强调色条", "标题下划线", "渐变", "远程字体"):

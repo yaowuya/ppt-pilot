@@ -10,7 +10,11 @@ function Assert-NoShadowingSkills {
         if ($known -contains $child.Name) { continue }
         $entrypoint = Join-Path $child.FullName 'SKILL.md'
         if (-not (Test-Path -LiteralPath $entrypoint -PathType Leaf)) { continue }
-        $declaresKnownSkill = Select-String -LiteralPath $entrypoint -Pattern '^name:\s*(ppt-start|ppt-editable|ppt-style-extract)\s*$' -Quiet
+        $text = Get-Content -LiteralPath $entrypoint -Raw -Encoding UTF8
+        $frontmatter = [regex]::Match([string]$text, '(?ms)\A---[ \t]*\r?\n(.*?)^(?:---|\.\.\.)[ \t]*\r?$')
+        if (-not $frontmatter.Success) { continue }
+        # ponytail: Simple top-level name scalars only; richer YAML needs the host's parser.
+        $declaresKnownSkill = $frontmatter.Groups[1].Value -match '(?m)^name:[ \t]*(["'']?)(ppt-start|ppt-editable|ppt-style-extract)\1(?:[ \t]+#[^\r\n]*)?[ \t]*\r?$'
         if ($declaresKnownSkill) { throw "shadowing Skill discovery path: $($child.FullName)" }
     }
 }

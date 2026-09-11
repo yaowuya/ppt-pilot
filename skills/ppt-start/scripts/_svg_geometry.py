@@ -111,7 +111,7 @@ def _safe_box(left, top, right, bottom):
         raise ValueError("svg_contract_failed")
 
 
-def validate_geometry(element, inherited):
+def validate_geometry(element, inherited, *, title_min_size=40):
     """Check static coordinates, stroke bounds and explicit text layout."""
     tag = element.tag.rsplit("}", 1)[-1]
     attrs = dict(inherited)
@@ -149,7 +149,7 @@ def validate_geometry(element, inherited):
     elif tag == "text":
         role = element.get("data-role")
         size = get("font-size")
-        if role not in ("title", "body", "footnote") or size < {"title": 40, "body": 20, "footnote": 14}.get(role, 0):
+        if role not in ("title", "body", "footnote") or size < {"title": title_min_size, "body": 20, "footnote": 14}.get(role, 0):
             raise ValueError("svg_contract_failed")
         if not attrs.get("font-family") or (element.text or "").strip() or len(element) != 1:
             raise ValueError("svg_contract_failed")

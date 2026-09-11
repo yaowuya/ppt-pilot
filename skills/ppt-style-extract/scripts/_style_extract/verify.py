@@ -120,6 +120,14 @@ _PALETTE_USE_LABELS = {
     "hierarchy_boundary": "用于层级边界或深色强调",
     "selected_state": "用于少量关键点或选中状态",
     "weak_emphasis": "用于卡片底或弱强调区",
+    "page_title": "用于页面主标题及配套标题装饰，保持指定颜色",
+    "body_copy": "用于正文说明文字",
+    "caption_text": "用于辅助注释",
+    "optional_canvas": "用于可选浅灰页面底色",
+    "module_emphasis": "用于主模块条、按钮与少量重点，不整块铺满页面",
+    "geometric_support": "用于淡蓝斜切或梯形底托，克制承托流程或模块",
+    "thin_border": "用于 1px 浅色边框或分割线",
+    "flow_connector": "用于细长流程箭头",
 }
 
 _PROHIBITED_MOTIF_LABELS = {
@@ -156,10 +164,28 @@ def _valid_percentage_range(value: object) -> bool:
     return match is not None and int(match.group(1)) < int(match.group(2))
 
 
+_COMPOSITION_TEXT = {
+    "title_decoration": {
+        "black_blue_offset_squares": "标题左侧必须使用黑蓝错位方块（左上黑、右下蓝）；蓝色方块采用主品牌蓝；标题文字位于方块右侧并左对齐，字号、字重及颜色按标题令牌",
+    },
+    "content_focus": {
+        "current_and_next_actions": "优先突出已批准素材中的当前重点与下一步要做的事情；总结融入推进方向或行动模块，不为布局补造事项、行动或目标",
+    },
+    "surface_style": {
+        "sparse_enterprise": "商务、科技、简约；大留白、浅色底、少量蓝色强调、弱边框、弱阴影；减少色块与卡片，不为 Bento Grid 强行拆分；小型蓝色单色或蓝灰线性/扁平几何图标；存在主次时核心信息放大、支撑信息缩小",
+    },
+}
+_LAYOUT_RECIPE_TEXT = {
+    "product_overview": "产品能力/平台介绍页：顶部标题栏、中部主流程/模块区、下方平台承载区；优先左 2/3 架构流程图 + 右 1/3 卖点说明；卖点卡用小图标、粗标题和灰色说明，按内容减少卡片",
+    "comparison": "对比页：对等关系可用 50/50 双栏；有主次时可用 2/3 主 + 1/3 次；核心信息更显著，支撑信息保持次级，不把并列关系伪造成主次",
+    "process_milestone": "流程/里程碑页：横向流程与从左到右细箭头；按实际内容组织主能力条、步骤按钮、管理模块矩阵与平台集成条，不虚构流程或依赖关系",
+    "metrics_financial": "指标完成情况优先用一个简洁表格，不拆为多个数据卡片；财务类汇报表格置于页面上方或左上方，主体空间展开重点事项、行动计划和推进目标；没有相关素材时不补造内容",
+}
+
 _COMPOSITION_VALUE_RULES = {
     "card_coverage": _valid_percentage_range,
-    "layout_family": lambda value: value
-    in {"asymmetric_modular", "content_driven", "balanced_editorial"},
+    "layout_family": lambda value: isinstance(value, str)
+    and value in {"asymmetric_modular", "content_driven", "balanced_editorial"},
     "max_shadowed_objects": lambda value: isinstance(value, int)
     and not isinstance(value, bool)
     and 0 <= value <= 1,
@@ -172,8 +198,15 @@ _COMPOSITION_VALUE_RULES = {
     "primary_secondary_ratio": lambda value: isinstance(value, (int, float))
     and not isinstance(value, bool)
     and 1 <= value <= 4,
-    "title_position": lambda value: value in {"top_left", "top_center"},
+    "title_position": lambda value: isinstance(value, str) and value in {"top_left", "top_center"},
     "title_single_line_preferred": lambda value: isinstance(value, bool),
+    "strict_brand_rules": lambda value: isinstance(value, bool),
+    "title_decoration": lambda value: isinstance(value, str) and value in _COMPOSITION_TEXT["title_decoration"],
+    "content_focus": lambda value: isinstance(value, str) and value in _COMPOSITION_TEXT["content_focus"],
+    "surface_style": lambda value: isinstance(value, str) and value in _COMPOSITION_TEXT["surface_style"],
+    "layout_recipes": lambda value: isinstance(value, list) and 0 < len(value) <= len(_LAYOUT_RECIPE_TEXT)
+    and all(isinstance(item, str) and item in _LAYOUT_RECIPE_TEXT for item in value)
+    and len(value) == len(set(value)),
 }
 
 _TYPOGRAPHY_KEYS = {
@@ -223,6 +256,7 @@ _TOKEN_ROOT_KEYS = {
     "id",
     "display_name",
     "font_resolution",
+    "prompt_role",
     "colors",
     "typography",
     "spacing",
@@ -230,6 +264,16 @@ _TOKEN_ROOT_KEYS = {
     "composition",
     "prompt_baseline",
 }
+
+_PROMPT_ROLES = {
+    "information_architect": "# Role: 高级信息架构师 & SVG 可视化编码专家",
+    "product_manager": "# Role:产品经理& SVG 可视化编码专家",
+}
+_STYLE_INTRO_SOFT = "以下风格约定已在创建风格包时从提取证据静态物化。它们是软参考方向，不是逐项锁定令牌；在保持整套演示文稿风格一致性的前提下，布局、层级、卡片组织、信息密度、配色用法与装饰由你自主决定。"
+_STYLE_INTRO_FIXED = (
+    "以下风格约定已在创建风格包时静态物化。角色、标题规范、配色用途、字体字号、形状与禁止母题属于固定要求，不得自行降级或替换。调色板不要求每页用齐；布局配方仅在匹配已批准内容类型时应用，未指定的构图和卡片数量按叙事决定，不为填满布局新增事实或删除已批准重点。"
+    '\n\n编码时根 svg 同时声明 width="1280"、height="720" 与 viewBox；页标题 text 标注 data-role="title"，分区标题和正文标注 data-role="body"，辅助注释标注 data-role="footnote"。每个 text 只含一个 tspan，二者显式 x/y 一致；多行拆为多个 text，保持文字可编辑。'
+)
 
 _PROMPT_HARD_PREFIX = """# Role: 高级信息架构师 & SVG 可视化编码专家
 
@@ -249,9 +293,7 @@ _PROMPT_HARD_PREFIX = """# Role: 高级信息架构师 & SVG 可视化编码专�
 
 ### 步骤 2: 应用风格基线并设计视觉表达 (Style Baseline and Visual Design)
 
-以下风格约定已在创建风格包时从提取证据静态物化。它们是软参考方向，不是逐项锁定令牌；在保持整套演示文稿风格一致性的前提下，布局、层级、卡片组织、信息密度、配色用法与装饰由你自主决定。
-
-"""
+""" + _STYLE_INTRO_SOFT + "\n\n"
 
 _PROMPT_HARD_SUFFIX = """
 
@@ -400,10 +442,12 @@ def verify_tokens(tokens: dict) -> None:
     _require(isinstance(tokens, dict), "tokens_schema_invalid")
     _require(
         set(tokens).issubset(_TOKEN_ROOT_KEYS)
-        and (_TOKEN_ROOT_KEYS - {"font_resolution"}).issubset(tokens),
+        and (_TOKEN_ROOT_KEYS - {"font_resolution", "prompt_role"}).issubset(tokens),
         "tokens_schema_invalid",
     )
     _require(tokens.get("schema_version") == 2, "tokens_schema_invalid")
+    role = tokens.get("prompt_role", "information_architect")
+    _require(isinstance(role, str) and role in _PROMPT_ROLES, "tokens_prompt_role_invalid")
     _require(
         isinstance(tokens.get("id"), str)
         and _STYLE_ID_RE.fullmatch(tokens["id"]) is not None
@@ -529,6 +573,9 @@ def verify_tokens(tokens: dict) -> None:
         rule = _COMPOSITION_VALUE_RULES.get(key)
         _require(rule is not None and bool(rule(value)), "tokens_composition_rules_invalid")
     _require(tokens["composition"] == composition, "tokens_composition_rules_invalid")
+    if composition.get("strict_brand_rules", False):
+        _require(all(typography[key] >= 34 for key in ("page_title", "slide_title") if key in typography),
+                 "tokens_typography_invalid")
 
     prohibited = baseline["prohibited_motifs"]
     _require(
@@ -561,8 +608,8 @@ def _verify_numeric_mapping(
         _require(
             isinstance(value, (int, float))
             and not isinstance(value, bool)
-            and math.isfinite(value)
-            and 0 <= value <= 4096,
+            and 0 <= value <= 4096
+            and math.isfinite(value),
             "tokens_prompt_data_invalid",
         )
         if typography:
@@ -583,6 +630,19 @@ def _render_mapping(values: dict) -> str:
     )
 
 
+def _render_composition(values: dict) -> str:
+    parts = []
+    for key, value in sorted(values.items()):
+        rendered = _render_mapping({key: value})
+        labels = _COMPOSITION_TEXT.get(key, {})
+        if isinstance(value, str) and value in labels:
+            rendered += f"（{labels[value]}）"
+        elif key == "layout_recipes" and _COMPOSITION_VALUE_RULES[key](value):
+            rendered += "（" + "；".join(_LAYOUT_RECIPE_TEXT[item] for item in value) + "）"
+        parts.append(rendered)
+    return "；".join(parts)
+
+
 def render_prompt_style_directives(tokens: dict) -> str:
     """Render the canonical authoring-time style block embedded in prompt.md."""
     baseline = tokens["prompt_baseline"]
@@ -600,15 +660,23 @@ def render_prompt_style_directives(tokens: dict) -> str:
             f"- 字号层级：{_render_mapping(tokens['typography'])}",
             f"- 间距节奏：{_render_mapping(baseline['spacing_rhythm'])}",
             f"- 形状语言：{_render_mapping(baseline['shape_language'])}",
-            f"- 构图规则：{_render_mapping(baseline['composition_rules'])}",
+            f"- 构图规则：{_render_composition(baseline['composition_rules'])}",
             f"- 禁止母题：{'；'.join(_PROHIBITED_MOTIF_LABELS[item] for item in baseline['prohibited_motifs'])}",
     ]
     return "\n".join(lines)
 
 
+def _prompt_prefix(role: str, strict_brand_rules: bool) -> str:
+    _require(isinstance(role, str) and role in _PROMPT_ROLES, "tokens_prompt_role_invalid")
+    _require(isinstance(strict_brand_rules, bool), "tokens_composition_rules_invalid")
+    prefix = _PROMPT_HARD_PREFIX.replace(_PROMPT_ROLES["information_architect"], _PROMPT_ROLES[role], 1)
+    return prefix.replace(_STYLE_INTRO_SOFT, _STYLE_INTRO_FIXED, 1) if strict_brand_rules else prefix
+
+
 def compose_prompt(tokens: dict) -> str:
     return (
-        _PROMPT_HARD_PREFIX
+        _prompt_prefix(tokens.get("prompt_role", "information_architect"),
+                       tokens["composition"].get("strict_brand_rules", False))
         + render_prompt_style_directives(tokens)
         + _PROMPT_HARD_SUFFIX
     )
@@ -668,13 +736,11 @@ def verify_prompt(prompt: str) -> None:
         "prompt_template_invalid",
     )
     _require("data-block-id" in normalized, "prompt_template_invalid")
-    _require(
-        normalized.startswith(_PROMPT_HARD_PREFIX)
-        and normalized.endswith(_PROMPT_HARD_SUFFIX),
-        "prompt_template_invalid",
-    )
+    prefixes = (_prompt_prefix(role, strict) for role in _PROMPT_ROLES for strict in (False, True))
+    prefix = next((value for value in prefixes if normalized.startswith(value)), None)
+    _require(prefix is not None and normalized.endswith(_PROMPT_HARD_SUFFIX), "prompt_template_invalid")
     style_section = normalized[
-        len(_PROMPT_HARD_PREFIX) : len(normalized) - len(_PROMPT_HARD_SUFFIX)
+        len(prefix) : len(normalized) - len(_PROMPT_HARD_SUFFIX)
     ]
     style_lines = style_section.split("\n")
     _require(

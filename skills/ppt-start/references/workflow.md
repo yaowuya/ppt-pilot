@@ -29,7 +29,10 @@
 
 视觉生命周期只通过当前安装 Skill 的绝对路径调用 `scripts/ppt_runtime.py`。每次入口先执行只读 artifact audit；任一未知或未接受的宿主 adapter 都 fail closed。运行时不调用模型、Office 或宿主 CLI，也不读取、导入或执行运行目录中的代码。宿主只把声明式输入写到 `.ppt-pilot/runtime-inputs/`，并原样消费单个 JSON response envelope：
 
+DSH 在新建目录／阶段写入前先做安装只读预检，已有运行仍先通过 artifact audit。取宿主本次加载 Skill 给出的真实根目录，运行以下 `inspect-host`；安装身份不能靠猜路径或旧会话记忆。该命令无需运行目录、不改变全局恢复顺序、不创建 canonical blocker；详细操作见 [DSH 入口诊断](deepseek-harness.md#入口诊断与升级后恢复)。
+
 ```text
+inspect-host --host HOST [--capability ABSOLUTE_LOCAL_JSON]
 prepare-batch --run-dir RUN --input INPUT.json --capability CAPABILITY.json
 dispatch-plan --run-dir RUN --batch-id B --capability CAPABILITY.json
 reserve-dispatch --run-dir RUN --batch-id B --slide-id S --transaction-id T --capability CAPABILITY.json
@@ -44,7 +47,7 @@ resume --run-dir RUN
 migrate-v1 --run-dir RUN
 ```
 
-`resume` 永远只读；可新建批次时使用它返回的 `result.prepare_request`，不得自行重算 request ID。`reserve-dispatch` 必须显式重交 capability，并先持久化 attribution；`publish-anchors` 只发布 sample，返回的 `anchor_evidence`（含共享 `sha256:` identity）原样用于真实批准，旧 opaque ID 必须重新实际批准。schema-v1 只经显式 `migrate-v1` 迁移。`recompose`／`fallback` 只经运行时的固定 recovery journal 重放，不创建 run-local patch、依赖或手工编辑 owner。
+`resume` 永远只读；可新建批次时使用它返回的 `result.prepare_request`，不得自行重算 request ID。返回 `capability_refresh_required=true` 时，由 coordinator 使用当前 registry 身份与真实宿主观测重新构建 capability，在合法 staging 路径保存新输入，并用 `inspect-host --capability` 只读验证；安装更新、旧 receipt 或单独执行 resume 都不等于已完成重新协商。`reserve-dispatch` 必须显式重交 capability，并先持久化 attribution；`publish-anchors` 只发布 sample，返回的 `anchor_evidence`（含共享 `sha256:` identity）原样用于真实批准，旧 opaque ID 必须重新实际批准。schema-v1 只经显式 `migrate-v1` 迁移。`recompose`／`fallback` 只经运行时的固定 recovery journal 重放，不创建 run-local patch、依赖或手工编辑 owner。
 
 `generator_unavailable` 只在完整安全 preflight 后由固定 `prepare-batch` 或当前状态对应的固定 runtime 命令持久化；不得手写 `generator_unavailable`、blocker 或 transaction。
 
@@ -91,7 +94,7 @@ DSH 每页先 `reserve-dispatch`，仅在 `spawn_authorized: true` 时以含 `di
 
 五文件冻结后立即进入审查：每轮优先委派全新独立子 Agent；启动或结果归因失败时按契约执行 `inline_fallback`（当前上下文降级，报告必须声明隔离限制）；只有两种方式都不可用时才使用 `review_unavailable`。任何 `BLOCKER`／`HIGH` 问题不是 `RESOLVED` 就阻断——`OPEN` 与 `ACCEPTED_RISK` 仍然阻断；零问题也必须保存显式 `PASS` 报告。subagent 与 inline 共同计入每 cycle 最多三轮；三轮仍有阻断问题时进入 `manuscript_blocked`。
 
-findings 字段 schema、七维检查、设计师视角材料缺口协议、用户业务决策与多轮解决要求，以 [文稿审查](manuscript-review.md) 为单一权威。
+findings 字段 schema、八项检查（含设计师视角材料充分性）、材料缺口协议、用户业务决策与多轮解决要求，以 [文稿审查](manuscript-review.md) 为单一权威。
 
 ### 批准检查点与视觉阶段转换
 

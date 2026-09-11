@@ -883,6 +883,323 @@ class MultiSkillInstallerTests(unittest.TestCase):
             self.assertEqual(_filtered_tree_digest(live), before)
 
 
+@unittest.skipUnless(shutil.which("powershell"), "Windows PowerShell unavailable")
+class SharedSkillInstallerTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.home = self.root / "home"
+        self.source = self.root / "source"
+        self.marketplace = self.home / ".agents" / "plugins"
+        self.shared = self.home / ".agents" / "skills"
+        self.skill_ids = ("ppt-start", "ppt-editable", "ppt-style-extract")
+        for skill_id in self.skill_ids:
+            skill = self.source / "skills" / skill_id
+            skill.mkdir(parents=True)
+            (skill / "SKILL.md").write_text(
+                f"---\nname: {skill_id}\n---\nCurrent portable Skill 中文\n", encoding="utf-8"
+            )
+        registry = self.source / "skills/ppt-start/assets/host-adapters.json"
+        registry.parent.mkdir()
+        shutil.copy2(skill_root() / "assets/host-adapters.json", registry)
+        agent = self.source / "hosts/claude-code/agents/ppt-svg-generator.md"
+        agent.parent.mkdir(parents=True)
+        agent.write_text("fixture agent\n", encoding="utf-8")
+        (self.source / "tools").mkdir()
+        for name in ("install-deepseek-plugin.ps1", "update-hosts.ps1", "packaging.ps1"):
+            shutil.copy2(repo_root() / "tools" / name, self.source / "tools" / name)
+
+    def run_tool(self, name, *arguments):
+        return subprocess.run([
+            shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+            "-File", str(self.source / "tools" / name), "-RepoRoot", str(self.source),
+            *map(str, arguments),
+        ], env=dict(os.environ, USERPROFILE=str(self.home)), cwd=self.root,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120, check=False)
+
+    def seed_shared(self, skills_root=None):
+        skills_root = skills_root or self.shared
+        for skill_id in self.skill_ids:
+            skill = skills_root / skill_id
+            skill.mkdir(parents=True)
+            (skill / "SKILL.md").write_text(
+                f"---\nname: {skill_id}\n---\nOld Claude-only Skill\n", encoding="utf-8"
+            )
+        registry = skills_root / "ppt-start/assets/host-adapters.json"
+        registry.parent.mkdir()
+        registry.write_text('{"schema_version":1,"adapters":[{"host":"claude-code"}]}', encoding="utf-8")
+        return {skill_id: _tree_digest(skills_root / skill_id) for skill_id in self.skill_ids}
+
+    def test_standalone_refreshes_existing_shared_registry_and_preserves_prior_version(self):
+        before = self.seed_shared()
+        unrelated = self.shared / "unrelated" / "SKILL.md"
+        unrelated.parent.mkdir()
+        unrelated.write_bytes(b"---\nname: unrelated\n---\nkeep me\n")
+        completed = self.run_tool("install-deepseek-plugin.ps1", "-Version", "test-shared")
+        output = completed.stdout + completed.stderr
+        self.assertEqual(completed.returncode, 0, output)
+        source_registry = self.source / "skills/ppt-start/assets/host-adapters.json"
+        self.assertIn(b"deepseek-harness", source_registry.read_bytes())
+        plugin = self.marketplace / "plugins/ppt-pilot"
+        self.assertEqual((plugin / "skills/ppt-start/assets/host-adapters.json").read_bytes(), source_registry.read_bytes())
+        self.assertEqual((self.shared / "ppt-start/assets/host-adapters.json").read_bytes(), source_registry.read_bytes())
+        for skill_id in self.skill_ids:
+            self.assertEqual(_tree_digest(self.shared / skill_id), _tree_digest(self.source / "skills" / skill_id))
+            backups = list((self.shared.parent / "skill-backups").glob(skill_id + ".bak-*"))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(_tree_digest(backups[0]), before[skill_id])
+        self.assertEqual(unrelated.read_bytes(), b"---\nname: unrelated\n---\nkeep me\n")
+        self.assertFalse(list(self.shared.glob("*.bak-*")))
+        self.assertIn("scope=shared-user", output)
+
+    def test_standalone_shared_alias_blocks_before_any_scope_mutation(self):
+        self.seed_shared()
+        alias = self.shared / "old-ppt-alias" / "SKILL.md"
+        alias.parent.mkdir()
+        alias.write_text("---\nname: ppt-start\n---\n", encoding="utf-8")
+        before = _tree_digest(self.home)
+        completed = self.run_tool("install-deepseek-plugin.ps1")
+        output = completed.stdout + completed.stderr
+        self.assertNotEqual(completed.returncode, 0, output)
+        self.assertIn(str(alias.parent), output)
+        self.assertIn("shadowing", output)
+        self.assertEqual(_tree_digest(self.home), before)
+        self.assertFalse(self.marketplace.exists())
+
+    def test_standalone_shared_alias_recognizes_quoted_and_commented_name_scalars(self):
+        for index, scalar in enumerate(('"ppt-start"', "'ppt-start'", "ppt-editable # old alias",
+                                       '"ppt-style-extract" # old alias')):
+            with self.subTest(scalar=scalar):
+                custom = self.root / f"scalar-{index}"
+                shared = custom / "skills"
+                self.seed_shared(shared)
+                alias = shared / "legacy-alias/SKILL.md"
+                alias.parent.mkdir()
+                alias.write_text(f"---\nname: {scalar}\n---\n", encoding="utf-8-sig")
+                before = _tree_digest(custom)
+                completed = self.run_tool("install-deepseek-plugin.ps1", "-MarketplaceRoot", custom / "plugins")
+                output = completed.stdout + completed.stderr
+                self.assertNotEqual(completed.returncode, 0, output)
+                self.assertIn(str(alias.parent), output)
+                self.assertEqual(_tree_digest(custom), before)
+                self.assertFalse((custom / "plugins").exists())
+
+    def test_standalone_shared_alias_ignores_names_outside_real_frontmatter(self):
+        documents = (
+            "---\nname: unrelated\n---\n```yaml\nname: ppt-start\n```\n",
+            "---\nname: unrelated\n...\nname: ppt-start\n",
+            "# Example, not frontmatter\n---\nname: ppt-start\n---\n",
+            "---\nname: ppt-start\n",  # No closing frontmatter delimiter.
+            "---\nname: unrelated\nmetadata:\n  name: ppt-start\n---\n",
+            "---\nname: ppt-start#different-scalar\n---\n",
+        )
+        for index, document in enumerate(documents):
+            with self.subTest(document=document):
+                custom = self.root / f"body-{index}"
+                shared = custom / "skills"
+                unrelated = shared / "unrelated/SKILL.md"
+                unrelated.parent.mkdir(parents=True)
+                unrelated.write_text(document, encoding="utf-8")
+                before = _tree_digest(shared)
+                completed = self.run_tool("install-deepseek-plugin.ps1", "-MarketplaceRoot", custom / "plugins")
+                self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                self.assertEqual(_tree_digest(shared), before)
+                self.assertTrue((custom / "plugins/plugins/ppt-pilot/skills/ppt-start/SKILL.md").is_file())
+
+    def test_standalone_shared_failure_reports_plugin_success_and_restores_failed_tree(self):
+        before = self.seed_shared()
+        failed_skill = self.shared / "ppt-editable"
+        previous = self.shared.parent / "skill-backups/ppt-editable.bak-older"
+        previous.mkdir(parents=True)
+        (previous / "SKILL.md").write_bytes(b"older backup\n")
+        previous_digest = _tree_digest(previous)
+        helper = self.source / "tools/packaging.ps1"
+        text = read_text(helper)
+        marker = "        $installedInfo = Get-PptPilotTreeInfo $Destination\n"
+        self.assertEqual(text.count(marker), 1)
+        helper.write_text(text.replace(marker, marker +
+            f"        if ($Destination -eq '{failed_skill}') {{ throw 'injected shared verification failure' }}\n"), encoding="utf-8")
+        completed = self.run_tool("install-deepseek-plugin.ps1")
+        output = completed.stdout + completed.stderr
+        self.assertNotEqual(completed.returncode, 0, output)
+        self.assertIn("PARTIAL_FAILURE", output)
+        updated = next(line for line in output.splitlines() if line.startswith("updated:"))
+        failed = next(line for line in output.splitlines() if line.startswith("failed:"))
+        restored = next(line for line in output.splitlines() if line.startswith("rolled_back:"))
+        plugin = self.marketplace / "plugins/ppt-pilot"
+        self.assertIn(str(plugin), updated)
+        self.assertIn(str(failed_skill), failed)
+        self.assertIn("injected shared verification failure", failed)
+        self.assertIn(str(failed_skill), restored)
+        self.assertNotIn(str(failed_skill), updated)
+        self.assertNotIn(str(plugin), restored)
+        self.assertEqual(_tree_digest(failed_skill), before["ppt-editable"])
+        self.assertEqual(_tree_digest(previous), previous_digest)
+        self.assertEqual(list(previous.parent.glob("ppt-editable.bak-*")), [previous])
+        for skill_id in ("ppt-start", "ppt-style-extract"):
+            self.assertIn(str(self.shared / skill_id), updated)
+            self.assertEqual(_tree_digest(self.shared / skill_id), _tree_digest(self.source / "skills" / skill_id))
+        for skill_id in self.skill_ids:
+            self.assertEqual(_tree_digest(plugin / "skills" / skill_id), _tree_digest(self.source / "skills" / skill_id))
+        self.assertFalse((self.shared.parent / ".ppt-pilot-install-staging").exists())
+
+    def test_standalone_plugin_failure_leaves_shared_scope_untouched(self):
+        self.seed_shared()
+        before = _tree_digest(self.shared)
+        self.marketplace.mkdir()
+        market = self.marketplace / "marketplace.json"
+        market.write_bytes(b'{"plugins":[')
+        completed = self.run_tool("install-deepseek-plugin.ps1")
+        self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertEqual(_tree_digest(self.shared), before)
+        self.assertEqual(market.read_bytes(), b'{"plugins":[')
+        self.assertFalse((self.marketplace / "plugins/ppt-pilot").exists())
+        self.assertFalse((self.shared.parent / "skill-backups").exists())
+
+    def test_updater_installs_shared_skills_once_and_keeps_original_backup(self):
+        before = self.seed_shared()
+        completed = self.run_tool("update-hosts.ps1", "-SkipClaudeCode", "-SkipRepoProject")
+        output = completed.stdout + completed.stderr
+        self.assertEqual(completed.returncode, 0, output)
+        for skill_id in self.skill_ids:
+            installed = self.shared / skill_id
+            self.assertEqual(_tree_digest(installed), _tree_digest(self.source / "skills" / skill_id))
+            backups = list((self.shared.parent / "skill-backups").glob(skill_id + ".bak-*"))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(_tree_digest(backups[0]), before[skill_id])
+            self.assertEqual(output.count(f"path={installed} "), 1)
+
+    def test_updater_overlapping_selected_project_keeps_original_shared_backup(self):
+        before = self.seed_shared()
+        completed = self.run_tool("update-hosts.ps1", "-SkipClaudeCode", "-SkipRepoProject",
+            "-ProjectRoot", self.home)
+        output = completed.stdout + completed.stderr
+        self.assertEqual(completed.returncode, 0, output)
+        for skill_id in self.skill_ids:
+            backups = list((self.shared.parent / "skill-backups").glob(skill_id + ".bak-*"))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(_tree_digest(backups[0]), before[skill_id])
+            self.assertEqual(output.count(f"path={self.shared / skill_id} "), 1)
+
+    def test_standalone_override_refreshes_only_custom_sibling_not_userprofile(self):
+        self.seed_shared()
+        custom = self.root / "custom"
+        custom_shared = custom / "skills"
+        self.seed_shared(custom_shared)
+        before_home = _tree_digest(self.home)
+        before_source = _tree_digest(self.source)
+        completed = self.run_tool("install-deepseek-plugin.ps1", "-MarketplaceRoot", "custom/plugins/")
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        for skill_id in self.skill_ids:
+            self.assertEqual(_tree_digest(custom_shared / skill_id), _tree_digest(self.source / "skills" / skill_id))
+        self.assertEqual(_tree_digest(self.home), before_home)
+        self.assertEqual(_tree_digest(self.source), before_source)
+        self.assertFalse(self.marketplace.exists())
+        self.assertTrue((custom / "plugins/plugins/ppt-pilot/.codex-plugin/plugin.json").is_file())
+
+    def test_standalone_relative_override_uses_powershell_location(self):
+        shared = self.root / "custom/skills"
+        self.seed_shared(shared)
+        script = self.source / "tools/install-deepseek-plugin.ps1"
+        completed = subprocess.run([
+            shutil.which("powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+            f"Set-Location -LiteralPath '{self.root}'; & '{script}' -RepoRoot '{self.source}' -MarketplaceRoot 'custom/plugins/'",
+        ], env=dict(os.environ, USERPROFILE=str(self.home)), cwd=self.source,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=False)
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        for skill_id in self.skill_ids:
+            self.assertEqual(_tree_digest(shared / skill_id), _tree_digest(self.source / "skills" / skill_id))
+        self.assertFalse((self.source / "custom").exists())
+        self.assertFalse((self.home / ".agents").exists())
+
+    def test_standalone_preserves_shared_ordinary_file_named_for_supported_skill(self):
+        self.shared.mkdir(parents=True)
+        ordinary = self.shared / "ppt-start"
+        ordinary.write_bytes(b"not an installed Skill\x00\r\n")
+        completed = self.run_tool("install-deepseek-plugin.ps1")
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertTrue(ordinary.is_file(), "auto-sync must not replace an ordinary file")
+        self.assertEqual(ordinary.read_bytes(), b"not an installed Skill\x00\r\n")
+        self.assertEqual(list(self.shared.iterdir()), [ordinary])
+        self.assertFalse((self.shared.parent / "skill-backups").exists())
+        self.assertTrue((self.marketplace / "plugins/ppt-pilot/skills/ppt-start/SKILL.md").is_file())
+
+    def test_standalone_never_creates_absent_shared_roots_or_missing_skills(self):
+        for existing in (None, "unrelated", "ppt-start"):
+            with self.subTest(existing=existing):
+                custom = self.root / (existing or "absent")
+                shared = custom / "skills"
+                if existing:
+                    (shared / existing).mkdir(parents=True)
+                    (shared / existing / "SKILL.md").write_text(
+                        f"---\nname: {existing}\n---\nkeep unless supported\n", encoding="utf-8"
+                    )
+                completed = self.run_tool("install-deepseek-plugin.ps1", "-MarketplaceRoot", custom / "plugins")
+                self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                if existing is None:
+                    self.assertFalse(shared.exists())
+                else:
+                    self.assertEqual([path.name for path in shared.iterdir()], [existing])
+                    if existing == "ppt-start":
+                        self.assertEqual(_tree_digest(shared / existing), _tree_digest(self.source / "skills" / existing))
+                    else:
+                        self.assertIn("keep unless supported", (shared / existing / "SKILL.md").read_text())
+                if existing != "ppt-start":
+                    self.assertFalse((custom / "skill-backups").exists())
+        self.assertFalse((self.home / ".agents").exists())
+
+    def test_updater_skip_codex_preserves_shared_scope_even_with_alias(self):
+        self.seed_shared()
+        alias = self.shared / "legacy-alias" / "SKILL.md"
+        alias.parent.mkdir()
+        alias.write_text("---\nname: ppt-start\n---\n", encoding="utf-8")
+        before = _tree_digest(self.shared)
+        completed = self.run_tool("update-hosts.ps1", "-SkipClaudeCode", "-SkipCodex", "-SkipRepoProject")
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertEqual(_tree_digest(self.shared), before)
+        self.assertFalse((self.shared.parent / "skill-backups").exists())
+        self.assertTrue((self.marketplace / "plugins/ppt-pilot/.codex-plugin/plugin.json").is_file())
+
+    def test_updater_explicit_codex_root_does_not_select_marketplace_sibling(self):
+        self.seed_shared()
+        custom_market = self.root / "custom/plugins"
+        custom_shared = custom_market.parent / "skills"
+        self.seed_shared(custom_shared)
+        selected = self.root / "selected/skills"
+        self.seed_shared(selected)
+        before_home = _tree_digest(self.home)
+        before_sibling = _tree_digest(custom_shared)
+        completed = self.run_tool("update-hosts.ps1", "-SkipClaudeCode", "-SkipRepoProject",
+            "-MarketplaceRoot", custom_market, "-CodexSkillsRoot", selected)
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertEqual(_tree_digest(self.home), before_home)
+        self.assertEqual(_tree_digest(custom_shared), before_sibling)
+        for skill_id in self.skill_ids:
+            self.assertEqual(_tree_digest(selected / skill_id), _tree_digest(self.source / "skills" / skill_id))
+
+    def test_updater_shared_backup_failure_preserves_scope_and_reports_plugin_success(self):
+        self.seed_shared()
+        before = _tree_digest(self.shared)
+        (self.shared.parent / "skill-backups").write_bytes(b"not a directory\n")
+        completed = self.run_tool("update-hosts.ps1", "-SkipClaudeCode", "-SkipRepoProject")
+        output = completed.stdout + completed.stderr
+        self.assertEqual(completed.returncode, 2, output)
+        self.assertIn("PARTIAL_FAILURE", output)
+        updated = next(line for line in output.splitlines() if line.startswith("updated:"))
+        restored = next(line for line in output.splitlines() if line.startswith("rolled_back:"))
+        failed = next(line for line in output.splitlines() if line.startswith("failed:"))
+        self.assertIn("deepseek-plugin", updated)
+        self.assertNotIn(str(self.shared), updated)
+        self.assertNotIn(str(self.shared), restored)
+        for skill_id in self.skill_ids:
+            self.assertIn(str(self.shared / skill_id), failed)
+        self.assertEqual(_tree_digest(self.shared), before)
+        self.assertEqual((self.shared.parent / "skill-backups").read_bytes(), b"not a directory\n")
+        self.assertTrue((self.marketplace / "plugins/ppt-pilot/.codex-plugin/plugin.json").is_file())
+
+
 class GoldenHashFallbackContractTest(unittest.TestCase):
     """The golden byte-grammar block lives once in the authority file; the three
     stage contracts reference it by link and must not inline it anymore."""

@@ -2,6 +2,22 @@
 
 适用于 DSH 中的 `ppt-start`：直接使用现有 `subagent` 提效，不安装专用工具，不读取或修改 DSH 配置／preset，不修改宿主核心，不启动嵌套 CLI。注册身份为 `deepseek-harness / native-subagent / 1.0.0`；不是旧的 `ppt_svg_generator` 配置方案。
 
+## 入口诊断与升级后恢复
+
+1. 从宿主本次加载本 Skill 的结果取得真实根目录 `SKILL_ROOT`；不要假定插件目录、`~/.agents/skills` 或仓库源码一定是活动副本。此后所有固定命令使用同一根目录。宿主没有提供根路径时停止并要求确认安装位置，不读取 DSH 配置猜路径。
+2. 新运行在创建目录／文稿工作前、已有运行在 artifact audit PASS 后且任何阶段／dashboard 写入前，执行下列第一条只读命令。处理到 generator blocker 或视觉批次恢复时，再用第二条检查现有 capability（本地绝对路径）；不得越过更高优先级的待确认／待审查状态读取它。
+
+```text
+python "SKILL_ROOT/scripts/ppt_runtime.py" inspect-host --host deepseek-harness
+python "SKILL_ROOT/scripts/ppt_runtime.py" inspect-host --host deepseek-harness --capability "RUN/.ppt-pilot/runtime-inputs/capability.json"
+```
+
+`SKILL_ROOT` 与 `RUN` 替换为真实绝对路径。命令无需 `--run-dir` 或活动批次，不创建文件、修复旧 JSON 或清除 blocker。检查输出的 `skill_root`、`registry_path`、`instruction_path` 与 `adapter`。`receipt_checked=false` 只检查安装内容；即使提供 receipt 后 PASS，`live_host_verified` 仍为 false：它验证声明，不探测／证明真实宿主能力，也不授权生成。
+
+3. `errors[].details.reason/field/expected` 区分未注册 adapter、身份过期、能力／工具声明错误及安装摘要冲突。`adapter_not_registered` 或安装／摘要错误需要更新**该实际路径**的完整 Skill；报 `invalid choice: inspect-host` 同样说明运行时过旧。插件副本与已有直属／项目级副本需一致，不能只凭安装脚本返回成功就认定当前会话已切换；更新后重新加载 Skill，必要时新开会话。
+4. 遇到 `adapter_identity_mismatch`、旧 `unregistered/none` 或 `ppt_svg_generator` 证据时，不重做有效文稿、不切换 Claude、不修改 DSH、不手改 `run.json`。由 coordinator 按下面的 capability 契约，使用诊断返回的当前 `adapter` 身份与**真实当前工具观测／会话 ID**，重新构建完整声明；不能只替换 adapter ID，或把要求满足的能力当作已观测事实。容量未知用 `null`；未证明 durable lookup 就填 false。
+5. `resume` 保持只读。它返回下一步 `prepare-batch`／`dispatch-plan` 时同时给出 `capability_refresh_required=true`，只提示重新协商，不生成 capability、不清除 blocker。高优先级状态允许后，将新声明暂存为 `.ppt-pilot/runtime-inputs/<本次唯一文件名>.json`，保留旧输入作诊断记录；用第二条命令检查**新文件**。再把 `resume` 返回的原样 `prepare_request` 交给 `prepare-batch`，或按其返回恢复现有批次，并显式传入新 capability 路径。只有固定运行时经过完整 preflight 与快照复核，才能更新原有 blocker／事务；诊断 PASS 不能跳过这些门禁。
+
 ## 能力边界
 
 - `subagent` 接收完整任务文本并创建全新子上下文；不要使用继承父会话的 `subagent_fork`。

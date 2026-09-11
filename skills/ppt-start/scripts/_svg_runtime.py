@@ -29,7 +29,7 @@ def extract_svg(generator_text: str) -> str:
     return match.group(1)
 
 
-def _validate_svg(svg_text, *, enriched=False):
+def _validate_svg(svg_text, *, enriched=False, title_min_size=40):
     if not isinstance(svg_text, str) or re.search(r"<\?(?!xml\s)", svg_text, re.IGNORECASE):
         raise ValueError("svg_contract_failed")
     root = parse_xml(svg_text.encode("utf-8"), "candidate SVG", "{" + SVG_NS + "}svg")
@@ -75,7 +75,7 @@ def _validate_svg(svg_text, *, enriched=False):
             raise ValueError("svg_contract_failed")
         if (element.tail or "").strip():
             raise ValueError("svg_contract_failed")
-        validate_geometry(element, inherited)
+        validate_geometry(element, inherited, title_min_size=title_min_size)
         attrs = dict(inherited)
         attrs.update(element.attrib)
         for child in element:
@@ -86,20 +86,22 @@ def _validate_svg(svg_text, *, enriched=False):
     return root
 
 
-def validate_candidate(svg_text, expected_block_ids, source_map) -> bytes:
-    """Validate, enrich, revalidate and serialize in memory; never write files."""
+def validate_candidate(svg_text, expected_block_ids, source_map, *, title_min_size=40) -> bytes:
+    """Title floor comes from verified style data, never the SVG or host input."""
+    if type(title_min_size) not in (int, float) or not 34 <= title_min_size <= 4096:
+        raise ValueError("svg_contract_failed")
     if (not isinstance(expected_block_ids, (list, tuple)) or not expected_block_ids
         or any(not isinstance(block, str) or _BLOCK_ID.fullmatch(block) is None for block in expected_block_ids)
         or len(expected_block_ids) != len(set(expected_block_ids))
         or len({block.split("-B")[0] for block in expected_block_ids}) != 1
         or not isinstance(source_map, dict) or set(expected_block_ids) != set(source_map)):
         raise ValueError("fact_source_mismatch")
-    root = _validate_svg(svg_text)
+    root = _validate_svg(svg_text, title_min_size=title_min_size)
     prefix = expected_block_ids[0].split("-B")[0].lower() + "-"
     if any(node.get("id") and not node.get("id").startswith(prefix) for node in root.iter()):
         raise ValueError("svg_contract_failed")
     result = enrich_candidate_source_metadata(svg_text, source_map)
-    _validate_svg(result.decode("utf-8"), enriched=True)
+    _validate_svg(result.decode("utf-8"), enriched=True, title_min_size=title_min_size)
     return result
 
 _VISIBLE_INTERNAL_SOURCE_ID = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)

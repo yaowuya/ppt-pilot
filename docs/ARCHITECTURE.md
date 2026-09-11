@@ -23,7 +23,7 @@ skills/ppt-start/
 └── assets/examples/         # Office-safe SVG 示例
 ```
 
-每个 style pack 的 `manifest.json` 声明机器可读资产（`files.tokens` / `files.guidance` / `files.prompt_template`）；`tokens.json`（schema 2）承载颜色/字体/间距/形状与结构化 `prompt_baseline`；`prompt.md` 是该风格**自带的完整生成指令模板**。所有可执行模板的 hard prefix/suffix 字节完全一致，只有 Step 2 的七条 closed typed 风格指令由同包 tokens 确定性变化。
+每个 style pack 的 `manifest.json` 声明机器可读资产（`files.tokens` / `files.guidance` / `files.prompt_template`）；`tokens.json`（schema 2）承载颜色/字体/间距/形状与结构化 `prompt_baseline`；`prompt.md` 是该风格**自带的完整生成指令模板**。模板仅允许同包已验证 tokens 确定性选择闭合 `prompt_role`、独立布尔 `composition.strict_brand_rules` 引言变体与 Step 2 七条 closed typed 风格指令；其余 hard shell 字节不变，完整模板必须等于 tokens 的确定性合成结果，详见[字节契约](../skills/ppt-start/references/generation-prompt-byte-grammar.md)。
 
 ## 核心范式：风格自带完整模板 + 单注入点
 
@@ -62,7 +62,7 @@ telemetry（compile/model/render/qa/promotion spans、DAG 关键路径、batch w
 
 ## 修订模型
 
-编辑前先把请求唯一分类，并把已应用修订投影回其权威 owner（故事板拥有叙事/素材/事实/来源；`theme.json` 拥有风格身份与软风格基线）：
+编辑前先把请求唯一分类，并把已应用修订投影回其权威 owner（故事板拥有叙事/素材/事实/来源；`theme.json` 拥有风格身份与风格基线）：
 
 | 类别 | 适用 | 输入 | 审查 |
 |---|---|---|---|

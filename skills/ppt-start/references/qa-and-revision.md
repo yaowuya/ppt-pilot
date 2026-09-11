@@ -98,7 +98,7 @@ QA 以冻结故事板为事实基准，不要求逐字拷贝；阅读顺序预�
 
 ## 视觉修订分类与输入
 
-编辑任何视觉产物前，先把请求唯一分类为 `patch`、`recompose` 或事实／来源重入，并把已应用修订投影到其权威 owner：故事板拥有叙事、显示素材、事实、主张、限定词与来源映射，`theme.json` 拥有风格身份与软风格基线。
+编辑任何视觉产物前，先把请求唯一分类为 `patch`、`recompose` 或事实／来源重入，并把已应用修订投影到其权威 owner：故事板拥有叙事、显示素材、事实、主张、限定词与来源映射，`theme.json` 拥有风格身份与风格基线。
 
 - `patch` 只适用于保持已接受构图的可测量局部 defect：碰撞、溢出、令牌不一致、小范围对齐位移、连接线错误或不改变事实的错字。它不能改变焦点、层级、阅读路径、布局家族、卡片密度、嵌套、字体系统、语义色、品牌方向或视觉参考。
 - `recompose` 对以下变化是强制的：焦点、层级、阅读路径、布局家族、卡片密度、嵌套、字体系统、语义色、品牌方向、新视觉参考、“重新优化／更高级”等广泛要求，或者反复 patch 已形成视觉债务。
@@ -125,7 +125,7 @@ DSH execution wrapper = non-content no-tools/no-delegation/text-only policy (not
 
 - 验证 `.ppt-pilot/generation-prompts/<slide-id>.md` 的 `prompt_snapshot_id`、`storyboard_snapshot_id`、`theme_snapshot_id` 与已应用视觉修订 ID；
 - 风格身份／资产或 authoritative outline／storyboard／theme 验证失败时返回对应 owner；缺少 `files.prompt_template` 属于 `style_assets_unavailable: style_asset_field_missing`。只有当前解析出的 style-owned generation prompt 模板／字节或无法唯一解释的 snapshot／provenance 自身失败，才按产物契约独立写入 `run.json.visual_generation_blocker`，只保存安全 Skill 相对 `resource` 或 `none`；保持 `stage`、`mode`、`interaction_history` 和 dirty slide，不启动 generator、不写 prompt/SVG、不改用其他风格、不降级为 patch；
-- 对每个候选重新检查冻结故事板的 `fact_source_consistency` 与 `narrative_integrity`，并检查 `theme.json` 的软风格基线；
+- 对每个候选重新检查冻结故事板的 `fact_source_consistency` 与 `narrative_integrity`，并检查所选已验证模板的风格基线；`composition.strict_brand_rules: true` 时按[设计系统](design-system.md)核对固定品牌要求，不能作为软参考略过；
 - coordinator 向 fresh 独立生成上下文按值传入完整冻结 Prompt；DSH 允许的非内容执行 wrapper 按[普通 subagent 协议](deepseek-harness.md)，不得改写 Prompt 或添加页面内容。首次生成不传其他页面，`recompose` 还不得传旧 SVG 或创作对话；工具与 ambient context 边界以[宿主隔离适配器](host-isolation-adapters.md)为准；
 - 生成回复必须恰好一个 `xml` 代码围栏；提取后裸内容从 `<svg` 开始并以 `</svg>` 结束；不得把代码围栏写入工作区 SVG；
 - 圆角卡片拒绝 `rect[rx]`／`rect[ry]`，必须检查 `path` 与 `A` 圆弧；普通直角 `rect` 仍允许；
@@ -259,7 +259,7 @@ QA 报告统一写入 `.ppt-pilot/质量检查报告.md`，记录：
 
 - **局部修补（patch；visual-only／non-factual copy edit 的受限子集）**：仅处理一个可测量局部 defect。保持冻结故事板的事实／叙事／来源与当前 SVG 的已接受构图，只把受影响页面 SVG 和整套 QA 标脏；不重新运行文稿审查。
 - **页面重构（recompose）**：已批准文案、限定条件、数字、来源映射和受众行动不变，但焦点、层级、阅读路径、布局、卡片密度、字体、语义色、品牌方向或参考发生变化。记录页级视觉修订，把其内容或风格变化投影到故事板或 `theme.json` 的权威字段，重新编译该页 `generation-prompts/<slide-id>.md`，并只把该 prompt、SVG 和整套 QA 标脏；不重新运行文稿审查，且不把旧 SVG 提供给生成上下文。
-- **主题变化（theme change）**：记录 deck 级视觉修订并更新 `theme.json` 的软风格基线；把全部依赖主题的 generation prompts、锚点、页面及视觉／整套 QA 标脏，文案和含义不变时保留文稿批准。
+- **主题变化（theme change）**：记录 deck 级视觉修订并更新 `theme.json` 的风格基线；把全部依赖主题的 generation prompts、锚点、页面及视觉／整套 QA 标脏，文案和含义不变时保留文稿批准。
 - **事实、主张、来源、大纲或故事板变化**：不归入 patch 或 recompose。按产物契约返回最早受影响文稿阶段；把嵌套审查授权重置为 pending，保留历史并使视觉产物失效。此前状态为 `manuscript_approved` 才能开启新 cycle；尚未通过的周期保留计数。新的正式 subagent／inline 审查通过前不得回到视觉阶段。
 
 非事实性文案修正只有在可证明不改变主张、限定条件、数字、来源映射和受众行动时才能作为 patch；如果文案修改可能改变含义、置信度、范围、因果、比较、建议或来源对齐，应按主张变化处理。不得滥用“non-factual copy edit”例外绕过审查。

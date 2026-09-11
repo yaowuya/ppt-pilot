@@ -60,7 +60,7 @@
 
 文字保持为文字（text remains text）；标题、标签、正文和来源都不能转换为路径轮廓。
 
-- 标题至少 40 px；
+- 通用 SVG API 默认标题下限为 40 px；默认所选风格 `jiawei-product` 的主标题为 36 px。经完整验证且 `strict_brand_rules: true` 的固定品牌风格使用声明的主标题字号（`page_title`，否则 `slide_title`），不得低于 34 px。下限仅由 runtime 从已验证 tokens 推导，SVG／请求字段不能自行降低；
 - 正文和数据标签至少 20 px；
 - 脚注和来源至少 14 px；
 - 使用 `theme.json` 中的系统字体栈；

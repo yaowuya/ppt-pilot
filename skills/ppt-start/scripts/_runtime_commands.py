@@ -219,7 +219,7 @@ class Runtime:
             validate_capability(receipt)
         except ValueError:
             self.blocker(owners, slides[0])
-            raise ValueError('generator_unavailable')
+            raise
         txs, prompts = {}, {}
         for op, (txid, body_hash, envelope) in zip(operations, compiled):
             sid = op['slide_id']
@@ -346,7 +346,7 @@ class Runtime:
             pending = next((ref for ref in manifest['transaction_refs'] if txs[ref]['state'] == 'compiled'), None)
             if pending is not None:
                 self.fail(manifest, txs, pending, 'generator_unavailable')
-            raise ValueError('generator_unavailable')
+            raise
         ref = transaction_path(args.slide_id, args.transaction_id)
         ensure(ref in txs)
         tx = txs[ref]
@@ -412,7 +412,8 @@ class Runtime:
         blocks = owners.slides[tx['slide_id']]['content_blocks']
         try:
             data = validate_candidate(extract_svg(response), [b['block_id'] for b in blocks],
-                                      {b['block_id']: b['source_ids'] for b in blocks})
+                                      {b['block_id']: b['source_ids'] for b in blocks},
+                                      title_min_size=owners.title_min_size)
         except ValueError as error:
             ensure(tx['state'] == 'generating')
             reason = str(error) if str(error) in ('generator_output_malformed', 'fact_source_mismatch', 'svg_contract_failed') else 'svg_contract_failed'
@@ -784,7 +785,10 @@ class Runtime:
             from _runtime_recovery import pending
             ensure(not pending(self), 'recovery_pending')
         if args.command in ('resume', 'dispatch-plan'):
-            return command(args)
+            result = command(args)
+            if args.command == 'resume' and result.get('next_command') in ('prepare-batch', 'dispatch-plan'):
+                result['capability_refresh_required'] = True
+            return result
         with self.store.lock():
             self.audit()
             if args.command != 'prepare-recovery':

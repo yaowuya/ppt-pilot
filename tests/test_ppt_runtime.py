@@ -42,7 +42,7 @@ class RuntimeTests(unittest.TestCase):
         (self.root / name).write_text('# Canonical owner\n\n```ppt-pilot-json\n' +
                                      json.dumps(value, ensure_ascii=False) + '\n```\n', encoding='utf-8')
 
-    def prepared_fixture(self, host='claude-code', slide_count=1):
+    def prepared_fixture(self, host='claude-code', slide_count=1, style_id='jiawei-product'):
         from _run_store import sha, canonical
         from _runtime_owners import Owners
         import _prompt_runtime
@@ -88,8 +88,10 @@ class RuntimeTests(unittest.TestCase):
                 'state': 'manuscript_approved', 'status': 'PASSED', 'latest_report': '文稿审查.md',
                 'open_blocking_findings': [], 'review_history': [latest]}}
         self.put('.ppt-pilot/run.json', self.run)
-        self.put('.ppt-pilot/theme.json', {'selected_style_id': 'minimal-business', 'selected_style_display_name': '极简商务',
-            'style_kind': 'style_pack', 'style_manifest_version': '1.0.0'})
+        style = json.loads((self.scripts.parent / 'assets/styles' / style_id / 'manifest.json').read_text(encoding='utf-8'))
+        self.style = style
+        self.put('.ppt-pilot/theme.json', {'selected_style_id': style_id, 'selected_style_display_name': style['display_name'],
+            'style_kind': 'style_pack', 'style_manifest_version': style['version']})
         (self.root / '.ppt-pilot/samples').mkdir()
         sample = b'<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><title>Anchor</title><desc>Fixture</desc></svg>'
         (self.root / '.ppt-pilot/samples/S01.svg').write_bytes(sample)
@@ -327,6 +329,58 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, body)
         self.assertTrue((self.root / 'slides/S01.svg').is_file())
 
+    def test_fixed_brand_title_uses_verified_style_size_at_ingest(self):
+        self.prepared_fixture('deepseek-harness', style_id='jiawei-product')
+        self.reserve()
+        self.bind()
+        response = ('```xml\n<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">'
+            '<title>Hello</title><desc>One message</desc><g data-block-id="S01-B1">'
+            '<text data-role="title" x="120" y="140" font-size="36" font-family="Microsoft YaHei" fill="#000000">'
+            '<tspan x="120" y="140">Hello</tspan></text></g></svg>\n```\n')
+        (self.root / '.ppt-pilot/runtime-inputs/response.txt').write_text(response, encoding='utf-8')
+        result, body = self.invoke('ingest-result', '--dispatch-id', self.dispatch,
+                                  '--response', '.ppt-pilot/runtime-inputs/response.txt')
+        self.assertEqual(result.returncode, 0, body)
+        self.assertEqual(self.tx()['state'], 'candidate_written')
+        self.assertIn(b'font-size="36"', (self.root / self.tx()['candidate_path']).read_bytes())
+
+    def test_changed_style_tokens_during_owner_load_fail_as_snapshot_conflict(self):
+        self.prepared_fixture('deepseek-harness', style_id='jiawei-product')
+        from _runtime_owners import Owners
+        from _run_store import RunStore
+        import _prompt_runtime as prompt
+        original = prompt._read_regular_asset
+        for mutation in ('role', 'malformed_json', 'huge_title', 'layout_type'):
+            reads = 0
+
+            def change_second_read(path, **kwargs):
+                nonlocal reads
+                raw = original(path, **kwargs)
+                if path.name == 'tokens.json':
+                    reads += 1
+                    if reads == 2:
+                        if mutation == 'malformed_json':
+                            return b'{broken'
+                        data = json.loads(raw)
+                        if mutation == 'role':
+                            data['prompt_role'] = 'unregistered'
+                        elif mutation == 'huge_title':
+                            data['typography']['page_title'] = 10 ** 400
+                        else:
+                            data['composition']['layout_family'] = []
+                            data['prompt_baseline']['composition_rules']['layout_family'] = []
+                        return json.dumps(data).encode('utf-8')
+                return raw
+
+            with self.subTest(mutation=mutation), mock.patch.object(prompt, '_read_regular_asset', side_effect=change_second_read):
+                try:
+                    Owners(RunStore(self.root), self.run)
+                except Exception as error:
+                    self.assertIsInstance(error, ValueError)
+                    self.assertEqual(str(error), 'prompt_snapshot_conflict')
+                else:
+                    self.fail('Changed style tokens were accepted')
+
     def test_deepseek_native_parallel_reservations_and_capacity(self):
         self.prepared_fixture('deepseek-harness', slide_count=3)
         for capacity, expected in ((None, 1), (0, 0), (2, 2), (5, 3)):
@@ -369,6 +423,7 @@ class RuntimeTests(unittest.TestCase):
             '--capability', '.ppt-pilot/runtime-inputs/cap.json')
         self.assertEqual(result.returncode, 2)
         self.assertEqual(body['errors'][0]['code'], 'generator_unavailable')
+        self.assertEqual(body['errors'][0]['details']['reason'], 'instruction_digest_mismatch')
         self.assertFalse((self.root / '.ppt-pilot/visual-generation-dispatches').exists())
 
     def test_deepseek_prepare_records_only_canonical_blocker(self):
@@ -383,6 +438,8 @@ class RuntimeTests(unittest.TestCase):
                                   '--capability', '.ppt-pilot/runtime-inputs/cap.json')
         self.assertEqual(result.returncode, 2)
         self.assertEqual(body['errors'][0]['code'], 'generator_unavailable')
+        self.assertEqual(body['errors'][0].get('details', {}).get('reason'), 'adapter_not_registered')
+        self.assertNotIn('canonical owner conflict', body['errors'][0]['next_action'])
         self.assertEqual(body['writes'], ['.ppt-pilot/run.json'])
         run = json.loads((self.root / '.ppt-pilot/run.json').read_text(encoding='utf-8'))
         self.assertEqual(run['visual_generation_blocker']['state'], 'generator_unavailable')
@@ -391,6 +448,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, resumed)
         self.assertEqual(resumed['result']['next_command'], 'prepare-batch')
         self.assertEqual(resumed['result']['prepare_request']['ordered_slide_ids'], ['S01'])
+        self.assertTrue(resumed['result'].get('capability_refresh_required'))
         self.assertEqual(resumed['writes'], [])
         self.assertIn('visual_generation_blocker', json.loads(
             (self.root / '.ppt-pilot/run.json').read_text(encoding='utf-8')))
@@ -647,7 +705,7 @@ class RuntimeTests(unittest.TestCase):
         evidence['manuscript'] = {'files': latest['reviewed_file_snapshot']['file_hashes'],
             'report': {'path': '.ppt-pilot/文稿审查.md', 'sha256': hashes('.ppt-pilot/文稿审查.md')}, 'review_snapshot_id': 'review-1'}
         evidence['style'] = {'files': {'.ppt-pilot/theme.json': hashes('.ppt-pilot/theme.json')},
-            'selected_style_id': 'minimal-business', 'style_manifest_version': '1.0.0'}
+            'selected_style_id': self.style['id'], 'style_manifest_version': self.style['version']}
         evidence.pop('anchor')
         evidence.pop('qa')
         self.put('.ppt-pilot/导入检查点.json', evidence)
@@ -867,7 +925,7 @@ class RuntimeTests(unittest.TestCase):
         for name in ('generation-prompts', 'visual-generation-transactions', 'visual-generation-batches'):
             shutil.rmtree(self.root / '.ppt-pilot' / name)
         self.put('.ppt-pilot/run.json', self.run)
-        pack = self.install / 'skills/ppt-start/assets/styles/minimal-business'
+        pack = self.install / 'skills/ppt-start/assets/styles' / self.style['id']
         for filename, broken, reason, state in (
             ('tokens.json', '{bad', 'style_asset_malformed', 'style_assets_unavailable'),
             ('STYLE.md', 'invalid guidance', 'style_asset_malformed', 'style_assets_unavailable'),
@@ -881,7 +939,7 @@ class RuntimeTests(unittest.TestCase):
                 self.assertEqual(body['writes'], ['.ppt-pilot/run.json'])
                 run = json.loads((self.root / '.ppt-pilot/run.json').read_text(encoding='utf-8'))
                 self.assertEqual(run['visual_generation_blocker']['state'], state)
-                self.assertEqual(run['visual_generation_blocker']['resource'], 'assets/styles/minimal-business/' + filename)
+                self.assertEqual(run['visual_generation_blocker']['resource'], 'assets/styles/' + self.style['id'] + '/' + filename)
                 self.assertFalse((self.root / '.ppt-pilot/visual-generation-transactions').exists())
                 (pack / filename).write_bytes(original)
                 self.put('.ppt-pilot/run.json', self.run)

@@ -53,7 +53,7 @@ schema-v1 `visual_generation_transaction` 只能按 [artifact-contract.md](artif
 | `deterministic_fallback` | `recompose` | `fallback:<slide-id>:<failed-transaction-64hex>:2` | `deterministic single-column or two-column fallback after two failed patches`；`user_page_request` 为 `none (deterministic fallback after two failed patches)` |
 | `local_patch` | `patch` | `patch:<slide-id>:<qa-defect-id>` | `requires_current_svg: true`；`compile_full_prompt: false`，不得编译完整 generation prompt |
 
-theme 四字段缺失/冲突、legacy version 不是 `none`、trigger owner 缺失/无效/多个、stored compiled body 与 hash 不一致、或同一 transaction/provenance 无法唯一解释时返回 `prompt_snapshot_conflict` 并发布 `generation_prompt_unavailable` blocker。当前 registry display name、manifest version、已声明 `files.prompt_template` 的规范路径或模板 bytes 已变化时属于 ordinary stale，重建 theme/generation prompt，不写 style blocker。只有未被 manifest 声明的历史 `REDESIGN.md`／`*.redesign.md` 的存在、路径或字节变化不参与 stale、provenance 或 snapshot identity。
+theme 四字段缺失/冲突、legacy version 不是 `none`、trigger owner 缺失/无效/多个、stored compiled body 与 hash 不一致、或同一 transaction/provenance 无法唯一解释时返回 `prompt_snapshot_conflict` 并发布 `generation_prompt_unavailable` blocker。当前 registry display name、manifest version、已声明 `files.prompt_template` 的规范路径或模板 bytes 已变化时，工作流视为 ordinary stale，但固定运行时会以 `style_identity_mismatch` 或 `prompt_snapshot_conflict` 停止；需显式完成主题／视觉修订及相应确认，不会自动重建 theme/generation prompt 或迁移旧批准。只有未被 manifest 声明的历史 `REDESIGN.md`／`*.redesign.md` 的存在、路径或字节变化不参与 stale、provenance 或 snapshot identity。
 
 same `interaction:<id>` copied to every affected page compile input; each slide keeps distinct slide-specific transaction identities and prompt snapshots。Deck-scope user_recompose fan-out copies the same `interaction:<id>` to every affected page compile input; each slide keeps distinct slide-specific transaction identities and prompt snapshots.
 
@@ -77,9 +77,9 @@ same `interaction:<id>` copied to every affected page compile input; each slide 
 5. selected `entrypoint` 缺失返回 `entrypoint_missing`；路径为空、绝对路径、Windows 盘符、UNC、URL、`.`／`..` 穿越或 no-follow target link/symlink/junction/reparse 返回 `entrypoint_path_unsafe`；目标缺失、目录或特殊文件返回 `entrypoint_target_invalid`；不可读或非 UTF-8 返回 `entrypoint_unreadable`。
 6. `legacy_seed`：`entrypoint` 相对 `assets/styles/` 解析，规范化后仍必须位于 styles 根内，且不得位于任一已注册 style-pack 子目录；seed JSON 格式或结构错误返回 `legacy_entrypoint_malformed`，seed `name` 与 selected ID 不同返回 `legacy_identity_mismatch`。
 7. `style_pack`：entrypoint 打开前再次确认所有组件和叶节点非 no-follow target link/symlink/junction/reparse，且 manifest 位于 exact pack root 内。manifest JSON 无效返回 `manifest_malformed`，schema 非 1 返回 `manifest_schema_unsupported`，`id`、`kind`、`display_name` 与 registry／selected 不一致返回 `manifest_identity_mismatch`，`version` 未 fullmatch `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$` 返回 `manifest_version_invalid`。
-8. style-pack 的 `files` 必须恰好声明 `tokens.json`、`STYLE.md` 与 `prompt.md` 三个固定目标，`files.tokens`、`files.guidance`、`files.prompt_template` 都是必需字段；任一字段缺失返回 `style_asset_field_missing`。按 tokens → guidance → prompt 的固定顺序相对 exact pack root 解析，前一资产未完整通过前不得触碰后一资产。tokens／guidance 的路径、target、可读性与 tokens schema 失败沿用 `style_asset_*` reason；prompt 的路径、target、可读性和 canonical shell／单 whole-line `{{NARRATIVE}}`／tokens 精确 binding 失败映射到对应 `prompt_*` reason。tokens／guidance 规范路径记录在 `theme.json`，prompt 规范路径与 normalized bytes hash 进入 generation provenance。
+8. style-pack 的 `files` 必须恰好声明 `tokens.json`、`STYLE.md` 与 `prompt.md` 三个固定目标，`files.tokens`、`files.guidance`、`files.prompt_template` 都是必需字段；任一字段缺失返回 `style_asset_field_missing`。按 tokens → guidance → prompt 的固定顺序相对 exact pack root 解析，前一资产未完整通过前不得触碰后一资产。tokens／guidance 的路径、target、可读性与 tokens schema 失败沿用 `style_asset_*` reason；prompt 的路径、target、可读性和 canonical shell（仅允许[字节契约](generation-prompt-byte-grammar.md)的闭合角色／独立品牌引言变体）／单 whole-line `{{NARRATIVE}}`／tokens 精确 binding 失败映射到对应 `prompt_*` reason。tokens／guidance 规范路径记录在 `theme.json`，prompt 规范路径与 normalized bytes hash 进入 generation provenance。
 9. schema-v1 registry／manifest 的其他字段按向前兼容规则忽略。未被 `files.prompt_template` 声明的历史 `REDESIGN.md`／`*.redesign.md` 可留在磁盘，但 resolver 不得查找、派生、读取、验证或哈希，也不得把其路径或字节加入 provenance 或 snapshot identity。
-10. 在编译规范正文前完成身份握手：`theme.json` 的 selected style ID、display name、kind、manifest version 必须与当前 registry／manifest 一致；registry-backed legacy 的 manifest version 必须是字符串 `none`。registry 缺失时，下方表仅可同时匹配 seed `name` 以恢复旧运行身份，随后仍以 `registry_missing` 停止生成。theme 内部矛盾或多个持久 owner 声明不同 style 时返回 `prompt_snapshot_conflict` 并发布 `generation_prompt_unavailable` blocker。theme 一致但安装升级导致当前 display name 或 manifest version 改变时，这是 ordinary stale，按现有 theme 失效规则返回 `theme` 并重建，不写 style blocker。
+10. 在编译规范正文前完成身份握手：`theme.json` 的 selected style ID、display name、kind、manifest version 必须与当前 registry／manifest 一致；registry-backed legacy 的 manifest version 必须是字符串 `none`。registry 缺失时，下方表仅可同时匹配 seed `name` 以恢复旧运行身份，随后仍以 `registry_missing` 停止生成。theme 内部矛盾或多个持久 owner 声明不同 style 时返回 `prompt_snapshot_conflict` 并发布 `generation_prompt_unavailable` blocker。theme 一致但安装升级导致当前 display name 或 manifest version 改变时，工作流视为 ordinary stale；固定运行时实际返回 `style_identity_mismatch` 并停止在当前阶段。重新采用新版须显式完成主题／视觉修订及确认，不能依赖自动返回 `theme`，也不能仅改版本字段绕过旧模板／批准快照检查。
 11. 身份握手与第 8 步完整 traversal 通过后，在内存编译 style-owned 模板正文并完成本文件全部确定性 preflight，再按已接受宿主边界协商 fresh-context 生成能力。无能力时保持零 prompt／transaction／candidate 写入；能力通过后才按页写入 `compiling` schema-v2 transaction，持久化并复读 prompt，提交 `compiled`，再写 batch manifest 并最后发布 active pointer。
 
 ### 稳定 reason traversal
@@ -141,7 +141,7 @@ identity recovery 只在 no-follow／`lstat` 确认 `assets/styles/registry.json
 首次生成和 `recompose` 的编译器必须先完成全部内存工作，随后才能产生任何 durable side effect：
 
 1. 读取当前批准 outline、storyboard、theme 与权威 revisions；不写文件或状态。
-2. 在内存组装 canonical narrative bullets（叙事要点+素材+事实底线）与 style baseline（软风格基线）。后者已包含 palette 角色、字体栈、间距节奏与禁止母题。
+2. 在内存组装 canonical narrative bullets（叙事要点+素材+事实底线）与 style baseline（风格基线）。后者已包含 palette 角色、字体栈、间距节奏与禁止母题。
 3. 在内存验证 outline/storyboard/theme snapshots 相等；素材事实底线（数字/单位/限定词/因果/来源映射）与故事板一致；narrative bullets 与 outline 一致；theme identity、64 px safe area、字号下限、`path+A` 与 Office-safe allowlist 完整。
 4. 复用第 8 步已按 manifest → tokens → guidance → prompt 固定 traversal 解析并验证的 `files.prompt_template`；不得重新跳读 prompt 或绕过前序资产。在内存只替换一次 whole-line `{{NARRATIVE}}`，注入不含来源注解的已批准叙事／素材与非来源 `block_id`。
 5. 验证模板与 compiled body 的 canonical byte derivation、自包含性、无外部文件指令、无未解析 marker、无 raw revision material，并计算 template/body/compiled prompt/composite snapshot hashes。
@@ -152,7 +152,7 @@ identity recovery 只在 no-follow／`lstat` 确认 `assets/styles/registry.json
 确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。缺陷分类为 outline／storyboard／theme defect 并返回对应权威 owner；只有规范模板、规范字节或无法唯一解释的 snapshot/provenance 自身失败才写 canonical `visual_generation_blocker`。preflight 包括但不限于以下关系门禁：
 
 - **事实底线与叙事相等**：素材中的数字、单位、期间、限定词、因果、来源映射与故事板一致；canonical narrative bullets 与 outline 的叙事要点一致；不得靠改写规避差异。
-- **风格基线闭合**：palette 是最终颜色值；type/spacing/shape/output 无 token 名或待选项；标题 ≥40 px、正文 ≥20 px、脚注 ≥14 px；所有 region 位于 64 px safe area 并遵循 24 px rhythm。
+- **风格基线闭合**：palette 是最终颜色值；type/spacing/shape/output 无 token 名或待选项；通用 SVG API 默认标题下限为 40 px，默认所选风格 `jiawei-product` 为 36 px，已验证固定品牌风格使用声明的主标题字号且不得低于 34 px；正文 ≥20 px、脚注 ≥14 px；所有 region 位于 64 px safe area 并遵循 24 px rhythm。
 - **规范编译**：resolved template 源路径唯一；单一 narrative replacement bytes 经过来源注解／Setext／路径／外部输入防护；compiled bytes 只由该模板与唯一 whole-line `{{NARRATIVE}}` 注入派生，`prompt_baseline` 不进入正文。
 
 ### `visual_generation_blocker` 生命周期

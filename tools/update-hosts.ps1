@@ -38,7 +38,7 @@ function Install-SkillsRoot {
     $allSucceeded = $true
     foreach ($skill in $skills) {
         $destination = Join-Path $SkillsRoot $skill.Id
-        $existed = Test-Path -LiteralPath $destination
+        if ($updated -contains ([IO.Path]::GetFullPath($destination))) { continue }
         try {
             $result = Install-PptPilotTree $skill.Source $destination $backupRoot $skill.Id $timestamp
             [void]$updated.Add($result.Path)
@@ -124,6 +124,8 @@ function Install-ClaudePairedScope {
 if (-not $SkipDeepSeek) {
     Invoke-Scope 'deepseek-plugin' {
         $arguments = @{ RepoRoot = $RepoRoot }
+        # This updater owns shared roots, including SkipCodex and explicit-root selection.
+        $arguments.SkipSharedSkills = $true
         if ($MarketplaceRoot) { $arguments.MarketplaceRoot = $MarketplaceRoot }
         if ($Version) { $arguments.Version = $Version }
         & (Join-Path $PSScriptRoot 'install-deepseek-plugin.ps1') @arguments
