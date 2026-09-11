@@ -18,6 +18,12 @@ python "SKILL_ROOT/scripts/ppt_runtime.py" inspect-host --host deepseek-harness 
 4. 遇到 `adapter_identity_mismatch`、旧 `unregistered/none` 或 `ppt_svg_generator` 证据时，不重做有效文稿、不切换 Claude、不修改 DSH、不手改 `run.json`。由 coordinator 按下面的 capability 契约，使用诊断返回的当前 `adapter` 身份与**真实当前工具观测／会话 ID**，重新构建完整声明；不能只替换 adapter ID，或把要求满足的能力当作已观测事实。容量未知用 `null`；未证明 durable lookup 就填 false。
 5. `resume` 保持只读。它返回下一步 `prepare-batch`／`dispatch-plan` 时同时给出 `capability_refresh_required=true`，只提示重新协商，不生成 capability、不清除 blocker。高优先级状态允许后，将新声明暂存为 `.ppt-pilot/runtime-inputs/<本次唯一文件名>.json`，保留旧输入作诊断记录；用第二条命令检查**新文件**。再把 `resume` 返回的原样 `prepare_request` 交给 `prepare-batch`，或按其返回恢复现有批次，并显式传入新 capability 路径。只有固定运行时经过完整 preflight 与快照复核，才能更新原有 blocker／事务；诊断 PASS 不能跳过这些门禁。
 
+## 面板进程适配
+
+DSH 中 `ppt_dashboard.py start` 创建的普通脱离子进程可能在 coordinator 回合结束时被回收，因此不得用它启动面板，也不得仅因其曾返回 `status: running` 就发布 URL。主 coordinator 必须按[实时面板协议](live-dashboard.md#deepseek-harness-的持久启动)先以前台 `status` 检查：running 就复用该健康实例，不再次 spawn；只有 stopped 才用 `functions.pwsh(..., run_in_background: true)` 运行前台 `ppt_dashboard.py serve --port 0`。新建时保存真实 job ID，读取首行 JSON后再通过独立前台 status 核对相同 `instance_id` 与 URL；双重检查通过才可说“面板已启动”。后台作业应跨正常回合保留；不要委派给 subagent，也不要在回合收尾时取消。
+
+Dashboard 的 job ID 只用于 `job_output`／必要的作业取消；它和 SVG 子代理返回的 `subagent_id` 是两个命名空间。服务停止优先使用带实例身份核验的 `ppt_dashboard.py stop`。宿主没有可持续的后台命令作业时仍先执行 status：running 就复用；只有 stopped 才披露限制并提供用户独立终端的 `serve` 命令，不得给出不可达链接。这个可观察性降级不改变文稿、来源、SVG 或 QA 门禁。
+
 ## 能力边界
 
 - `subagent` 接收完整任务文本并创建全新子上下文；不要使用继承父会话的 `subagent_fork`。

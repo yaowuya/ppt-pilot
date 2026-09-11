@@ -160,7 +160,7 @@ def serve(run_dir, port=0, instance_id=None):
     def prepare():
         current = read_metadata(root, internal)
         if is_live(current):
-            raise ValueError('此运行已有面板，请使用 start 复用现有服务')
+            raise ValueError('此运行已有面板；请用 status 验证并复用现有服务，需要更换时先 stop')
         try:
             server = make_server(root, port=port, instance_id=instance_id)
         except OSError as error:
@@ -193,6 +193,8 @@ def serve(run_dir, port=0, instance_id=None):
 
 
 def start(run_dir, port=0, open_browser=False):
+    if os.environ.get('DSH_SESSION_ID') or os.environ.get('DSH_SHELL'):
+        raise RuntimeError('DeepSeek Harness 中 start 的脱离进程可能在回合结束时被回收；请用 run_in_background: true 的宿主管理作业运行 serve，再用独立 status 调用确认存活')
     root, internal = safe_location(run_dir)
     with launch_lock(internal):
         current = read_metadata(root, internal)

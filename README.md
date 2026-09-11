@@ -82,7 +82,7 @@ powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 
 Claude Code 的 SVG fresh-context 生成还需要仓库随附的 `hosts/claude-code/agents/ppt-svg-generator.md`；更新脚本会把它安装到 `~/.claude/agents/ppt-svg-generator.md`。它使用普通 fresh-context subagent 且不请求 worktree，所以 PPT 工作目录不需要 Git、首个提交或可解析的 `HEAD`。Claude Code 会自动加载 `CLAUDE.md` 与父会话 Git status；该 Agent 明确忽略这些 ambient host context，并且没有文件／网络数据工具，但这不等同于 byte-pure prompt-only。新增或更新 Agent 后，请重新开启 Claude Code 会话；只复制 `skills/ppt-start/` 不足以启用这条生成路径。
 
-执行过程可在[本地实时面板](docs/LIVE-DASHBOARD.md)查看阶段任务、待确认问题和自动刷新的 SVG 预览。更新后的 `ppt-start` 会启动面板并给出浏览器地址；也可手动执行 `py -3 skills/ppt-start/scripts/ppt_dashboard.py start --run-dir ppt-output/<deck-id> --open`（Python 3.9+，无第三方依赖）。
+执行过程可在[本地实时面板](docs/LIVE-DASHBOARD.md)查看阶段任务、待确认问题和自动刷新的 SVG 预览。更新后的 `ppt-start` 会在实际健康检查通过后给出浏览器地址；独立终端／普通宿主可执行 `py -3 skills/ppt-start/scripts/ppt_dashboard.py start --run-dir ppt-output/<deck-id> --open`，DeepSeek Harness 则由 coordinator 用宿主管理的后台作业运行 `serve` 并通过独立 `status` 再确认，避免回合结束后链接失效（Python 3.9+，无第三方依赖）。
 
 | 宿主 | 用户级安装 | 项目级安装 | 启动命令 |
 |---|---|---|---|

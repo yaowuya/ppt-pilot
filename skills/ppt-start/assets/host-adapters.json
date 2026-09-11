@@ -11,7 +11,7 @@
       "host": "deepseek-harness",
       "adapter_id": "native-subagent",
       "adapter_version": "1.0.0",
-      "adapter_digest": "sha256:5748b063fde2ba8f14c4013cab7d4c3eec48e9093b2aa4e8139ecb13704906ae"
+      "adapter_digest": "sha256:4be00580c8272d5e140c5b25222ee4ea6abe25d7ccf46842e6ba7b4164038252"
     }
   ]
 }
