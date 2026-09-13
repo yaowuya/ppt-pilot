@@ -45,13 +45,13 @@ def make_server(run_dir, port=0, token=None, instance_id=None):
             self.send_header('Content-Security-Policy', policy)
             self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('Connection', 'close')
-            self.end_headers()
             self.close_connection = True
-            if self.command != 'HEAD':
-                try:
+            try:
+                self.end_headers()
+                if self.command != 'HEAD':
                     self.wfile.write(content)
-                except (BrokenPipeError, ConnectionResetError):
-                    pass
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
 
         def send_json(self, status, data):
             self.send_bytes(status, json.dumps(data, ensure_ascii=False).encode('utf-8'),
