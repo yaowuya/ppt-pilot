@@ -58,6 +58,19 @@ class DashboardServerTests(unittest.TestCase):
         self.assertIn('sandbox', headers['Content-Security-Policy'])
         self.assertEqual(headers['X-Content-Type-Options'], 'nosniff')
 
+    def test_step_details_update_with_artifacts_at_the_same_stage(self):
+        first = json.loads(self.request('/api/state')[2])
+        first_tasks = {task['id']: task for task in first['tasks']}
+        self.assertIn('尚未发现简报', first_tasks['brief']['detail'])
+        self.assertIn('正式页 1 / 1 页', first_tasks['production']['detail'])
+        (self.root / '.ppt-pilot/简报.md').write_text('Private briefing body', encoding='utf-8')
+        second = json.loads(self.request('/api/state')[2])
+        second_tasks = {task['id']: task for task in second['tasks']}
+        self.assertIn('.ppt-pilot/简报.md', second_tasks['brief']['detail'])
+        self.assertNotIn('Private briefing body', json.dumps(second))
+        self.assertNotEqual(first['revision'], second['revision'])
+        self.assertEqual(first['stage'], second['stage'])
+
     def test_static_dashboard_is_served_with_restrictive_policy(self):
         code, headers, body = self.request('/')
         self.assertEqual(code, 200)

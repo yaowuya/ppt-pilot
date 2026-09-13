@@ -212,6 +212,106 @@ class DashboardSnapshotTests(unittest.TestCase):
         self.assertEqual(snap["status"], "waiting")
         self.assertIn("已回答", snap["notice"]["message"])
 
+    def test_each_stage_has_its_own_goal_before_any_artifacts_exist(self):
+        tasks = self.snapshot()["tasks"]
+        self.assertEqual(len({task["detail"] for task in tasks}), 10)
+        for task in tasks:
+            with self.subTest(stage=task["id"]):
+                self.assertEqual(task["status"], "pending")
+                self.assertGreater(len(task["detail"]), 20)
+                self.assertNotIn("依据已记录的流程阶段", task["detail"])
+                self.assertNotIn("已通过", task["detail"])
+
+    def test_step_details_include_observed_outputs_without_document_bodies(self):
+        self.put("run.json", self.run_state(stage="production", dirty_slides=["S02"],
+                 manuscript_review={"state": "manuscript_approved", "cycle": 1, "round": 2,
+                                    "open_blocking_findings": []}))
+        for path in (".ppt-pilot/简报.md", ".ppt-pilot/研究.md", ".ppt-pilot/来源.md",
+                     "大纲.md", ".ppt-pilot/文稿审查.md", ".ppt-pilot/theme.json",
+                     ".ppt-pilot/质量检查报告.md"):
+            self.put(path, "PRIVATE_DOCUMENT_BODY")
+        self.put(".ppt-pilot/故事板.md", "## S01\n## S02\n## S03\n")
+        self.put("slides/S01.svg", SVG)
+        self.put("slides/S02.svg", SVG)
+        self.put(".ppt-pilot/samples/S03.svg", SVG)
+        snap = self.snapshot()
+        details = {task["id"]: task["detail"] for task in snap["tasks"]}
+        expected = {
+            "brief": ["简报.md"], "research": ["研究.md", "来源.md"],
+            "outline": ["大纲.md"], "storyboard": ["已解析 3 页"],
+            "manuscript_review": ["第 2 轮", "未解决阻断 0 项", "文稿审查.md"],
+            "theme": ["theme.json"], "anchor": ["可预览样张 1 页"],
+            "production": ["正式页 1 / 3 页", "待更新 1 页"],
+            "qa": ["质量检查报告.md", "不代表检查通过"],
+            "complete": ["正式页 1 / 3 页", "尚未确认交付完成"],
+        }
+        for stage, phrases in expected.items():
+            with self.subTest(stage=stage):
+                for phrase in phrases:
+                    self.assertIn(phrase, details[stage])
+        self.assertNotIn("PRIVATE_DOCUMENT_BODY", json.dumps(snap))
+        self.assertNotIn(str(self.root), json.dumps(snap))
+
+    def test_legacy_documents_are_identified_in_step_details(self):
+        self.put("run.json", self.run_state(stage="research"))
+        for path in ("brief.md", "research.md", "sources.md", "outline.md", "theme.json",
+                     "manuscript-review.md", "qa-report.md"):
+            self.put(path, "Legacy content")
+        details = {task["id"]: task["detail"] for task in self.snapshot()["tasks"]}
+        for stage, name in (("brief", "brief.md"), ("research", "research.md"),
+                            ("outline", "outline.md"), ("theme", "theme.json"),
+                            ("manuscript_review", "manuscript-review.md"), ("qa", "qa-report.md")):
+            with self.subTest(stage=stage):
+                self.assertIn(name, details[stage])
+        self.assertIn("sources.md", details["research"])
+
+    def test_planned_page_count_does_not_claim_storyboard_was_written(self):
+        self.put("run.json", self.run_state(stage="storyboard", slide_count=4))
+        task = next(task for task in self.snapshot()["tasks"] if task["id"] == "storyboard")
+        self.assertIn("尚未发现故事板", task["detail"])
+        self.assertNotIn("已解析 4 页", task["detail"])
+        self.put("storyboard.md", "## S01\n## S02\n")
+        task = next(task for task in self.snapshot()["tasks"] if task["id"] == "storyboard")
+        self.assertIn("已解析 2 页", task["detail"])
+
+    def test_review_detail_is_bounded_and_handles_invalid_counters(self):
+        for review in ({"state": "review_unavailable", "cycle": [], "round": {},
+                        "open_blocking_findings": "PRIVATE_REVIEW_DATA"},
+                       {"state": "pending", "round": True, "cycle": -1},
+                       {"state": "pending", "round": 10**100, "cycle": 10**100}):
+            with self.subTest(review=review):
+                self.put("run.json", self.run_state(stage="manuscript_review", manuscript_review=review))
+                detail = next(task["detail"] for task in self.snapshot()["tasks"] if task["id"] == "manuscript_review")
+                self.assertNotIn("PRIVATE_REVIEW_DATA", detail)
+                self.assertNotIn("True", detail)
+                self.assertLess(len(detail), 500)
+
+    def test_current_step_shows_waiting_question_or_blocker(self):
+        for changes, expected in (
+            ({"pending_interaction": {"status": "pending", "question": "确认使用这个配色？"}}, "确认使用这个配色？"),
+            ({"visual_generation_blocker": {"status": "active", "reason": "候选写入失败"}}, "候选写入失败"),
+        ):
+            with self.subTest(changes=changes):
+                self.put("run.json", self.run_state(stage="theme", **changes))
+                tasks = {task["id"]: task for task in self.snapshot()["tasks"]}
+                self.assertIn(expected, tasks["theme"]["detail"])
+                self.assertNotIn(expected, tasks["brief"]["detail"])
+
+    def test_generation_details_distinguish_active_failed_and_finished_output(self):
+        case, tx = self.batch("generating")
+        for state, phrase in (("generating", "处理中 1 页"), ("failed", "受阻 1 页")):
+            with self.subTest(state=state):
+                tx["state"] = state
+                self.save_transaction(case)
+                task = next(task for task in self.snapshot()["tasks"] if task["id"] == "production")
+                self.assertIn(phrase, task["detail"])
+                self.assertIn("正式页 0 / 1 页", task["detail"])
+        self.put(".ppt-pilot/run.json", self.run_state(stage="complete", slide_count=1))
+        self.put("slides/S01.svg", SVG)
+        task = next(task for task in self.snapshot()["tasks"] if task["id"] == "complete")
+        self.assertIn("已记录交付完成", task["detail"])
+        self.assertIn("正式页 1 / 1 页", task["detail"])
+
     def test_stage_checkpoints_map_to_workflow_tasks(self):
         self.put("run.json", self.run_state(stage="manuscript_approved"))
         tasks = {task["id"]: task for task in self.snapshot()["tasks"]}

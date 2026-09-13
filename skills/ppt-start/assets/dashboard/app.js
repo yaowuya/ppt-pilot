@@ -122,9 +122,11 @@
       const marker = makeNode("span", "stage-marker", status === "complete" ? "✓" : String(index + 1).padStart(2, "0"));
       marker.setAttribute("aria-hidden", "true");
       const copy = makeNode("div", "stage-item-copy");
-      copy.append(makeNode("span", "stage-name", task ? text(task.label, label) : label));
-      const detail = task ? text(task.detail) : "";
-      if (detail && ["running", "waiting", "blocked"].includes(status)) copy.append(makeNode("span", "stage-detail", detail));
+      const heading = makeNode("div", "stage-heading");
+      heading.append(makeNode("span", "stage-name", task ? text(task.label, label) : label), makeNode("span", "stage-status", statusLabel));
+      copy.append(heading);
+      const detail = task ? text(task.detail, "等待读取此步骤的运行信息。") : "等待读取此步骤的运行信息。";
+      copy.append(makeNode("span", "stage-detail", detail));
       item.title = [label, statusLabel, detail].filter(Boolean).join(" · ");
       item.append(marker, copy);
       fragment.append(item);

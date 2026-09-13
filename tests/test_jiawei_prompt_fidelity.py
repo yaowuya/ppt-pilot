@@ -29,34 +29,50 @@ class JiaweiPromptFidelityTests(unittest.TestCase):
 
     def test_compiled_role_and_title_match_user_specification(self):
         self.assertEqual(self.body.splitlines()[0], ROLE)
-        self.assertTrue(34 <= self.tokens['typography']['page_title'] <= 38)
-        self.assertEqual(self.tokens['colors']['title_ink'], '#000000')
+        self.assertEqual(self.tokens['typography']['page_title'], 40)
+        self.assertEqual(self.tokens['typography']['section_title'], 20)
+        self.assertEqual(self.tokens['colors']['title_ink'], '#111827')
+        self.assertEqual(self.manifest['version'], '1.2.0')
         self.assertIn('title_weight=700', self.body)
         self.assertIn('title_position="top_left"', self.body)
         verify_composed(self.manifest, self.tokens, self.template, self.rules)
 
-    def test_compiled_title_requires_ordered_black_blue_squares(self):
+    def test_fixed_brand_opt_in_still_requires_ordered_black_blue_squares(self):
+        tokens = copy.deepcopy(self.tokens)
+        for section in (tokens['composition'], tokens['prompt_baseline']['composition_rules']):
+            section.update(strict_brand_rules=True, title_decoration='black_blue_offset_squares')
+        template = compose_prompt(tokens)
+        verify_composed(self.manifest, tokens, template, self.rules)
+        body = compile_style_prompt(NARRATIVE, template.encode('utf-8')).decode('utf-8')
         for phrase in ('黑蓝错位方块', '左上黑', '右下蓝', '标题文字位于方块右侧'):
             with self.subTest(phrase=phrase):
-                self.assertIn(phrase, self.body)
+                self.assertIn(phrase, body)
+        self.assertNotIn('黑蓝错位方块', self.body)
 
-    def test_palette_includes_background_text_border_and_connector_roles(self):
-        for color in ('#FFFFFF', '#F6F9FC', '#000000', '#4B5563', '#6B7280',
-                      '#0B74E5', '#0A5CC9', '#27B3FF', '#EAF5FF', '#D8EEFF',
-                      '#BFE3FF', '#60A5FA'):
-            with self.subTest(color=color):
-                self.assertIn(color, self.body)
+    def test_palette_matches_the_five_user_specified_roles(self):
+        expected = {'brand_primary': '#0B74E5', 'deep_primary': '#0A5CC9',
+                    'highlight_blue': '#27B3FF', 'light_blue': '#EAF5FF', 'title_ink': '#111827'}
+        self.assertEqual(self.tokens['colors'], expected)
+        self.assertEqual([item['token'] for item in self.tokens['prompt_baseline']['palette_roles']], list(expected))
+        for token, color in expected.items():
+            with self.subTest(token=token):
+                self.assertIn(token + '=' + color, self.body)
+        self.assertIn('Source Han Sans / Microsoft YaHei / sans-serif', self.body)
 
-    def test_content_conditioned_recipes_and_action_focus_reach_generator(self):
-        for phrase in ('指标', '简洁表格', '上方或左上方', '当前重点', '下一步',
-                       '推进方向', '2/3', '1/3', '横向流程', '平台承载区', '支撑信息'):
-            with self.subTest(phrase=phrase):
-                self.assertIn(phrase, self.body)
+    def test_modular_layout_does_not_force_old_recipes_or_action_focus(self):
+        self.assertIn('layout_family="asymmetric_modular"', self.body)
+        for removed in ('layout_recipes=', 'content_focus=', 'surface_style=', 'title_decoration='):
+            with self.subTest(removed=removed):
+                self.assertNotIn(removed, self.body)
+        self.assertIn('no_english_title=true', self.body)
+        self.assertIn('no_top_right_logo=true', self.body)
 
-    def test_brand_requirements_are_not_downgraded_to_soft_suggestions(self):
-        self.assertIn('固定要求', self.body)
-        self.assertNotIn('它们是软参考方向，不是逐项锁定令牌', self.body)
-        for phrase in ('大留白', '弱边框', '弱阴影', '不为 Bento Grid 强行拆分'):
+    def test_style_is_a_soft_baseline_with_preserved_prohibited_motifs(self):
+        self.assertFalse(self.tokens['composition'].get('strict_brand_rules', False))
+        self.assertIn('它们是软参考方向，不是逐项锁定令牌', self.body)
+        self.assertNotIn('不得自行降级或替换', self.body)
+        for phrase in ('背景图片或纹理', '毛玻璃', '大量高饱和蓝色块状元素', '等权卡片墙',
+                       '强行拆分成数据卡片', '页面结论四字', '标题英文翻译', '右上角 logo 或图标', '穿过文字的连接线'):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, self.body)
 
@@ -83,9 +99,14 @@ class JiaweiPromptFidelityTests(unittest.TestCase):
                '<title>Review</title><desc>Approved content</desc><g data-block-id="S01-B1">'
                '<text data-role="title" x="120" y="140" font-size="36" font-family="Microsoft YaHei">'
                '<tspan x="120" y="140">Review</tspan></text></g></svg>')
+        tokens = copy.deepcopy(self.tokens)
+        tokens['typography']['page_title'] = 36
+        for section in (tokens['composition'], tokens['prompt_baseline']['composition_rules']):
+            section['strict_brand_rules'] = True
+        verify_tokens(tokens)
         try:
             candidate = validate_candidate(svg, ['S01-B1'], {'S01-B1': []},
-                                           title_min_size=self.tokens['typography']['page_title'])
+                                           title_min_size=tokens['typography']['page_title'])
         except (TypeError, ValueError) as error:
             self.fail(f'Verified 36px brand title was rejected: {error}')
         self.assertIn(b'font-size="36"', candidate)
@@ -100,20 +121,30 @@ class JiaweiPromptFidelityTests(unittest.TestCase):
                                    ['S01-B1'], {'S01-B1': []}, title_min_size=36)
 
     def test_fixed_brand_prompt_carries_required_svg_encoding_metadata(self):
+        tokens = copy.deepcopy(self.tokens)
+        for section in (tokens['composition'], tokens['prompt_baseline']['composition_rules']):
+            section['strict_brand_rules'] = True
+        template = compose_prompt(tokens)
+        verify_composed(self.manifest, tokens, template, self.rules)
+        body = compile_style_prompt(NARRATIVE, template.encode('utf-8')).decode('utf-8')
         for instruction in ('width="1280"', 'height="720"', 'data-role="title"',
                             'data-role="body"', 'data-role="footnote"', '每个 text 只含一个 tspan'):
             with self.subTest(instruction=instruction):
-                self.assertTrue(instruction in self.body, f'Missing required SVG encoding: {instruction}')
+                self.assertIn(instruction, body)
 
-    def test_fixed_brand_spacing_and_marker_palette_are_unambiguous(self):
-        self.assertEqual(self.tokens['spacing']['card_gap'], 24)
-        self.assertNotIn('page_padding=12', self.body)
-        self.assertIn('card_padding=24', self.body)
-        self.assertTrue('用于页面主标题及配套标题装饰' in self.body)
-        self.assertTrue('蓝色方块采用主品牌蓝' in self.body)
+    def test_soft_spacing_preserves_the_hard_canvas_safety_boundary(self):
+        self.assertEqual(self.tokens['spacing']['card_gap'], 20)
+        self.assertEqual(self.tokens['spacing']['page_padding'], 12)
+        self.assertEqual(self.tokens['spacing']['outer_margin'], 64)
+        self.assertEqual(self.tokens['spacing']['standard_gap'], 24)
+        self.assertIn('page_padding=12', self.body)
+        self.assertNotIn('card_padding=24', self.body)
+        self.assertIn('所有可见内容位于 64px 安全区内', self.body)
 
     def test_fixed_brand_title_cannot_declare_below_accessibility_floor(self):
         tokens = copy.deepcopy(self.tokens)
+        for section in (tokens['composition'], tokens['prompt_baseline']['composition_rules']):
+            section['strict_brand_rules'] = True
         tokens['typography']['page_title'] = 20
         with self.assertRaisesRegex(VerificationError, '^tokens_typography_invalid$'):
             verify_tokens(tokens)

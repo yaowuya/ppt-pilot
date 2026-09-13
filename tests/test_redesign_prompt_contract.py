@@ -1051,7 +1051,7 @@ class RedesignPromptContractTests(unittest.TestCase):
         body = compile_style_prompt(narrative, template_bytes)
         self.assertIn("# Role:产品经理& SVG 可视化编码专家".encode("utf-8"), body)
         self.assertIn("### 步骤 2: 应用风格基线并设计视觉表达".encode("utf-8"), body)
-        self.assertIn(b"layout_family=\"content_driven\"", body)
+        self.assertIn(b"layout_family=\"asymmetric_modular\"", body)
         self.assertNotIn(b"{{NARRATIVE}}", body)
         self.assertNotIn(b"[[STYLE_BASELINE]]", body)
         self.assertNotIn(b"[[CANONICAL_NARRATIVE_BULLETS]]", body)

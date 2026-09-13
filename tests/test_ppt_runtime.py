@@ -329,20 +329,20 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, body)
         self.assertTrue((self.root / 'slides/S01.svg').is_file())
 
-    def test_fixed_brand_title_uses_verified_style_size_at_ingest(self):
+    def test_jiawei_title_uses_updated_style_size_at_ingest(self):
         self.prepared_fixture('deepseek-harness', style_id='jiawei-product')
         self.reserve()
         self.bind()
         response = ('```xml\n<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">'
             '<title>Hello</title><desc>One message</desc><g data-block-id="S01-B1">'
-            '<text data-role="title" x="120" y="140" font-size="36" font-family="Microsoft YaHei" fill="#000000">'
+            '<text data-role="title" x="120" y="140" font-size="40" font-family="Source Han Sans" fill="#111827">'
             '<tspan x="120" y="140">Hello</tspan></text></g></svg>\n```\n')
         (self.root / '.ppt-pilot/runtime-inputs/response.txt').write_text(response, encoding='utf-8')
         result, body = self.invoke('ingest-result', '--dispatch-id', self.dispatch,
                                   '--response', '.ppt-pilot/runtime-inputs/response.txt')
         self.assertEqual(result.returncode, 0, body)
         self.assertEqual(self.tx()['state'], 'candidate_written')
-        self.assertIn(b'font-size="36"', (self.root / self.tx()['candidate_path']).read_bytes())
+        self.assertIn(b'font-size="40"', (self.root / self.tx()['candidate_path']).read_bytes())
 
     def test_changed_style_tokens_during_owner_load_fail_as_snapshot_conflict(self):
         self.prepared_fixture('deepseek-harness', style_id='jiawei-product')

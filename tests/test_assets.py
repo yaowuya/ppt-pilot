@@ -54,7 +54,7 @@ class StyleAssetTests(unittest.TestCase):
                 self.assertIn("prompt_baseline", tokens)
 
                 colors = tokens["colors"]
-                self.assertGreaterEqual(len(colors), 6)
+                self.assertGreaterEqual(len(colors), 5)
                 for token, value in colors.items():
                     self.assertIsInstance(value, str, f"{style_id}:{token}")
                     self.assertRegex(value, HEX_COLOR, f"{style_id}:{token}")

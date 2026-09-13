@@ -198,10 +198,10 @@ class StylePackTests(unittest.TestCase):
         self.assertTrue(baseline["prohibited_motifs"])
         self.assertEqual(
             baseline["composition_rules"]["layout_family"],
-            "content_driven",
+            "asymmetric_modular",
         )
         self.assertEqual(tokens["prompt_role"], "product_manager")
-        self.assertTrue(baseline["composition_rules"]["strict_brand_rules"])
+        self.assertFalse(baseline["composition_rules"].get("strict_brand_rules", False))
         self.assertEqual(baseline["composition_rules"]["title_position"], "top_left")
         self.assertTrue(baseline["composition_rules"]["no_english_title"])
         self.assertTrue(baseline["composition_rules"]["no_top_right_logo"])
