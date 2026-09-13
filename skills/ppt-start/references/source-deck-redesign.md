@@ -1,19 +1,19 @@
 # 外部旧 PPT 导入与重设计
 
-适用：用户给出旧 `.pptx`／`.ppt`，要求按某产品风格优化、翻新或重新排版，但没有对应的有效 PPT Pilot 运行证据。此分支属于 `new + source-driven`，不是第三种 mode，也不是跳过阶段的 `revise`。
+适用：用户给出旧 `.pptx`／`.ppt`，要求按某产品风格优化、翻新或重新排版。先通过[固定入口](interaction-protocol.md#固定工作区入口)查找同源运行；已有运行原位恢复，仅首次明确创建属于 `new + source-driven`，不是第三种 mode，也不是跳过阶段的 `revise`。
 
 ## 先判定入口
 
-- 只有旧 PPT 文件：创建新运行；没有文稿批准可以继承，“内容不变”不产生批准。
-- 有既有运行：先唯一定位 `run.json` 并按全局恢复顺序处理 durable state。只有五份文稿、有效正式审查及其当前快照都可核对，才可保留批准；有 `run.json` 或 `stage: production` 本身不够。缺失时恢复最早缺失阶段，不伪造审查或把原稿当作已批准故事板。
-- 已是导入运行：保留 `source_deck`、源页 ID、交互历史与 mode，重新检查源文件和派生证据。新会话不重新提问已明确的决定。
+- 只有旧 PPT 文件且无可采用运行：明确新建后用 `ppt_entry.py --workspace <工作区> --action new --run-id <稳定ID> --source <原稿>` 创建；没有文稿批准可以继承，“内容不变”不产生批准。
+- 有既有运行：先唯一定位 `run.json` 并按全局恢复顺序处理 durable state。只有五份文稿、有效正式审查及其当前快照都可核对，才可保留批准；有 `run.json` 或 `stage: production` 本身不够。缺失时恢复最早缺失阶段，不伪造审查或把原稿当作已批准故事板，也不新建 `recovery-N`、复制批准或重置审查轮次。
+- 已是导入运行：保留 `source_deck`、源页 ID、交互历史与 mode，重新检查源文件和派生证据。新会话不重新提问已明确的决定；多个或不确定候选由 `run-selection.json` 等待真实选择。
 - 二进制 `.ppt`：请求用户另存为 `.pptx`，或经明确允许的本地转换流程转换并记录工具与源文件 hash；不能改后缀假装成功。转换后的 `.pptx` 才交给解析器。
 
 开始提示：“检测到外部旧稿，将先核对原稿和页面去向，再依次完成文稿审查、目标风格、锚点和整套 QA。默认保留核心内容与事实；仅换风格也不会略过审查。”默认 guided；“赶时间”不是 auto 授权。
 
 ## 1. 源稿盘点（brief 内）
 
-创建运行与最小状态，按实时面板契约启动观察服务，然后使用**当前加载 Skill 的脚本目录**执行：
+由固定入口创建／采用运行，先通过审计，再按实时面板契约启动观察服务；已有有效清单与源稿核对证据时直接复用。需要首次盘点时，使用**当前加载 Skill 的脚本目录**执行：
 
 ```text
 python <skill-dir>/scripts/ppt_source_intake.py --source <旧稿.pptx绝对路径> --output <run>/.ppt-pilot/源稿清单.json
@@ -29,7 +29,7 @@ python <skill-dir>/scripts/ppt_source_intake.py --source <旧稿.pptx绝对路�
 
 此处的 Office 使用仅为 `brief` 中按需核对源稿／已授权转换；解析器本身只读 ZIP/XML，不启动 Office。源文件 hash 未变且核对证据有效时复用证据，进入 SVG 生产后不逐页重开原稿；源稿变更则按原失效／重入协议重新核对。生成页面的渲染另遵循 [SVG 与 Office 边界](qa-and-revision.md#svg-渲染与-office-边界)。
 
-在 `.ppt-pilot/run.json` 加入唯一绑定：
+入口可能已写入 `entry_source: {source_path, sha256}`；它只是同源采用的本地引导信息，不是源稿库存、阶段证据或批准，不能替代下述绑定。真实 intake 与映射完成后，在 `.ppt-pilot/run.json` 加入唯一 `source_deck` 绑定：
 
 ```json
 "source_deck": {
@@ -77,7 +77,7 @@ python <skill-dir>/scripts/ppt_source_intake.py --source <旧稿.pptx绝对路�
 python <skill-dir>/scripts/ppt_workflow_gate.py --run-dir <run绝对路径> --audit-run
 ```
 
-它不要求当前运行一定是外部旧稿，并且只读检查：顶层 stage/control 是否仍属于规范工作流；是否出现 `native_*`、`run_level_generator_blocker`、`anchor_plan`、`execution_hold` 等宿主自创旁路；`complete` 前是否写入绑定源稿之外的 `.pptx`；完成后的 `.pptx` 是否只位于 `delivery/editable/`。发现旁路时返回 `workflow_escape_state`、`precomplete_pptx` 或 `pptx_outside_delivery` 并停止。违规产物只能在保留审计副本后移出运行目录，再从 `theme` 或报告的更早阶段恢复；不得删除痕迹后沿用旁路状态。
+它不要求当前运行一定是外部旧稿，并且只读检查：顶层 stage/control 是否仍属于规范工作流；是否出现 `native_*`、`run_level_generator_blocker`、`anchor_plan`、`execution_hold` 等宿主自创旁路；`complete` 前是否写入绑定源稿之外的 `.pptx`；完成后的 `.pptx` 是否只位于 `delivery/editable/`。发现旁路时返回 `workflow_escape_state`、`precomplete_pptx` 或 `pptx_outside_delivery` 并停止。生成／恢复流程遇此结果必须停止，不能自动移动文件或创建新的“干净”运行绕过审计。若用户另行明确授权维护，应先保留审计证据，在维护步骤处理违规产物后重新审计，再按报告阶段原地恢复；不得删除痕迹后沿用旁路状态。
 
 每次进入下表阶段**之前**执行，PASS 才进行阶段工作。每个新的 anchor／production 批次在生成 prompt、transaction、candidate 或调用 generator **之前**重新检查；恢复时先处理原全局恢复链，再在合法重入点检查，不清除或跨过 durable state。
 

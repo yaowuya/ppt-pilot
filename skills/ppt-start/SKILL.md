@@ -11,9 +11,9 @@ description: Use when creating or resuming SVG presentations, redesigning an exi
 
 ## 输入、入口与执行策略
 
-可接收主题、完整简报、资料集合、外部旧 PPT／PPTX、既有运行目录或定向修订请求。开始任何阶段前先读取[用户交互与确认协议](references/interaction-protocol.md)，检查请求和工作区，避免重复提问。
+可接收主题、完整简报、资料集合、外部旧 PPT／PPTX、既有运行目录或定向修订请求。开始任何阶段前先读取[用户交互与确认协议](references/interaction-protocol.md)，使用固定 `scripts/ppt_entry.py` 选择或创建运行；默认 `resume`，不得自行 mkdir、追加 `recovery-N` 或复制运行。`READY` 只确定目标，之后仍须审计；`CHOICE_REQUIRED` 持久化选择后提问并停止。
 
-**外部旧稿按产品风格重设计**：先读[旧 PPT 导入与重设计](references/source-deck-redesign.md)。没有对应的有效已批准运行时，走 `new + source-driven`：用 `ppt_source_intake.py` 盘点原稿，建立 source_deck 绑定与源页映射，再执行全部阶段。旧 PPT、用户说“内容不变”或“只换风格”都不构成已批准文稿，不能套用纯视觉 revise 免审；二进制 `.ppt` 需真实转换为 `.pptx`。
+**外部旧稿按产品风格重设计**：先读[旧 PPT 导入与重设计](references/source-deck-redesign.md)。已有运行即使尚未批准、被阻断或候选失败，也原位恢复；缺少批准不是新建理由。仅明确新建且入口允许创建时走 `new + source-driven`：用 `ppt_source_intake.py` 盘点原稿，建立 source_deck 绑定与源页映射，再执行全部阶段。旧 PPT、用户说“内容不变”或“只换风格”都不构成已批准文稿，不能套用纯视觉 revise 免审；二进制 `.ppt` 需真实转换为 `.pptx`。
 
 持久执行策略只有两种：
 
@@ -31,7 +31,7 @@ description: Use when creating or resuming SVG presentations, redesigning an exi
 
 ### 先启动实时进度面板
 
-已有运行先审计：`resume`／`revise` 或任何已含 `run.json` 的目录，必须先执行 `ppt_workflow_gate.py --audit-run`，再考虑 dashboard。审计 `BLOCKED` 时立即停止所有写入：不启动或重启 dashboard，不暂存 generator 响应，不调用 `ingest-result`，不得手写 owner／blocker，也不继续读取低优先级运行产物。新建空运行仍按下段先启动 dashboard。固定 `ppt_runtime.py` 不存在、摘要不符或不可执行时停止并要求维护安装；单独插件维护不得在 PPT 运行中自制 helper、复制运行时代码或安装依赖。
+已有运行先审计：`resume`／`revise` 或任何已含 `run.json` 的目录，必须先执行 `ppt_workflow_gate.py --audit-run`，再考虑 dashboard。审计 `BLOCKED` 时立即停止所有写入：不启动或重启 dashboard，不暂存 generator 响应，不调用 `ingest-result`，不得手写 owner／blocker，也不继续读取低优先级运行产物。固定入口新建的最小运行也先审计，再按下段启动 dashboard。固定 `ppt_runtime.py` 不存在、摘要不符或不可执行时停止并要求维护安装；单独插件维护不得在 PPT 运行中自制 helper、复制运行时代码或安装依赖。
 
 DSH 入口在任何阶段／dashboard 写入前先做[安装与能力只读诊断](references/deepseek-harness.md#入口诊断与升级后恢复)：新运行创建目录前执行，已有运行先通过上述审计。使用宿主本次加载 Skill 返回的真实根路径执行 `scripts/ppt_runtime.py inspect-host --host deepseek-harness`，不要猜用户级／插件级路径或沿用旧会话说明。诊断只证明安装／声明符合契约；恢复时由 coordinator 重新观测并构建 capability，不能把旧 `unregistered` 输入继续重试，也不能手写 blocker。
 
@@ -66,9 +66,9 @@ SVG 的锚点、生产、修订与预览使用结构检查和浏览器／非 Off
 
 - 顶层 `stage` 表示当前工作流位置。批准检查点之后，每个视觉阶段都要求 `run.json.manuscript_review.state` 持续为 `manuscript_approved`。
 - 每完成一个持久阶段或一个生产批次，都更新 `run.json`。
-- 每页最多修复两次，之后使用简单布局回退；回退后仍有硬检查失败时必须停止。
+- 候选失败先调用固定 `resume`，按其 `recoveries`／`in_flight` 在同一运行恢复或等待；WAIT、审查归因缺失和候选失败均不授权新建运行。重试上限、已证明的两次 patch 后回退与停止条件见[QA](references/qa-and-revision.md)；固定运行时没有通用 patch 命令。
 - `resume` 入口必须先读取 `run.json` 并保留既有 `run.json.mode`；除非产物缺失、格式错误或被标记为脏，否则不得重新计算已批准的上游工作。
-- 仅当既有运行的文稿批准和冻结证据仍有效，纯视觉修改或可证明不改变事实的文字修正才只把受影响页面和 QA 标记为脏，不重新进行文稿审查；外部旧稿首次导入不适用。
+- 文稿批准和冻结证据有效时，失败页的 `layout_family`／`visual_intent` 修改使用[固定 `revise-visual`](references/runtime-canonical-owners.md#failed-page-visual-revision)：运行时只覆盖该页视觉投影，保持五份审查输入与 review hash 不变，不重审或重置 sibling。其他事实／文稿修改仍按失效协议重审；外部旧稿首次导入不能继承批准。
 - 所有首次页面生成和 `recompose` 必须按 manifest → tokens → guidance → prompt 固定 traversal 读取所选中风格包必需的完整 `files.prompt_template`，再编译 `.ppt-pilot/generation-prompts/<slide-id>.md`；完成 canonical bytes 与关系门禁后按 pointer-last 激活 schema-v2 batch。coordinator 向 fresh-context 任务按值传入完整冻结 prompt bytes；DSH 的非内容执行 wrapper、继承工具边界与各宿主 ambient host context 按[宿主适配器](references/host-isolation-adapters.md)处理；`block_id` 仅可临时出现一次于规范 `data-block-id` 精确属性值，禁止进入 text／tail／其他属性。coordinator 完成来源关联并移除该属性后才原子写 candidate、复读 hash 并提交 per-slide transaction；泄漏以 `fact_source_mismatch` 零 candidate write 失败。
 - 确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。authoritative outline／storyboard／theme 缺陷返回对应 owner；只有规范模板／规范字节／无法唯一解释的 provenance 自身失败，或完整 preflight 后宿主 adapter 不可用，才在没有本次 transaction/prompt/manifest 的情况下独立写闭合的 `run.json.visual_generation_blocker`。历史 crash 留下旧协议的 prompt／`compiling`／blocker 组合时，不采用旧 Prompt，必须从完整无副作用 preflight 重启；成功后先以一次原子 `run.json` 替换仅移除 blocker，并原样保留可能存在的 schema-v1 owner，再重新进入全局顺序完成零模型调用迁移，不能跨过 v1 创建新 transaction。
 - `generator_unavailable` 是终止本次入口的结构性阻断：完整安全 preflight 后只由固定 `ppt_runtime.py prepare-batch`（或当前状态对应的固定 runtime 命令）记录规范 `visual_generation_blocker`；不得手写 `generator_unavailable` 或 owner。随后立即停止，不得改用原生 PPTX、WPS／PowerPoint 重排、当前上下文 SVG、未被适配器接受的 subagent、临时脚本或新的批准点继续生产；用户要求最终 PPTX 也不改变此规则。DSH 普通 subagent 是[已接受的独立宿主路径](references/deepseek-harness.md)，不是越过 blocker 的 fallback，仍须先通过相同 preflight 与恢复门禁。

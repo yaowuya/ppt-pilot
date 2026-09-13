@@ -8,18 +8,18 @@
 
 ## 入口动作与执行策略
 
-确定唯一运行目录后分流：新建空运行按[实时进度面板](live-dashboard.md)在资料处理前启动观察服务；已有运行先审计，只有 audit PASS 后才可启动或复用 dashboard 并提供实际 URL。每次真正进入某阶段前原子持久化其 `stage`，随后执行阶段工作。待回答状态仍保留原阶段。面板读取磁盘产物，不拥有批准、恢复或生成权限，也不改变下述全局恢复顺序。
+先按[固定工作区入口](interaction-protocol.md#固定工作区入口)调用 `ppt_entry.py`；默认恢复，多个／不确定候选先持久化选择并停止。`READY` 只代表唯一目标，既有与新建最小运行都先审计，只有 audit PASS 后才可按[实时进度面板](live-dashboard.md)启动或复用 dashboard 并提供实际 URL。每次真正进入某阶段前原子持久化其 `stage`，随后执行阶段工作。待回答状态仍保留原阶段。面板读取磁盘产物，不拥有批准、恢复或生成权限，也不改变下述全局恢复顺序。
 
 最小 `run.json` 存在后先执行 `scripts/ppt_workflow_gate.py --run-dir <运行目录绝对路径> --audit-run`；任何入口、恢复或修订都不能跳过。该只读审计先于全局恢复顺序，专门拒绝宿主自创的平行 stage/control、`complete` 前的非源稿 PPTX，以及不在 `delivery/editable/` 的完成后 PPTX。它不消费或改变合法 durable state；审计 PASS 后才按下述全局恢复顺序处理。外部旧稿的每个 `--before` 与 `--resume-active-batch` 已自动包含同一审计，不能因上游证据 PASS 而忽略运行目录副作用。
 
 已有运行先审计；发现 `repair_state.ps1`、`node_modules/` 或其他 artifact-firewall 缺陷必然 `BLOCKED`。此时停止所有写入：不启动或重启 dashboard，不暂存 generator 响应，不调用 `ingest-result`，不得手写 owner，也不为继续运行而移动、删除或解释污染文件。固定 `ppt_runtime.py` 不存在或校验失败同样停止；维护插件必须发生在演示运行之外，不能自制 helper 或把 runtime／依赖复制进 run。
 
-- `new`：从主题或简报开始创建新演示文稿；它是入口动作，不是写入 `run.json.mode` 的值。新运行未显式指定策略时使用 `guided`。
-- 外部旧 PPT／PPTX 重设计是 `new + source-driven` 输入分支；先按[旧稿导入](source-deck-redesign.md)建立源清单、源页映射和 source_deck 绑定，不能因“只改风格”直接进入 revise／production。十阶段顺序不变；导入运行在进入阶段及生成／交付前调用该文档的只读 gate，失败时停止。
+- `new`：仅明确新建时交给 `ppt_entry.py --action new --run-id <稳定ID>`；同源既有运行默认采用，独立副本须有明确授权并传 `--allow-duplicate`。它是入口动作，不是写入 `run.json.mode` 的值。新运行未显式指定策略时使用 `guided`。
+- 外部旧 PPT／PPTX 首次明确创建属于 `new + source-driven`；已有导入运行原位恢复，尚未批准不等于不存在。先按[旧稿导入](source-deck-redesign.md)建立源清单、源页映射和 source_deck 绑定，不能因“只改风格”直接进入 revise／production。十阶段顺序不变；导入运行在进入阶段及生成／交付前调用该文档的只读 gate，失败时停止。
 - `guided`：持久执行策略；在简报、大纲和锚点批准节点提出一个直接问题，并等待明确批准。
 - `auto`：持久执行策略且只有显式指定时才使用；采用默认值并跳过可选人工批准，但不能跳过用户权限、无安全默认值的决策或任何硬质量门。
 - `resume`：入口动作；重新打开已有运行，先读取 `run.json`，严格按“全局恢复顺序”依次处理 `pending_interaction`、`manuscript_review.pending_round`、`visual_generation_blocker`、schema-v1 `visual_generation_transaction` 迁移、`active_visual_generation_batch`；前五项均不存在后才能扫描第一个未完成或脏阶段。始终保留既有 `run.json.mode`。
-- `revise`：入口动作；保留既有 `run.json.mode`，同样必须先完成或停止于“全局恢复顺序”的 `pending_interaction`、`manuscript_review.pending_round`、`visual_generation_blocker`、schema-v1 `visual_generation_transaction` 迁移、`active_visual_generation_batch`；只有五类 durable control state 均不存在后，才能依据失效规则标记受影响下游产物并重新生成。
+- `revise`：入口动作；保留既有 `run.json.mode`，同样必须先完成或停止于“全局恢复顺序”的 `pending_interaction`、`manuscript_review.pending_round`、`visual_generation_blocker`、schema-v1 `visual_generation_transaction` 迁移、`active_visual_generation_batch`。失败页的闭合 `revise-visual` 在第 5 项原 active batch owner 内完成；其它阶段修订只有五类 durable control state 均不存在后，才能依据失效规则标记受影响下游产物并重新生成。
 
 因此，`run.json.mode` 只能持久化 `guided` 或 `auto`；`new`、`resume`、`revise` 都不写入该字段。
 
@@ -41,6 +41,7 @@ ingest-result --run-dir RUN --dispatch-id D --response RESPONSE.txt
 record-generator-failure --run-dir RUN --dispatch-id D --reason generator_refused|generator_timeout|generator_unavailable
 record-validation --run-dir RUN --slide-id S --transaction-id T --input QA.json
 prepare-recovery --run-dir RUN --slide-id S --transaction-id T --mode retry|recompose|fallback
+revise-visual --run-dir RUN --slide-id S --transaction-id T --input REVISION.json
 publish-anchors --run-dir RUN --batch-id B --expected-manifest-sha256 H
 promote --run-dir RUN --batch-id B --expected-manifest-sha256 H
 resume --run-dir RUN
@@ -48,6 +49,10 @@ migrate-v1 --run-dir RUN
 ```
 
 `resume` 永远只读；可新建批次时使用它返回的 `result.prepare_request`，不得自行重算 request ID。返回 `capability_refresh_required=true` 时，由 coordinator 使用当前 registry 身份与真实宿主观测重新构建 capability，在合法 staging 路径保存新输入，并用 `inspect-host --capability` 只读验证；安装更新、旧 receipt 或单独执行 resume 都不等于已完成重新协商。`reserve-dispatch` 必须显式重交 capability，并先持久化 attribution；`publish-anchors` 只发布 sample，返回的 `anchor_evidence`（含共享 `sha256:` identity）原样用于真实批准，旧 opaque ID 必须重新实际批准。schema-v1 只经显式 `migrate-v1` 迁移。`recompose`／`fallback` 只经运行时的固定 recovery journal 重放，不创建 run-local patch、依赖或手工编辑 owner。
+
+`resume` 的 `recoveries` 指明失败页的 `failure_reason`、可用 `mode`／`remaining_attempts` 或 `required_input`；journal 重放项保留原 slide／transaction／mode，`in_flight` 保留已启动任务归属。`await-interaction`／`apply-interaction`、`await-review`／`manuscript-review`、`review-content`、`wait-for-generator` 等是 coordinator 动作，不是 CLI 命令。`same_run_required: true`、容量 WAIT 或未完成 child 均表示在原运行处理／等待，不创建替代目录。文稿未批准时，先完成原审查 owner，保留可能存在的 active batch，不重新扫描并初始化上游。
+
+失败页仅改变两项视觉字段时，按[闭合 `revise-visual` 输入](runtime-canonical-owners.md#failed-page-visual-revision)原位修复；零候选的契约／来源输出失败可按返回的 retry 复用原 Prompt，最多三次真实派发。文稿五文件、review hash、已验证 sibling 与 previous final 不变；事实变化仍须正式重审。
 
 `generator_unavailable` 只在完整安全 preflight 后由固定 `prepare-batch` 或当前状态对应的固定 runtime 命令持久化；不得手写 `generator_unavailable`、blocker 或 transaction。
 

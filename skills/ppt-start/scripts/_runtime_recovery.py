@@ -43,11 +43,15 @@ def validate_journal(runtime, journal, old_id=None, mode=None):
         require(sha(canonical(journal[which + '_manifest'])) == journal[which + '_manifest_sha256'])
     _validate_prompt_by_value(journal['old_prompt'], old)
     _validate_prompt_by_value(journal['new_prompt'], tx)
-    require(tx['prior_final_sha256'] == old['prior_final_sha256'] and tx['generation_attempt'] == 0 and
+    owners = Owners(runtime.store, runtime.run)
+    native_visual = tx['generation_trigger_id'].removeprefix('interaction:') in owners.visual_revisions
+    attempts = old['generation_attempt'] if native_visual else 0
+    require(not native_visual or attempts < 3)
+    require(tx['prior_final_sha256'] == old['prior_final_sha256'] and tx['generation_attempt'] == attempts and
             tx['dispatch_epoch'] == old['dispatch_epoch'] + 1 and tx['host_task_id'] is None)
     expected_tx = dict(old, transaction_id=tx['transaction_id'], prompt_snapshot_id=tx['transaction_id'],
         compiled_prompt_sha256=tx['compiled_prompt_sha256'], candidate_path=tx['candidate_path'],
-        state='compiled', generation_attempt=0, candidate_sha256=None, failure_reason=None,
+        state='compiled', generation_attempt=attempts, candidate_sha256=None, failure_reason=None,
         dispatch_epoch=old['dispatch_epoch'] + 1, host_attribution_id=None, host_task_id=None,
         validation={'state': 'pending', 'checks': {key: 'pending' for key in old['validation']['checks']}},
         timing=[], generation_intent=tx['generation_intent'], generation_trigger_id=tx['generation_trigger_id'])
@@ -65,9 +69,10 @@ def validate_journal(runtime, journal, old_id=None, mode=None):
     new_txs = dict(old_txs)
     del new_txs[journal['old_transaction_ref']]
     new_txs[journal['new_transaction_ref']] = tx
-    validate_v2_manifest(old_manifest, old_txs)
+    projected_old = dict(old_manifest)
+    runtime.refresh(projected_old, old_txs)
+    validate_v2_manifest(projected_old, old_txs)
     validate_v2_manifest(new_manifest, new_txs)
-    owners = Owners(runtime.store, runtime.run)
     identity, body_hash, prompt = owners.compile(tx)
     require(identity == tx['transaction_id'] and body_hash == tx['compiled_prompt_sha256'] and prompt.decode('utf-8') == journal['new_prompt'])
     require(all(new_manifest[key] == value for key, value in owners.snapshots.items()))
@@ -81,8 +86,13 @@ def validate_journal(runtime, journal, old_id=None, mode=None):
                 'fallback:' + tx['slide_id'] + ':' + old['transaction_id'][7:] + ':2')
         runtime.fallback_evidence(old)
     else:
-        require(tx['generation_intent'] == 'user_recompose' and owners.revisions and
-                tx['generation_trigger_id'] == 'interaction:' + owners.revisions[-1])
+        revision = owners.revision_for(tx['slide_id'])
+        require(tx['generation_intent'] == 'user_recompose' and revision and
+                tx['generation_trigger_id'] == 'interaction:' + revision)
+        if native_visual:
+            record = owners.visual_revisions[revision]
+            require(record['source_transaction_id'] == old['transaction_id'] and
+                    record['affected_scope'] == [old['slide_id']])
     return old, tx
 
 

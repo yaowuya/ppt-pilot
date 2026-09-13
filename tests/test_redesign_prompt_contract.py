@@ -141,7 +141,7 @@ class TemplateCreativeReformTest(unittest.TestCase):
                     "内容权威",
                     "已批准故事板",
                     "theme.json",
-                    "visual_revision-<N>",
+                    "visual-revision-<N>",
                     "{{NARRATIVE}}",
                     "generation-prompts/<slide-id>.md",
                 ):

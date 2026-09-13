@@ -1,6 +1,6 @@
 # Fixed runtime owner encoding
 
-本文件是视觉运行时机器 owner、命令边界与恢复证据的唯一权威。宿主必须读取并校验现有规范产物，只能写入闭合契约允许的声明式输入；所有请求身份、快照、候选、事务、清单、锚点和恢复日志都由已安装运行时确定性计算。任何字段缺失、额外字段、路径越界、摘要冲突、未知适配器或历史不透明批准都应封闭阻断，保留原始证据，不得手工修复、猜测迁移或调用运行目录中的程序。
+本文件是视觉运行时机器 owner、命令边界与恢复证据的唯一权威。宿主必须读取并校验现有规范产物，只能写入闭合契约允许的声明式输入；批次请求身份、快照、候选、事务、清单、锚点和恢复日志都由已安装运行时确定性计算；`revise-visual` 的调用方只提供稳定请求幂等键与闭合修订输入。任何字段缺失、额外字段、路径越界、摘要冲突、未知适配器或历史不透明批准都应封闭阻断，保留原始证据，不得手工修复、猜测迁移或调用运行目录中的程序。
 
 The fixed runtime reads canonical Markdown data, never inferred prose. New machine-readable owners use exactly one fenced `ppt-pilot-json` object in the existing Markdown file. Other prose is descriptive. The JSON object is authoritative and duplicate JSON keys are rejected. Do not mix this fence with bold machine fields.
 
@@ -12,7 +12,30 @@ Existing explicit `- **field**：value` (or ASCII colon) fields remain readable.
 
 Theme identities must match the selected immutable registry manifest. `theme_snapshot_id` is SHA-256 of theme.json bytes; ordinary `source_audit_snapshot_id` is SHA-256 of the canonical sources document; imported runs hash canonical JSON of the bound evidence's `source_audit` section without terminal LF (later anchor evidence must not invalidate source audit). The normalized verified template supplies the template identity. Soft-baseline provenance uses the verified tokens' canonical seven style-directive lines, normalized to exactly one terminal LF. This uses the existing deterministic style-directive renderer and creates no second body replacement domain. The exact schema-v2 transaction field set is unchanged: outline identity participates in reconstructed prompt snapshot provenance rather than becoming an extra transaction field.
 
-The runtime's canonical QA report is `.ppt-pilot/质量检查报告.md`, with `schema_version: 1`, `kind: runtime_qa`, and `records`. Records retain the exact submitted QA object per transaction and candidate digest. A legacy named/versioned patch workflow may have additionally recorded `fix_attempts_for_candidate: 2` and exactly two `patch_defects`, each containing a stable `defect_id` and `outcome: failed`. Fallback requires that evidence on the same transaction/candidate. The closed QA input never accepts counters or patch code. This runtime provides no generic patch operation; absent prior patch evidence, use an approved, materialized recompose revision. Recompose changes a full batch snapshot only for a one-slide batch; otherwise explicitly resolve the batch scope first.
+The runtime's canonical QA report is `.ppt-pilot/质量检查报告.md`, with `schema_version: 1`, `kind: runtime_qa`, and `records`. Records retain the exact submitted QA object per transaction and candidate digest. A legacy named/versioned patch workflow may have additionally recorded `fix_attempts_for_candidate: 2` and exactly two `patch_defects`, each containing a stable `defect_id` and `outcome: failed`. Fallback requires that evidence on the same transaction/candidate. The closed QA input never accepts counters or patch code. This runtime provides no generic patch operation. Use the bounded failed-page visual revision below when no proven fallback is available. A full batch snapshot change still requires a one-slide batch or explicit scope resolution; multi-batch rebasing is not implemented.
+
+## Failed-page visual revision
+
+`revise-visual --run-dir RUN --slide-id S --transaction-id OLD_T --input .ppt-pilot/runtime-inputs/REVISION.json` 仅处理当前 active batch 内的 `failed` 页面，stage 必须为 `anchor` 或 `production`，文稿、来源与所有既有 owner 仍须通过验证。输入恰好六键：
+
+```json
+{
+  "schema_version": 1,
+  "kind": "visual_revision",
+  "request_id": "repair-S01-1",
+  "expected_run_sha256": "<复制当前 runtime response 的 run_sha256>",
+  "changes": {"layout_family": "single-column", "visual_intent": "保持原有事实，改为单栏层级"},
+  "answer": "<真实修订请求或明确的 QA 修复依据>"
+}
+```
+
+`changes` 非空且只允许 `layout_family`（最多 128 字符）／`visual_intent`（最多 2000 字符）；不得带控制字符、路径、来源注解或新增事实。`answer` 非空且最多 8192 字符，只留在本地历史，不进入 Prompt。`request_id` 是本次决定稳定、非空的幂等键，满足 `[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}`；重试原请求时连同原 `expected_run_sha256` 原样复用，不换 ID 绕过冲突。
+
+运行时唯一写入下一 `visual-revision-N` 历史，使用 `projection: runtime_visual`、单页 `affected_scope`、`supersedes: []`、`artifact_owner: <当前run.json路径>`，绑定原 failed transaction、请求与当前 review snapshot。它在内存中覆盖该页的两项视觉字段，**不回写故事板或 theme，不更新五份审查输入、审查报告或既有 review hash**。此为旧 materialized revision 协议的受控例外，不得手写或把该 ID 加入冻结故事板的 `applied_visual_revision_ids`。
+
+编译按该页 operation 的 revision ID 截止，仅应用同页不晚于该 ID 的 runtime overlays；旧 transaction 按原历史截止点重建，未修改 sibling 的 Prompt／transaction 不变。保持 batch 全局 snapshots，沿现有 recovery journal 只替换失败页引用，保留原 failed transaction／candidate、已验证 sibling 与 previous final。native `runtime_visual` 替换继承原 failed transaction 的 `generation_attempt`，整条视觉修复链含首次最多 3 次真实派发；达到 3 时在记录新决定前拒绝，换 request ID 或新 transaction 不能重置预算。旧 materialized recompose／有证据的 fallback 预算语义不变。历史提交或 journal 中断后，原请求精确重放；不自动迁移曾直接改写故事板的旧修订，不复制旧批准来适配新字节。事实、来源、文案、叙事或其他审查输入真有变化时，仍须在同一运行按正式失效／重审协议处理。
+
+## Runtime commands and evidence
 
 `inspect-host --host HOST [--capability ABSOLUTE_LOCAL_JSON]` is a read-only advisory check outside the run lifecycle; it needs no run directory or prepared batch. Invoke it through the actual Skill root returned by the host's Skill loader. It reports `skill_root`, `registry_path`, `instruction_path`, registered `adapter`, `receipt_checked`, and always `live_host_verified: false`. It verifies bundled instruction integrity and, optionally, a no-follow regular local receipt without rewriting it; UNC/network, device, and alternate-stream path syntax is rejected before input-path I/O. PASS is not live-host attestation, workflow approval, or permission to create artifacts. Failures retain `generator_unavailable` but add response-only `details.reason`, `field`, optional `expected`, and installed paths; these diagnostic fields never enter the closed canonical blocker. Unknown command means an older installed runtime, not missing host subagent support.
 
@@ -46,7 +69,11 @@ The runtime derives paths and payloads, validates old/new envelope identities, p
 
 An interrupted journal publication leaves the old graph unchanged. An existing complete journal permits exact replay after prompt or transaction replacement. Before any replay write, the run must still match expected_run_sha256, all old transactions must match expected_transaction_hashes, and prompt/new-transaction/manifest bytes must be either the recorded prior state or the exact recorded replacement. A published replacement manifest requires its prompt and transaction already to match. Third-party changes and extra journal fields block without overwrites. Completed journals remain immutable audit evidence; they do not authorize rollback after later workflow transitions.
 
-Resume returns `next_command: prepare-recovery` plus `recoveries` entries (`slide_id`, old `transaction_id`, `mode`) when a journal's old transaction is still active. Other commands stop at `recovery_pending` until that exact replay completes. No custom hashing, prompt backup, or manual owner repair is needed.
+Resume returns `next_command: prepare-recovery` plus journal `recoveries` entries (`slide_id`, old `transaction_id`, `mode`) when a journal's old transaction is still active. Exact `prepare-recovery` or the original `revise-visual` request replays it; unrelated mutators stop at `recovery_pending`. No custom hashing, prompt backup, or manual owner repair is needed.
+
+失败页恢复还返回 `failure_reason`、`mode`、`remaining_attempts`，需新决定时有 `required_input`；`in_flight` 列出已有 generating 页及真实 `host_task_id`。优先消费返回动作，`same_run_required: true` 要求保持原运行；未返回此字段也不授权新建。`await-interaction`／`apply-interaction`、`await-review`／`manuscript-review`、`review-content`、`wait-for-generator`、`durable_lookup`、`anchor_review` 和 `stage_scan` 是 coordinator 动作，不是 CLI 子命令。未批准文稿停在原文稿 owner，保留已有 active batch，不重置 cycle／round。
+
+`prepare-recovery --mode retry` 在 canonical 已批准输入未变时复用同一 Prompt／transaction／siblings。除既有 transport／写入失败外，`svg_contract_failed` 或 `fact_source_mismatch` **仅在 `candidate_sha256: null` 时**可走此路径；下一真实派发计入同 transaction 的最多 3 次 `generation_attempt`（含首次），耗尽即停止，不换运行或请求 ID 绕过。非空 candidate hash 的 QA 失败不按此规则自动重试：先按具体事实／视觉缺陷分类，使用显式 `revise-visual`、已有且可验证的 fallback 证据或正式内容重审。
 
 Resume is read-only. An unbound dispatch reservation returns durable lookup as its next action; repeating reserve returns `spawn_authorized: false`. For DSH, correlate the reserved `dispatch_id` in the launch description with the real host return/log, then `bind-task` with that durable `subagent_id` before ingesting the same child's result. `list_agents` discovers IDs, not results or terminal status; `send_message` may request only that same child's already-completed answer. If launch attribution is ambiguous, preserve the reservation and stop without another spawn or a guessed ID. Full completion, stale-epoch and replay handling follows [the DSH protocol](deepseek-harness.md). An orphan candidate is not adopted: record the bound generator failure and explicitly retry. Retry removes only that owned candidate under its observed hash and resets the next dispatch epoch, preserving previous finals. Migration is a separate pointer-last mutator. Partial preparations without a complete manifest fail closed; a complete matching graph with only its pointer missing is completed by exact prepare replay. Historical legacy prompts that cannot reconstruct current canonical provenance remain blocked until canonical recompose inputs are available.
 

@@ -193,7 +193,10 @@ class Owners:
             if slide['slide_id'] in self.slides:
                 raise ValueError('canonical_owner_ambiguous')
             self.slides[slide['slide_id']] = slide
-        self.revisions, self.projection = prompt.project_active_visual_revisions({'storyboard': self.storyboard, 'run': dict(run, interaction_history=run.get('interaction_history', {}))})
+        self.materialized_revisions, self.projection = prompt.project_active_visual_revisions({'storyboard': self.storyboard, 'run': dict(run, interaction_history=run.get('interaction_history', {}))})
+        from _runtime_visual import visual_revisions
+        self.visual_revisions, visual_sources = visual_revisions(store, run, self.slides, frozen['snapshot_id'], self.materialized_revisions)
+        self.revisions = sorted(self.materialized_revisions + list(self.visual_revisions), key=prompt._visual_revision_sort_key)
         self.snapshots = {'storyboard_snapshot_id': _require_sha256(self.storyboard.get('storyboard_snapshot_id'), 'storyboard_snapshot_id'),
             'theme_snapshot_id': store.hash('.ppt-pilot/theme.json'),
             'source_audit_snapshot_id': store.hash(names[2]),
@@ -206,10 +209,20 @@ class Owners:
             source_gate.import_binding()
             check_stages(source_gate, STAGES.index('anchor' if run.get('stage') == 'anchor' else 'production'))
             self.snapshots['source_audit_snapshot_id'] = sha(canonical(source_gate.evidence['source_audit']).rstrip(b'\n'))
+        for source in visual_sources:
+            identity, body_hash, _ = self.compile(source)
+            if identity != source['transaction_id'] or body_hash != source['compiled_prompt_sha256']:
+                raise ValueError('prompt_snapshot_conflict')
+
+    def revision_for(self, slide_id):
+        return next((rid for rid in reversed(self.revisions) if
+                     self.run['interaction_history'][rid].get('affected_scope') in ('deck', 'anchor') or
+                     slide_id in self.run['interaction_history'][rid].get('affected_scope', [])), None)
 
     def compile(self, operation):
         sid = operation['slide_id']
         slide = self.slides[sid]
+        applied = list(self.materialized_revisions)
         for revision in parse_json(self.projection):
             scope = revision['affected_scope']
             if scope not in ('deck', 'anchor') and sid not in scope:
@@ -230,6 +243,14 @@ class Owners:
             record = self.run['interaction_history'][revision]
             if record.get('affected_scope') not in ('deck', 'anchor') and sid not in record.get('affected_scope', []):
                 raise ValueError('prompt_snapshot_conflict')
+            if revision in self.visual_revisions:
+                slide = dict(slide)
+                cutoff = prompt._visual_revision_sort_key(revision)
+                for rid, overlay in self.visual_revisions.items():
+                    if prompt._visual_revision_sort_key(rid) <= cutoff and overlay['affected_scope'] == [sid]:
+                        slide.update(overlay['normalized_changes'])
+                        applied.append(rid)
+                applied.sort(key=prompt._visual_revision_sort_key)
             request = '; '.join(str(k) + '=' + str(v) for k, v in sorted(record['normalized_changes'].items()))
         elif intent == 'deterministic_fallback' and re.fullmatch(r'fallback:' + sid + r':[0-9a-f]{64}:2', trigger):
             request = 'deterministic single-column or two-column fallback after two failed patches'
@@ -252,14 +273,14 @@ class Owners:
                     tuple(block['block_id'].encode() for block in slide['content_blocks']))
         payload = dict(self.snapshots)
         del payload['source_audit_snapshot_id']
-        payload.update(applied_visual_revision_ids=self.revisions, compiled_prompt_sha256=sha(body),
+        payload.update(applied_visual_revision_ids=applied, compiled_prompt_sha256=sha(body),
             format='creative-brief-v1', generation_intent=intent, generation_trigger_id=trigger,
             outline_snapshot_id=self.outline['outline_snapshot_id'], resolved_generation_prompt_template_path=self.template_path,
             selected_style_id=self.theme['selected_style_id'], style_baseline_snapshot_id=sha(self.baseline),
             style_kind=self.theme['style_kind'], style_manifest_version=self.theme['style_manifest_version'])
         identity = sha(prompt.canonical_json_bytes(payload))
         metadata = dict(slide_id=sid, storyboard_snapshot_id=self.snapshots['storyboard_snapshot_id'],
-            theme_snapshot_id=self.snapshots['theme_snapshot_id'], applied_visual_revision_ids=self.revisions,
+            theme_snapshot_id=self.snapshots['theme_snapshot_id'], applied_visual_revision_ids=applied,
             prompt_snapshot_id=identity, user_page_request=request, expected_output='恰好一个 xml 代码围栏中的完整 SVG',
             workspace_output_path='slides/' + sid + '.svg', format='creative-brief-v1')
         return identity, sha(body), prompt.render_generation_prompt(metadata, body, sid)

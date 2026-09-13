@@ -48,7 +48,7 @@ Office 的合法触发分两类：旧稿导入在 `brief` 中按[源稿盘点](s
 - canonical source ID 精确匹配大写 ASCII `SRC-[0-9]+`，只保留在 `data-source-id`／trace 机器元数据中；可见 `<text>`／`<tspan>` 出现任何大小写变体时以 `fact_source_mismatch` 硬失败，不能删除文字或改用栅格回退；
 - 所有人类引用、来源名称、URL 以及任何可见内部 ID 都以 `fact_source_mismatch` 阻断。
 
-重要主张缺失或变化属于硬失败，必须使文稿批准失效，不能只做视觉修补。
+必须区分失败来源：已批准文稿本身的重要主张、事实、限定或来源需要改动时，使文稿批准失效并正式重审；若只是 generator 漏写、改写错误或输出与冻结文稿不符，拒绝该输出并按失败页契约在同一运行修正，不能仅因输出缺陷重置有效的文稿批准。
 
 ### 检查项契约
 
@@ -57,7 +57,7 @@ QA 以冻结故事板为事实基准，不要求逐字拷贝；阅读顺序预�
 | 检查项 | 契约 |
 |---|---|
 | `fact_source_consistency` | 数字/单位/期间/限定词/因果/来源映射与冻结故事板一致；措辞自由 |
-| `narrative_integrity` | assertion_title / role / audience_takeaway / visual_intent 保留；SCQA 顺序完好 |
+| `narrative_integrity` | assertion_title / role / audience_takeaway 与冻结内容一致；visual_intent 使用当前已验证的视觉修订视图；SCQA 顺序完好 |
 | `visual_hierarchy` | 主次可辨：主信息面积/字号/明暗显著强于次信息；等权卡片墙视为失败 |
 | `supplement_traceability` | 素材外新增的实质内容必须能在研究.md/来源.md 中溯源；无事实内容的过渡句豁免 |
 
@@ -113,7 +113,7 @@ initial/recompose generator content = complete frozen durable generation prompt 
 DSH execution wrapper = non-content no-tools/no-delegation/text-only policy (not a sandbox)
 ```
 
-`patch` 必须读取完整直接编译输入、当前 SVG 与一个精确 `patch_defect`；只修复该 defect，并把受影响页面 SVG 与 QA 标脏。`recompose` 必须先把已应用修订投影回故事板或 `theme.json` 的相应所有权，再从这两个权威 owner 重新编译持久化 Prompt 并从空白构图生成候选。旧 SVG 不得提供给 `recompose` 生成上下文，也不得作为几何底稿、坐标参考、卡片骨架或复制起点。模式无法唯一判断时，持久化一个直接澄清问题并停止。
+`patch` 必须读取完整直接编译输入、当前 SVG 与一个精确 `patch_defect`；只修复该 defect，并把受影响页面 SVG 与 QA 标脏；当前固定运行时没有通用 patch 命令。失败页仅调整 `layout_family`／`visual_intent` 时，使用[固定 `revise-visual`](runtime-canonical-owners.md#failed-page-visual-revision)：运行时在内存投影，不回写五份已审文稿或补写 review hash，原位替换该页 transaction，保留 sibling。其它 `recompose` 仍需按权威 owner 与失效规则处理，不能手改故事板后沿用旧批准。所有 `recompose` 从冻结 Prompt 的空白构图生成候选；旧 SVG 不得提供给 `recompose` 生成上下文，也不得作为几何底稿、坐标参考、卡片骨架或复制起点。模式无法唯一判断时，持久化一个直接澄清问题并停止。
 
 ### 页面首次生成与 recompose 的统一 Prompt QA
 
@@ -160,24 +160,28 @@ SVG transaction 中的 `checks.office` 表示 Office-safe SVG 子集的静态兼
 
 每页 QA 的 `qa` span 记录真实 monotonic duration 与其 model/render parent；promotion span 按 manifest 顺序串行连接。telemetry 只用于比较 compile/model/render/QA/promotion、queue 与 batch wall/critical path；它是非权威诊断。span 写入／解析失败记录 `telemetry_diagnostic_failed`，但保持当前 `validation` 与 transaction correctness outcome，不得改写 passed/failed、blocker 或 final。
 
-失败 consumer 固定：`prompt_write_failed` 只来自 prompt 原子 temp+rename、复读或 hash 验证失败，失败前及恢复至 `compiled` 前 generator calls、candidate writes 与 SVG writes 均为 0。transport retry reasons `generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch` 只更新对应 per-slide transaction，使用 `generation_attempt + 1`；同一 transaction 的 `generation_attempt` 达到 `3` 后持久化 blocker 并停止。新 schema-v2 QA reasons 使用 `svg_contract_failed`、`fact_source_mismatch`、`visual_qa_failed`；`locked_content_mismatch` 只允许原样保留在 migration batch。`final_promotion_conflict` 与 `transaction_state_conflict` 保留 previous final 与 failed transaction。No arbitrary delete/cancel。
+失败 consumer 固定：`prompt_write_failed` 只来自 prompt 原子 temp+rename、复读或 hash 验证失败，失败前及恢复至 `compiled` 前 generator calls、candidate writes 与 SVG writes 均为 0。transport retry reasons 为 `generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch`。`svg_contract_failed`／`fact_source_mismatch` 仅在 `candidate_sha256: null` 且 canonical 已批准输入未变时也可 `prepare-recovery --mode retry`；复用原 Prompt／transaction、保留 sibling，下一真实派发才增加 `generation_attempt`，含首次最多 `3` 次，耗尽即阻断。非空 candidate hash 的 QA 失败不能据此自动 retry，须显式视觉修订、已有且可验证的 fallback 证据或事实／来源重审；`visual_qa_failed` 不属于零候选重试。`locked_content_mismatch` 只允许原样保留在 migration batch。`final_promotion_conflict` 与 `transaction_state_conflict` 保留 previous final 与 failed transaction。No arbitrary delete/cancel。
+
+几何检查按真实椭圆弧段极值计算 `A`／`a` 边界，仍执行相同安全区、字号和 SVG 硬门；超出浮点稳定范围的圆弧仍 fail closed，不用抽样或不可靠包围盒放行。`svg_contract_failed` 可返回有界 `errors[].details`（固定 reason 与可选 bbox／bounds 数值），不含源文本、路径或额外持久 owner；诊断只用于定位，不授权放宽检查或新建运行。
 
 ## 修复与确定性回退
 
-每次全新生成或 `recompose` 都创建新的候选版本，并把该候选的 `fix_attempts_for_candidate` 重置为 `0`。此前探索或旧候选的修复次数和视觉债务记录保留在历史中，但不能让新候选直接进入回退。
+固定运行时没有通用 patch 命令；下述两次 patch 阶梯只适用于已有可验证 patch 证据的路径，不得手写次数或 defect 以解锁 fallback。失败页没有这些证据时按 `resume` 返回的闭合修订／重审路径处理。
+
+全新生成与旧 materialized `recompose` 创建新的候选版本，该候选的 `fix_attempts_for_candidate` 从 `0` 开始；旧候选的 patch 证据不能让新候选直接进入回退。受控例外：native `runtime_visual` 修复虽产生新 transaction，仍继承 failed 页的 `generation_attempt`，整条修复链含首次最多 3 次真实派发；达到上限时在记录新修订前停止，不通过换 ID 重置预算。
 
 一个候选最多允许两次硬失败 `patch`：
 
 1. 在不改变已批准主张和已接受构图的情况下，修复一个具体的溢出、重叠、对比度、对齐、连接线或契约问题；
 2. 如仍有另一个局部硬失败，修复该唯一 defect，同时保留内容、布局家族、层级和最低字号。
 
-每次 patch 后重新执行所有受影响硬检查和适用的渲染检查。修复请求一旦需要改变构图层级，停止累计 patch，改为 `recompose` 并重置新候选次数。候选的两次 patch 仍未通过时，确定性降级为简单单栏（single-column）或双栏（two-column）布局，并保留相同结论、证据、机器来源映射与主题令牌；把回退结果作为新 SVG 验证，内部来源 ID 仍只存在于机器元数据。回退仍有硬检查失败时，停止生产并把该页记录为阻断；不得作为完整产物交付。
+每次 patch 后重新执行所有受影响硬检查和适用的渲染检查。修复请求一旦需要改变构图层级，停止累计 patch，改为 `recompose`；native `runtime_visual` 仍继承原 generation_attempt，其它既有路径才按新候选预算处理。候选的两次 patch 仍未通过时，确定性降级为简单单栏（single-column）或双栏（two-column）布局，并保留相同结论、证据、机器来源映射与主题令牌；把回退结果作为新 SVG 验证，内部来源 ID 仍只存在于机器元数据。回退仍有硬检查失败时，停止生产并把该页记录为阻断；不得作为完整产物交付。
 
 ## 请求预算与派发可观测
 
 generator 生成是严格单轮的：一次请求提交完整输入，一次响应返回恰好一个围栏；禁止向生成上下文追问、确认或迭代修改。"反复优化"只允许通过上面的离散阶梯表达，每个阶梯都是一次全新的单轮生成。[DSH 恢复](deepseek-harness.md)允许向已绑定的同一 child 用 `send_message` 取回已经完成的原答案；这是原结果重放，不是新生成，不追加内容或改写 SVG，也不因为没有取回结果就再次 spawn。
 
-每个候选的宿主请求上限固定为 **4 次**：首次生成／`recompose` 1 次 + `patch` ≤2 次 + 确定性回退 1 次（transport retry 计入同一 transaction 的 `generation_attempt`，不额外占用该预算）。用尽即停：写 blocker 或按阻断记录，不得静默开启第 5 次请求，也不得通过"新周期""换个说法重试"绕过计数。
+旧 materialized／具备真实 patch 证据的路径，每个候选的宿主请求上限固定为 **4 次**：首次生成／`recompose` 1 次 + `patch` ≤2 次 + 确定性回退 1 次（transport retry 计入同一 transaction 的 `generation_attempt`，不额外占用该预算）。native `runtime_visual` 不使用这条四次阶梯：沿用原失败页计数，整条视觉修复链最多 3 次真实派发。用尽即停：写 blocker 或按阻断记录，不得通过新 transaction、"新周期"或"换个说法重试"绕过各自上限。
 
 每次调用 generator 前必须向用户输出一行派发说明，使请求消耗全程可见：
 
@@ -258,7 +262,7 @@ QA 报告统一写入 `.ppt-pilot/质量检查报告.md`，记录：
 编辑前先分类请求。修改类别无法唯一判断时，先提出一个直接问题，确认是否允许改变事实主张、限定条件或来源映射；记录答案后再更新失效状态。
 
 - **局部修补（patch；visual-only／non-factual copy edit 的受限子集）**：仅处理一个可测量局部 defect。保持冻结故事板的事实／叙事／来源与当前 SVG 的已接受构图，只把受影响页面 SVG 和整套 QA 标脏；不重新运行文稿审查。
-- **页面重构（recompose）**：已批准文案、限定条件、数字、来源映射和受众行动不变，但焦点、层级、阅读路径、布局、卡片密度、字体、语义色、品牌方向或参考发生变化。记录页级视觉修订，把其内容或风格变化投影到故事板或 `theme.json` 的权威字段，重新编译该页 `generation-prompts/<slide-id>.md`，并只把该 prompt、SVG 和整套 QA 标脏；不重新运行文稿审查，且不把旧 SVG 提供给生成上下文。
+- **页面重构（recompose）**：已批准文案、限定条件、数字、来源映射和受众行动不变。当前活动批次失败页的布局／视觉意图修正使用 `revise-visual`，只在内存应用 runtime_visual 视图并重编译该页 Prompt，不修改五份冻结文稿、审查哈希或通过的 sibling，因此无需文稿重审；不把旧 SVG 提供给生成上下文。字体／品牌／主题等超出这两个字段的变更仍走原有主题和批准契约，不能手改冻结故事板后宣称免重审，也不能把尚未实现的批次 rebase 当成可执行恢复。
 - **主题变化（theme change）**：记录 deck 级视觉修订并更新 `theme.json` 的风格基线；把全部依赖主题的 generation prompts、锚点、页面及视觉／整套 QA 标脏，文案和含义不变时保留文稿批准。
 - **事实、主张、来源、大纲或故事板变化**：不归入 patch 或 recompose。按产物契约返回最早受影响文稿阶段；把嵌套审查授权重置为 pending，保留历史并使视觉产物失效。此前状态为 `manuscript_approved` 才能开启新 cycle；尚未通过的周期保留计数。新的正式 subagent／inline 审查通过前不得回到视觉阶段。
 

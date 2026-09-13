@@ -5,7 +5,7 @@
 ## 入口诊断与升级后恢复
 
 1. 从宿主本次加载本 Skill 的结果取得真实根目录 `SKILL_ROOT`；不要假定插件目录、`~/.agents/skills` 或仓库源码一定是活动副本。此后所有固定命令使用同一根目录。宿主没有提供根路径时停止并要求确认安装位置，不读取 DSH 配置猜路径。
-2. 新运行在创建目录／文稿工作前、已有运行在 artifact audit PASS 后且任何阶段／dashboard 写入前，执行下列第一条只读命令。处理到 generator blocker 或视觉批次恢复时，再用第二条检查现有 capability（本地绝对路径）；不得越过更高优先级的待确认／待审查状态读取它。
+2. 按[固定工作区入口](interaction-protocol.md#固定工作区入口)路由；明确新建须在调用 `ppt_entry.py --action new` 创建目录前执行下列第一条只读命令。已有运行在入口 READY 后先通过 artifact audit，再于任何阶段／dashboard 写入前执行该诊断。READY 与诊断 PASS 均不授予文稿批准。处理到 generator blocker 或视觉批次恢复时，再用第二条检查现有 capability（本地绝对路径）；不得越过更高优先级的待确认／待审查状态读取它。
 
 ```text
 python "SKILL_ROOT/scripts/ppt_runtime.py" inspect-host --host deepseek-harness
@@ -39,7 +39,7 @@ Dashboard 的 job ID 只用于 `job_output`／必要的作业取消；它和 SVG
 | 文稿审查 | 新 child 只读五份冻结文稿与审查契约，不能接收创作对话或视觉产物 | 先持久化 pending round，再发出实际审查任务；使用真实 child/completion/result 归属，按原审查协议提交 |
 | 锚点／正式 SVG | 每页一个全新 child；完整 Prompt 按值传递；只返回文本 | 所有运行时命令、落盘、来源关联、渲染、QA、批准和 promotion |
 
-独立文稿审查需要先取得 child ID 时，先启动一个“就绪后等待审查任务、不读取任何文件”的 child；持久化该 ID 的 pending round 后，再用 `send_message` 给同一 child 发送冻结输入与审查要求。就绪回应不是审查完成。委派确实不可用时使用现有 `inline_fallback` 文稿审查契约；不伪造独立性。
+独立文稿审查需要先取得 child ID 时，先启动一个“就绪后等待审查任务、不读取任何文件”的 child；持久化该 ID 的 pending round 后，再用 `send_message` 给同一 child 发送冻结输入与审查要求。就绪回应不是审查完成。宿主未提供真实完成事件标识时，即使已有 child 文本也不能自造 `completion_event_id`；记录真实 `completion_event_missing` 并在**同一运行、同一 pending cycle／round／snapshot** 转为[正式 `inline_fallback`](manuscript-review.md#执行证据与降级)。重复出现此缺口不另开运行、不重启审查计数，也不把 inline 报告宣称为独立审查。
 
 ## SVG 调用顺序
 

@@ -99,7 +99,7 @@ telemetry 是**非权威**诊断。写入、解析、父引用、时钟或 DAG �
 
 `theme.json` 拥有四个 deck-level schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`，以及整套 palette、typography、spacing 与品牌方向；它不拥有任何 per-slide operation。逐页 `generation_intent`、`generation_trigger_id` 与 `prompt_snapshot_id` 只持久在 generation prompt provenance／schema-v2 per-slide transaction owner 中；不得写入 `theme.json`。missing identity 只能由已验证 registry／manifest 重建；registry 缺失时 identity-recovery table 只允许恢复旧运行身份，不授权模板编译或页面生成，生成仍以 `registry_missing` 停止。不得从 SVG、目录、请求文案或用户措辞推断。
 
-`generation_intent`／`generation_trigger_id` 的产物矩阵固定为：`initial_generation` + `initial:<slide-id>:<storyboard_snapshot_id>` + `initial generation from approved storyboard and theme`；`user_recompose` + `interaction:<applied-history-id>` + 已规范化并物化后的 intent 摘要，raw answer/history JSON 不进入 generation prompt；`deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` + `deterministic single-column or two-column fallback after two failed patches`；尾缀 `:2` 为常量标识，不随后续重试递增。`local_patch` + `patch:<slide-id>:<qa-defect-id>` + `requires_current_svg` + `compile_full_prompt: false`。
+`generation_intent`／`generation_trigger_id` 的产物矩阵固定为：`initial_generation` + `initial:<slide-id>:<storyboard_snapshot_id>` + `initial generation from approved storyboard and theme`；`user_recompose` + `interaction:<applied-history-id>` + 已规范化的 intent 摘要（旧 materialized 或固定 runtime_visual 投影），raw answer/history JSON 不进入 generation prompt；`deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` + `deterministic single-column or two-column fallback after two failed patches`；尾缀 `:2` 为常量标识，不随后续重试递增。`local_patch` + `patch:<slide-id>:<qa-defect-id>` + `requires_current_svg` + `compile_full_prompt: false`。
 
 Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受影响页的编译输入；每页仍保有不同的 storyboard snapshot、prompt snapshot 和 transaction identity。
 
@@ -118,7 +118,7 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 
 ## 可选工作区路由状态
 
-`ppt-output/run-selection.json` 是 schema-version 1 的可选工作区级路由状态，只在 `resume`／`revise` 无法唯一确定目标运行时存在。它不是演示文稿运行，也没有 `stage`，不得放进或改写任何候选运行。
+`ppt-output/run-selection.json` 是 schema-version 1 的可选工作区级路由状态，由固定 `ppt_entry.py` 在 `resume`／`revise` 无法唯一确定目标运行时创建并重放。显式 new 遇到需采用的既有候选时先规范化为 resume；不增加 new 路由状态。它不是演示文稿运行，也没有 `stage`，不得放进或改写任何候选运行。具体命令与 READY／CHOICE_REQUIRED 处理见[固定工作区入口](interaction-protocol.md#固定工作区入口)。
 
 该文件在 `pending` 时必须包含：
 
@@ -145,6 +145,8 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 - 文件格式错误、不可解码或 `schema_version` 非 1 时披露原因并整体忽略，继续当前运行；不得部分采用也无法唯一解释的内容。
 
 ## `run.json` 架构
+
+固定入口用 `--source` 新建时可写入惰性 `entry_source`，仅含本地绝对 `source_path` 与源字节 SHA-256 的 64 位小写十六进制 `sha256`，用于后续路由采用。它不是 durable control state，不参与文稿授权，不能代替 intake、`source_deck` 或导入检查点；已有 `source_deck` 时以真实库存中的源 hash 为路由依据。
 
 外部旧 PPT 首次导入新增可选 `source_deck`，绑定原稿、`.ppt-pilot/源稿清单.json`、`源页映射.json` 与 `导入检查点.json`。schema、hash 绑定、逐页覆盖、累计阶段检查和失效规则以[旧稿导入契约](source-deck-redesign.md)为单一权威。普通运行不自动添加这些字段；旧运行不迁移。导入证据是可核对的执行记录，不是自行声明 PASS 的授权。
 
@@ -173,7 +175,7 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 
 ### 直接视觉修订记录
 
-已经执行的直接视觉修订即使不来自 `pending_interaction`，也必须在修改视觉产物前立即写入 `interaction_history`。键使用单调 `visual-revision-<N>`：令 `N` 为既有同类键中的最大正整数加一，缺少既有键时从 1 开始；不得复用、重排或覆盖旧键。每条记录包含：
+已经执行的直接视觉修订即使不来自 `pending_interaction`，也必须在修改视觉产物前立即写入 `interaction_history`。键使用单调 `visual-revision-<N>`：令 `N` 为既有同类键中的最大正整数加一，缺少既有键时从 1 开始；不得复用、重排或覆盖旧键。以下为不带 `projection` 的既有 materialized 修订规则；固定运行时的失败页 overlay 见本节末尾例外。每条记录包含：
 
 - `stage`：应用修订时的当前阶段；
 - `kind: visual_revision`；
@@ -187,6 +189,8 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 `affected_scope: deck` 或整套主题／品牌决定镜像到 `theme.json.user_revision_notes`；`affected_scope: anchor` 镜像到 `theme.json.user_revision_notes` 和受影响锚点页的故事板／revision provenance；具体页面决定只镜像到对应故事板／theme owner 与 revision provenance。镜像不得直接改写已选 style pack 的 prompt/tokens 或制造运行时第八条 Step-2 指令；需要改变风格时必须选择或重建一个通过完整验证的 style pack。镜像使用同一 `visual-revision-<N>` ID 并可以从历史重建；`run.json.interaction_history` 是权威记录并且必须跨失效保留。直接视觉修订与 guided 锚点修订采用同一记录、归并和冲突规则，不得把探索性预览、对话摘要或 SVG 本身作为唯一副本。
 
 明确替换同一字段的后续记录必须在 `supersedes` 中列出旧记录及字段。被替换记录保留在历史中，但其废弃规则不得进入当前有效契约。若无法确定新规则是共存还是替换、作用域不明确、目标字段不存在，或镜像与权威记录冲突，停止应用并持久化一个澄清问题；不得同时激活互斥规则。
+
+受控例外：`revise-visual` 仅由固定运行时创建 `projection: runtime_visual` 的单失败页记录；`artifact_owner` 为该运行实际 `run.json` 路径、`supersedes: []`，并绑定 `request_id`、原 run hash、failed transaction 与 review snapshot。字段与输入限制见[固定运行时 owner](runtime-canonical-owners.md#failed-page-visual-revision)。此记录不物化到故事板／theme，不改五份已审输入或 review hash；编译时仅按单页 operation 的历史截止点应用两个视觉字段，保留其它页面及全局 snapshots。不得手写 projection 记录或借此修改事实；原 materialized 历史不自动转换。
 
 无论处于哪种状态，`manuscript_review` 对象都必须包含以下全部字段；允许使用空列表或 `reason` 表示无内容，但不得重命名或省略契约字段：
 
@@ -219,7 +223,7 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 - subagent pending 使用只有非空 `child_context_id` 的 `delegation_attempt_evidence`；inline pending 使用完整 `fallback_evidence`；completed subagent round 才包含三字段 `delegation_evidence`；
 - `status: in_progress`。
 
-写入 pending round 后才执行审查。crash／resume 必须复用同一 current cycle、下一合法 round、mode 和 snapshot；round 必须等于已完成 `round + 1` 且不超过 3。completed report 的 `review_mode` 必须匹配 pending `mode`；inline 的 fallback evidence 必须一致，subagent completed delegation evidence 的 child/result context 必须等于 pending `delegation_attempt_evidence.child_context_id`。completed report 不得丢失此前未解决的 `BLOCKER/HIGH` IDs。snapshot 变化时旧 pending 失效并重新冻结。同一运行只能有一个 pending round。匹配 durable 报告存在时，以一次原子 `run.json` 替换追加恰好一条 history、更新 review 状态并删除 pending；重复 resume 为 no-op。格式错误、双 pending、模式／snapshot 冲突或非法第 4 轮时停止，不猜测。
+写入 pending round 后才执行审查。crash／resume 必须复用同一 current cycle、下一合法 round、mode 和 snapshot；round 必须等于已完成 `round + 1` 且不超过 3。唯一模式转换是本轮真实委派失败后按[审查契约](manuscript-review.md)改为 `inline_fallback`：保留 cycle／round／snapshot，以真实 `fallback_evidence` 替换 delegation attempt evidence，不新增轮次或运行。completed report 的 `review_mode` 必须匹配 pending `mode`；inline 的 fallback evidence 必须一致，subagent completed delegation evidence 的 child/result context 必须等于 pending `delegation_attempt_evidence.child_context_id`。completed report 不得丢失此前未解决的 `BLOCKER/HIGH` IDs。snapshot 变化时旧 pending 失效并重新冻结。同一运行只能有一个 pending round。匹配 durable 报告存在时，以一次原子 `run.json` 替换追加恰好一条 history、更新 review 状态并删除 pending；重复 resume 为 no-op。格式错误、双 pending、模式／snapshot 冲突或非法第 4 轮时停止，不猜测。
 
 ## 可选 `pending_interaction`
 

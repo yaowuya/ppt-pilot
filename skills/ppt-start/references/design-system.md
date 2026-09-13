@@ -76,7 +76,7 @@ Style-assets traversal 顺序固定为：registry target 状态；registry dupli
 不可覆盖内容／证据／兼容性规则 > seed defaults > latest deck theme/brand decision > latest scoped slide decision > local patch defect
 ```
 
-每条品牌／主题或页面决定来自 `run.json.interaction_history` 的已应用记录。后续规则替换同字段时必须记录 `supersedes`；废弃规则留在历史中，但不得进入当前主题、active contract 或编译输入。`affected_scope: deck` 的最新决定写入 `theme.json.user_revision_notes`，页面决定只投影到对应故事板／theme owner 与 revision provenance；不得直接改写已选 style pack 的 prompt/tokens 或生成运行时第八条 Step-2 行。需要改变风格时必须按 `brand_override_requires_derived_style_pack` 闭环选择或生成并注册一个新 ID 的完整风格包。同字段冲突而替换关系或作用域不明确时停止，不得混用相互矛盾的令牌或从 SVG 反推主题。
+每条品牌／主题或页面决定来自 `run.json.interaction_history` 的已应用记录。失败页仅调整 `layout_family`／`visual_intent` 时使用[固定 runtime overlay](runtime-canonical-owners.md#failed-page-visual-revision)，不回写 theme／已审故事板；以下镜像和 `supersedes` 规则仅用于原 materialized 路径。后续规则替换同字段时必须记录 `supersedes`；废弃规则留在历史中，但不得进入当前主题、active contract 或编译输入。`affected_scope: deck` 的最新决定写入 `theme.json.user_revision_notes`，页面决定只投影到对应故事板／theme owner 与 revision provenance；不得直接改写已选 style pack 的 prompt/tokens 或生成运行时第八条 Step-2 行。需要改变风格时必须按 `brand_override_requires_derived_style_pack` 闭环选择或生成并注册一个新 ID 的完整风格包。同字段冲突而替换关系或作用域不明确时停止，不得混用相互矛盾的令牌或从 SVG 反推主题。
 
 ## 色彩层级
 

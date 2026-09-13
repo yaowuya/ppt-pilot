@@ -12,7 +12,7 @@
 
 1. 已批准故事板（`故事板.md`，快照 `storyboard_snapshot_id`）中该页的记录。故事板拥有叙事、显示素材、事实、主张、限定词与来源映射，包括 `role`、`assertion_title`、`audience_takeaway`、`visual_intent`、`content_blocks`、`source_ids`、`previous_link`／`next_link`；
 2. 当前有效 `theme.json`。主题拥有风格标识与风格基线（色板角色、字体栈、间距节奏、形状语言、构图规则与禁止母题，来源为所选中风格包 `tokens.json` 恰好六键的闭合类型 `prompt_baseline`，由 `StyleBaselineCompiler` 确定性投影供 QA 与 provenance 使用；不得附加自由文本扩展小节）；
-3. `run.json.interaction_history` 中该页适用的 `visual_revision-<N>` 记录。按 scope／supersedes 契约得到的已应用修订只回写或投影到前述故事板内容所有权或主题风格所有权，不形成第三个页面规格域，也不投影布局令牌。
+3. `run.json.interaction_history` 中该页适用的 `visual-revision-<N>` 记录。旧 materialized 修订按 scope／supersedes 契约验证故事板／theme 镜像。带 `projection: runtime_visual` 的失败页修订只由[固定运行时](runtime-canonical-owners.md#failed-page-visual-revision)按单页历史截止点在内存覆盖 `layout_family`／`visual_intent`；五份已审文稿、theme 和全局 snapshots 保持原字节。两路最终都进入同一叙事注点，不形成第三个页面规格域，也不投影布局令牌。
 
 ## 编译步骤：单注点注入
 

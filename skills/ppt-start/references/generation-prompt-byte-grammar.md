@@ -2,6 +2,8 @@
 
 本文件是页面生成 Prompt 字节语法的唯一权威来源；其它引用文件仅链接本文件，不得复制或扩展编译规则。规则正文保留英文以确保逐字稳定。References must require **all rules below** rather than naming a numeric total that can drift.
 
+失败页 `projection: runtime_visual` 是[固定运行时](runtime-canonical-owners.md#failed-page-visual-revision)允许的受控视觉投影：仅在内存覆盖该页 `layout_family`／`visual_intent`，不改已审文稿或全局 snapshots；之后仍按下述同一 `{{NARRATIVE}}` 注点、字节与 hash 规则编译。该页 revision IDs 按 operation 的历史截止点计算，不使未修改 sibling 失效。
+
 ### Canonical generation-prompt layout, compiler domains, hashes, and preflight
 
 **Hard-shell invariant.** Every executable style template equals the deterministic composition of its verified schema-v2 `tokens.json`. Prefix variation is closed: optional root `prompt_role` selects `information_architect` (default; `# Role: 高级信息架构师 & SVG 可视化编码专家`) or `product_manager` (`# Role:产品经理& SVG 可视化编码专家`); optional boolean `composition.strict_brand_rules` independently selects the fixed-brand Step-2 introduction when true, or the prior soft-style introduction when absent/false. Omitting these fields preserves existing default prompt bytes. Only these enumerated prefix variants and exactly seven closed, typed Step-2 style-directive lines may vary; all remaining prefix bytes, Step 1, Step 3, compatibility, and final output instructions remain byte-exact. No arbitrary prompt text is accepted. Runtime must validate the full tokens schema, exact prompt/tokens binding, and the narrative's exact ordered `block_id` set from the frozen storyboard before any prompt, transaction, candidate, hash, or dispatch side effect. The repository authoring seed deliberately cannot pass this runtime gate.

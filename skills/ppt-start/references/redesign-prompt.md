@@ -34,7 +34,7 @@ Active generation uses `user_page_request`, never the old active slot name. Init
 
 风格身份四字段属于 deck-level `theme.json`；逐页 `generation_intent`／`generation_trigger_id`、revision projection 与执行状态由 schema-v2 per-slide transaction 文件持有，`run.json` 只持有 `active_visual_generation_batch`。generation prompt 本身只显示九个元数据字段，且 provenance 只保留 revision IDs，不保留原始回答或历史对象。
 
-输入快照、主题、锁定内容或有效视觉修订变化后，旧 Prompt 立即失效。`.ppt-pilot/generation-prompts/` 是派生产物，不能覆盖故事板或权威修订历史。
+输入快照、主题或锁定内容变化后，受影响 Prompt 失效。失败页的 `projection: runtime_visual` 修订按[固定运行时](runtime-canonical-owners.md#failed-page-visual-revision)产生该页新 Prompt；原 transaction 按其历史截止点验证，未修改 sibling 不因新 revision ID 失效。`.ppt-pilot/generation-prompts/` 是派生产物，不能覆盖故事板或权威修订历史。
 
 新生成统一写入 `.ppt-pilot/generation-prompts/<slide-id>.md`；旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert。
 
@@ -129,12 +129,14 @@ identity recovery 只在 no-follow／`lstat` 确认 `assets/styles/registry.json
 
 ### 修订投影验证，不重复物化
 
-编译输入按 [页面编译路径契约](visual-brief-and-generation.md) 从权威 history 完成 applicability、scope、ID、history mirror 与 `supersedes` 验证，确定 canonical active projection。compiler 不重新选择修订、不重排 ID，也不再次覆盖字段；它只执行以下一致性验证：
+旧 materialized 修订的编译输入按 [页面编译路径契约](visual-brief-and-generation.md) 从权威 history 完成 applicability、scope、ID、history mirror 与 `supersedes` 验证，确定 canonical active projection。对这一路径，compiler 不重新选择修订、不重排 ID，也不再次覆盖字段；它只执行以下一致性验证：
 
 1. `applied_visual_revision_ids` 必须是无重复、按 `visual-revision-N` 数值升序的完整源列表，每个 ID 对应权威 history 中 `kind: visual_revision`、`status: applied` 的同一记录。
 2. 重新验证每条 `<earlier-id>:<normalized_changes-field>` edge，按同一规范算法推导 deterministic active projection；缺失、自身／未来目标、重复 edge、字段不存在或 mirror 冲突均返回 `prompt_snapshot_conflict`。
 3. generation prompt provenance 只保留 revision IDs；最终有效内容修订先投影回故事板 owner，最终有效视觉修订只投影回故事板／theme owner 与 revision provenance。不得直接改写已选 style pack 的 prompt/tokens 或把修订变成第八条 Step-2 行；需要改变风格时必须选择或重建一个通过完整验证的 style pack。raw `answer`、recommendation、clarification、未归一化 history 对象和 raw JSON 一律排除。
 4. compiler 的唯一动态替换域是 resolved template 中的 whole-line `{{NARRATIVE}}`；它只接收不含来源注解的已批准故事板叙事／素材。`prompt_baseline` 只参与风格数据、QA 与 snapshot provenance，不作为修订片段或正文注入。无修订时 `applied_visual_revision_ids` 为 `[]`。
+
+固定 `revise-visual` 的 `projection: runtime_visual` 是上述不重复物化规则的受控分支：运行时只在内存投影失败页的 `layout_family`／`visual_intent`，不修改冻结故事板／theme 或审查 hash。每个 operation 只带同页截至自身 revision ID 的 overlays；历史 transaction 和未改 sibling 沿用各自投影。完整字段、幂等重放与 batch 边界以[固定运行时](runtime-canonical-owners.md#failed-page-visual-revision)为准，不自动迁移旧 raw-storyboard 修改，不新增模板替换域。
 
 ### 编译上下文与精确 preflight 顺序
 
