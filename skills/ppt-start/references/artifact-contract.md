@@ -24,7 +24,7 @@ slides/<slide-id>.svg
 
 每页 transaction 使用精确字段：`schema_version`、`kind`、`batch_id`、`transaction_id`、`slide_id`、`generation_intent`、`generation_trigger_id`、`prompt_path`、`prompt_snapshot_id`、`compiled_prompt_sha256`、`candidate_path`、`final_path`、`prior_final_sha256`、`state`、`generation_attempt`、`candidate_sha256`、`failure_reason`、`dispatch_epoch`、`host_attribution_id`、`host_task_id`、`validation`、`timing`。状态保留 `compiling`、`compiled`、`generating`、`candidate_written`、`validated`、`promoted`、`failed`，以便 v1 状态无损迁移；候选 hash 只能在候选关闭、复读后随 `candidate_written` 提交。host、validation、timing 都由该页 transaction 拥有。
 
-batch manifest 使用精确字段：`schema_version`、`kind`、`batch_id`、`batch_width`、`ordered_slide_ids`、`storyboard_snapshot_id`、`theme_snapshot_id`、`source_audit_snapshot_id`、`generation_prompt_template_snapshot_id`、`transaction_refs`、`dispatch_epoch`、`promotion_cursor`、`blocker_cursor`、`active_blocker_ref`、`state`、`created_at`、`updated_at`、`telemetry_summary`。`batch_width` 必须是整数 `3..10`；新批次按[自动并发策略](adaptive-concurrency.md)从 5 起自动选择 5..10，不询问用户。3／4 仅保留旧批次恢复兼容；v1 迁移的 width 4 不变。最后一批可含 `1..batch_width` 页，活动批次 width 与 inventory 不因升档改变。`transaction_refs` 必须按 `ordered_slide_ids` 一一对齐到规范 transaction 路径，且所有 transaction 使用同一 `batch_id`。
+batch manifest 使用精确字段：`schema_version`、`kind`、`batch_id`、`batch_width`、`ordered_slide_ids`、`storyboard_snapshot_id`、`theme_snapshot_id`、`source_audit_snapshot_id`、`generation_prompt_template_snapshot_id`、`transaction_refs`、`dispatch_epoch`、`promotion_cursor`、`blocker_cursor`、`active_blocker_ref`、`state`、`created_at`、`updated_at`、`telemetry_summary`。`batch_width` 的 schema 范围是整数 `3..10`；[自动并发规划器](adaptive-concurrency.md)目标从 5 起可到 10，不询问用户，但当前固定运行时新批次上限是 5，必须原样使用 runtime 的 prepare request，不能据规划目标手改 width。3／4 仅保留旧批次恢复兼容；v1 迁移的 width 4 不变。最后一批可含 `1..batch_width` 页，活动批次 width 与 inventory 不因升档改变。`transaction_refs` 必须按 `ordered_slide_ids` 一一对齐到规范 transaction 路径，且所有 transaction 使用同一 `batch_id`。
 
 新批次只有在完整内存 preflight 与[宿主隔离适配器](host-isolation-adapters.md)能力协商都通过后，才能进入下面的 durable 协议；无能力时 prompt、transaction、manifest 与 candidate writes 均为 0。
 
@@ -48,11 +48,13 @@ crash after transaction 时复读并复用 byte-identical transaction，只补 m
 
 ### 宿主能力、dispatch epoch 与状态归属
 
-`batch_width` 是不可变批次 inventory 上限，不等于正在运行的任务数。fresh isolated text task 同时支持 concurrency 与 durable lookup 时按自动目标、宿主容量及活动批次上限规划；缺少任一能力但仍能 fresh isolation 时降为 width 1，容量未知保守为 1。容量为 0 只等待。每次 dispatch／补位都按[自动并发策略](adaptive-concurrency.md)调用只读 `ppt_concurrency.py`，扣除 generating 与有归因的 compiled 预留任务，包括未终结旧 epoch。非 Git 工作区与 Git 工作区使用同一能力矩阵。每页 transaction 的 `dispatch_epoch`、`host_attribution_id`、`host_task_id` 是 durable 一次派发证据；同一 `(transaction_id, dispatch_epoch)` 不得第二次 spawn，只能通过 attribution/task ID 查询。非法或不完整 transaction 仍先按原 schema 阻断，不能被规划器修复或转为可派发页。
+`batch_width` 是不可变批次 inventory 上限，不等于正在运行的任务数。满足已接受宿主边界的 fresh-context text task 同时支持 concurrency 与 durable lookup 时按自动目标、宿主容量及活动批次上限规划；缺少任一能力但仍满足该宿主生成边界时降为 width 1，容量未知保守为 1。容量为 0 只等待。每次 dispatch／补位都按[自动并发策略](adaptive-concurrency.md)调用只读 `ppt_concurrency.py`，扣除 generating 与有归因的 compiled 预留任务，包括未终结旧 epoch。非 Git 工作区与 Git 工作区使用同一能力矩阵。每页 transaction 的 `dispatch_epoch`、`host_attribution_id`、`host_task_id` 是 durable 一次派发证据；同一 `(transaction_id, dispatch_epoch)` 不得第二次 spawn，只能通过 attribution/task ID 查询。非法或不完整 transaction 仍先按原 schema 阻断，不能被规划器修复或转为可派发页。
 
-新批次没有安全 adapter 时，只以一次原子 `run.json` 替换写入下文闭合的 `visual_generation_blocker`：`state: generator_unavailable`、`reason: generator_unavailable`、`resource: none`，`slide_id` 取目标有序页面中的最低项；prompt 写入、per-slide transaction 写入、manifest 写入、candidate／SVG 写入与 generator 调用均为 0。已激活批次暂时失去能力时保留所有 transaction 与 previous final，把 manifest 标为 `blocked`，并只发布 `ordered_slide_ids` 中最低未派发页面的失败；不得删除 sibling 状态或改用 coordinator 当前上下文。adapter 缺失或不安全是结构性不可用而非容量等待，不得轮询。
+新批次没有符合已接受边界的 adapter 时，只由固定运行时以一次原子 `run.json` 替换写入下文闭合的 `visual_generation_blocker`：`state: generator_unavailable`、`reason: generator_unavailable`、`resource: none`，`slide_id` 取目标有序页面中的最低项；prompt 写入、per-slide transaction 写入、manifest 写入、candidate／SVG 写入与 generator 调用均为 0。已激活批次暂时失去能力时保留所有 transaction 与 previous final，把 manifest 标为 `blocked`，并只发布 `ordered_slide_ids` 中最低未派发页面的失败；不得删除 sibling 状态或改用 coordinator 当前上下文。adapter 缺失或不安全是结构性不可用而非容量等待，不得轮询。
 
-coordinator 只向隔离 generator 传入完整 `prompt_by_value`，并要求 `fresh_history=true`、`filesystem=none`、`data_tools=none`、text output 与 expected `xml` fence。`filesystem=none`／`data_tools=none` 表示 generator 没有可主动读取或写入业务／工作区数据的工具；宿主保留无数据控制工具不改变此约束。Claude 自动注入且必须忽略的 ambient host context 由[宿主隔离适配器](host-isolation-adapters.md)明确列出，不得冒充 byte-pure prompt-only；所有 durable 写入仍只归 coordinator。只有 coordinator 可处理返回 text：先提取并解析裸 SVG，在任何 candidate 写入或 hash 前大小写不敏感地扫描全部属性名／属性值以及每个节点的 `text`／`tail`，拒绝预存 `data-source-id`、内部 source ID、大小写伪装的 `data-block-id`，以及出现在 text／tail／任何其他属性名值中的 canonical `block_id`；再验证每个 canonical narrative `block_id` 恰由一个语义 `<g data-block-id>` 精确回显一次，并从冻结故事板及 `source_audit_snapshot_id` 确定性关联 `block_id -> ordered source_ids`。未知、遗漏、重复、泄漏 block 或非法 source ID 立即以 `fact_source_mismatch` 停止且 candidate writes 为 0。coordinator 对每个来源使用确定性嵌套 `<g data-source-id>` 关联，移除全部临时 `data-block-id`，规范化序列化；完成该 source-enrichment gate 后才允许按 temp+rename、复读、hash 顺序写 candidate 并提交 `candidate_written`。隔离任务、callback、manifest 和 host lookup 都不能直接写 transaction/final 或授权 promotion；coordinator 必须按 `ordered_slide_ids` 串行提交 final、visible blocker 与 `run.json` pointer。
+coordinator 向 fresh-context generator 按值传入完整冻结 `prompt_by_value`，并要求 `fresh_history=true`、text output 与 expected `xml` fence。Claude／Codex 的 `filesystem=none`／`data_tools=none` 表示 generator 没有可主动读写业务／工作区数据的工具；无数据控制工具不改变此约束。DSH 必须读取[普通 subagent 协议](deepseek-harness.md)：继承工具，receipt 明确 `filesystem_none=false`、`data_tools_none=false`，非内容 wrapper 禁止工具调用和再委派，不修改冻结 Prompt，不宣称硬工具隔离。各宿主 ambient context 由[宿主隔离适配器](host-isolation-adapters.md)明确列出，不得冒充 byte-pure prompt-only；所有 durable 写入仍只归 coordinator。只有 coordinator 可处理返回 text：先提取并解析裸 SVG，在任何 candidate 写入或 hash 前大小写不敏感地扫描全部属性名／属性值以及每个节点的 `text`／`tail`，拒绝预存 `data-source-id`、内部 source ID、大小写伪装的 `data-block-id`，以及出现在 text／tail／任何其他属性名值中的 canonical `block_id`；再验证每个 canonical narrative `block_id` 恰由一个语义 `<g data-block-id>` 精确回显一次，并从冻结故事板及 `source_audit_snapshot_id` 确定性关联 `block_id -> ordered source_ids`。未知、遗漏、重复、泄漏 block 或非法 source ID 立即以 `fact_source_mismatch` 停止且 candidate writes 为 0。coordinator 对每个来源使用确定性嵌套 `<g data-source-id>` 关联，移除全部临时 `data-block-id`，规范化序列化；完成该 source-enrichment gate 后才允许按 temp+rename、复读、hash 顺序写 candidate 并提交 `candidate_written`。隔离任务、callback、manifest 和 host lookup 都不能直接写 transaction/final 或授权 promotion；coordinator 必须按 `ordered_slide_ids` 串行提交 final、visible blocker 与 `run.json` pointer。
+
+DSH task attribution 使用现有字段，不新增 owner：`reserve-dispatch` 的 `dispatch_id` 放入无页面内容的启动 `description`，将真实返回的 durable `subagent_id` 经 `bind-task` 绑定为 `host_task_id`，完成通知来源 child ID 匹配后才可 ingest。`subagent_id` 不是 `jobId`；`list_agents` 只发现任务，`send_message` 只向原 child 取回已完成原答案，不再生成。无法用真实宿主日志唯一恢复丢失 launch 时保留 reservation 并停止，不猜 ID、不重复派发；完整去重／旧 epoch／恢复协议见[DSH 参考](deepseek-harness.md)。
 
 ### 非权威 performance telemetry
 
@@ -97,7 +99,7 @@ telemetry 是**非权威**诊断。写入、解析、父引用、时钟或 DAG �
 
 `theme.json` 拥有四个 deck-level schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`，以及整套 palette、typography、spacing 与品牌方向；它不拥有任何 per-slide operation。逐页 `generation_intent`、`generation_trigger_id` 与 `prompt_snapshot_id` 只持久在 generation prompt provenance／schema-v2 per-slide transaction owner 中；不得写入 `theme.json`。missing identity 只能由已验证 registry／manifest 重建；registry 缺失时 identity-recovery table 只允许恢复旧运行身份，不授权模板编译或页面生成，生成仍以 `registry_missing` 停止。不得从 SVG、目录、请求文案或用户措辞推断。
 
-`generation_intent`／`generation_trigger_id` 的产物矩阵固定为：`initial_generation` + `initial:<slide-id>:<storyboard_snapshot_id>` + `initial generation from approved storyboard and theme`；`user_recompose` + `interaction:<applied-history-id>` + 已规范化并物化后的 intent 摘要，raw answer/history JSON 不进入 generation prompt；`deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` + `deterministic single-column or two-column fallback after two failed patches`；尾缀 `:2` 为常量标识，不随后续重试递增。`local_patch` + `patch:<slide-id>:<qa-defect-id>` + `requires_current_svg` + `compile_full_prompt: false`。
+`generation_intent`／`generation_trigger_id` 的产物矩阵固定为：`initial_generation` + `initial:<slide-id>:<storyboard_snapshot_id>` + `initial generation from approved storyboard and theme`；`user_recompose` + `interaction:<applied-history-id>` + 已规范化的 intent 摘要（旧 materialized 或固定 runtime_visual 投影），raw answer/history JSON 不进入 generation prompt；`deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` + `deterministic single-column or two-column fallback after two failed patches`；尾缀 `:2` 为常量标识，不随后续重试递增。`local_patch` + `patch:<slide-id>:<qa-defect-id>` + `requires_current_svg` + `compile_full_prompt: false`。
 
 Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受影响页的编译输入；每页仍保有不同的 storyboard snapshot、prompt snapshot 和 transaction identity。
 
@@ -116,7 +118,7 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 
 ## 可选工作区路由状态
 
-`ppt-output/run-selection.json` 是 schema-version 1 的可选工作区级路由状态，只在 `resume`／`revise` 无法唯一确定目标运行时存在。它不是演示文稿运行，也没有 `stage`，不得放进或改写任何候选运行。
+`ppt-output/run-selection.json` 是 schema-version 1 的可选工作区级路由状态，由固定 `ppt_entry.py` 在 `resume`／`revise` 无法唯一确定目标运行时创建并重放。显式 new 遇到需采用的既有候选时先规范化为 resume；不增加 new 路由状态。它不是演示文稿运行，也没有 `stage`，不得放进或改写任何候选运行。具体命令与 READY／CHOICE_REQUIRED 处理见[固定工作区入口](interaction-protocol.md#固定工作区入口)。
 
 该文件在 `pending` 时必须包含：
 
@@ -143,6 +145,8 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 - 文件格式错误、不可解码或 `schema_version` 非 1 时披露原因并整体忽略，继续当前运行；不得部分采用也无法唯一解释的内容。
 
 ## `run.json` 架构
+
+固定入口用 `--source` 新建时可写入惰性 `entry_source`，仅含本地绝对 `source_path` 与源字节 SHA-256 的 64 位小写十六进制 `sha256`，用于后续路由采用。它不是 durable control state，不参与文稿授权，不能代替 intake、`source_deck` 或导入检查点；已有 `source_deck` 时以真实库存中的源 hash 为路由依据。
 
 外部旧 PPT 首次导入新增可选 `source_deck`，绑定原稿、`.ppt-pilot/源稿清单.json`、`源页映射.json` 与 `导入检查点.json`。schema、hash 绑定、逐页覆盖、累计阶段检查和失效规则以[旧稿导入契约](source-deck-redesign.md)为单一权威。普通运行不自动添加这些字段；旧运行不迁移。导入证据是可核对的执行记录，不是自行声明 PASS 的授权。
 
@@ -171,7 +175,7 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 
 ### 直接视觉修订记录
 
-已经执行的直接视觉修订即使不来自 `pending_interaction`，也必须在修改视觉产物前立即写入 `interaction_history`。键使用单调 `visual-revision-<N>`：令 `N` 为既有同类键中的最大正整数加一，缺少既有键时从 1 开始；不得复用、重排或覆盖旧键。每条记录包含：
+已经执行的直接视觉修订即使不来自 `pending_interaction`，也必须在修改视觉产物前立即写入 `interaction_history`。键使用单调 `visual-revision-<N>`：令 `N` 为既有同类键中的最大正整数加一，缺少既有键时从 1 开始；不得复用、重排或覆盖旧键。以下为不带 `projection` 的既有 materialized 修订规则；固定运行时的失败页 overlay 见本节末尾例外。每条记录包含：
 
 - `stage`：应用修订时的当前阶段；
 - `kind: visual_revision`；
@@ -185,6 +189,8 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 `affected_scope: deck` 或整套主题／品牌决定镜像到 `theme.json.user_revision_notes`；`affected_scope: anchor` 镜像到 `theme.json.user_revision_notes` 和受影响锚点页的故事板／revision provenance；具体页面决定只镜像到对应故事板／theme owner 与 revision provenance。镜像不得直接改写已选 style pack 的 prompt/tokens 或制造运行时第八条 Step-2 指令；需要改变风格时必须选择或重建一个通过完整验证的 style pack。镜像使用同一 `visual-revision-<N>` ID 并可以从历史重建；`run.json.interaction_history` 是权威记录并且必须跨失效保留。直接视觉修订与 guided 锚点修订采用同一记录、归并和冲突规则，不得把探索性预览、对话摘要或 SVG 本身作为唯一副本。
 
 明确替换同一字段的后续记录必须在 `supersedes` 中列出旧记录及字段。被替换记录保留在历史中，但其废弃规则不得进入当前有效契约。若无法确定新规则是共存还是替换、作用域不明确、目标字段不存在，或镜像与权威记录冲突，停止应用并持久化一个澄清问题；不得同时激活互斥规则。
+
+受控例外：`revise-visual` 仅由固定运行时创建 `projection: runtime_visual` 的单失败页记录；`artifact_owner` 为该运行实际 `run.json` 路径、`supersedes: []`，并绑定 `request_id`、原 run hash、failed transaction 与 review snapshot。字段与输入限制见[固定运行时 owner](runtime-canonical-owners.md#failed-page-visual-revision)。此记录不物化到故事板／theme，不改五份已审输入或 review hash；编译时仅按单页 operation 的历史截止点应用两个视觉字段，保留其它页面及全局 snapshots。不得手写 projection 记录或借此修改事实；原 materialized 历史不自动转换。
 
 无论处于哪种状态，`manuscript_review` 对象都必须包含以下全部字段；允许使用空列表或 `reason` 表示无内容，但不得重命名或省略契约字段：
 
@@ -217,7 +223,7 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 - subagent pending 使用只有非空 `child_context_id` 的 `delegation_attempt_evidence`；inline pending 使用完整 `fallback_evidence`；completed subagent round 才包含三字段 `delegation_evidence`；
 - `status: in_progress`。
 
-写入 pending round 后才执行审查。crash／resume 必须复用同一 current cycle、下一合法 round、mode 和 snapshot；round 必须等于已完成 `round + 1` 且不超过 3。completed report 的 `review_mode` 必须匹配 pending `mode`；inline 的 fallback evidence 必须一致，subagent completed delegation evidence 的 child/result context 必须等于 pending `delegation_attempt_evidence.child_context_id`。completed report 不得丢失此前未解决的 `BLOCKER/HIGH` IDs。snapshot 变化时旧 pending 失效并重新冻结。同一运行只能有一个 pending round。匹配 durable 报告存在时，以一次原子 `run.json` 替换追加恰好一条 history、更新 review 状态并删除 pending；重复 resume 为 no-op。格式错误、双 pending、模式／snapshot 冲突或非法第 4 轮时停止，不猜测。
+写入 pending round 后才执行审查。crash／resume 必须复用同一 current cycle、下一合法 round、mode 和 snapshot；round 必须等于已完成 `round + 1` 且不超过 3。唯一模式转换是本轮真实委派失败后按[审查契约](manuscript-review.md)改为 `inline_fallback`：保留 cycle／round／snapshot，以真实 `fallback_evidence` 替换 delegation attempt evidence，不新增轮次或运行。completed report 的 `review_mode` 必须匹配 pending `mode`；inline 的 fallback evidence 必须一致，subagent completed delegation evidence 的 child/result context 必须等于 pending `delegation_attempt_evidence.child_context_id`。completed report 不得丢失此前未解决的 `BLOCKER/HIGH` IDs。snapshot 变化时旧 pending 失效并重新冻结。同一运行只能有一个 pending round。匹配 durable 报告存在时，以一次原子 `run.json` 替换追加恰好一条 history、更新 review 状态并删除 pending；重复 resume 为 no-op。格式错误、双 pending、模式／snapshot 冲突或非法第 4 轮时停止，不猜测。
 
 ## 可选 `pending_interaction`
 
@@ -304,7 +310,7 @@ Markdown 记录使用与 JSON 相同的字段名。阶段产物镜像可以随�
 
 ### Transaction 创建前的无副作用 preflight
 
-每次首次生成或 `recompose` 必须先完成下面五个内存阶段：读取批准 outline/storyboard/theme 快照与权威 revisions；按 manifest → tokens → guidance → prompt 的固定 no-follow traversal 解析所选风格必须声明的完整 `files.prompt_template`，未声明则以 `style_asset_field_missing` fail closed，绝不选择仓库 authoring seed；组装不含来源注解、且逐块带唯一稳定 `block_id` 的 canonical narrative/material，并把闭合类型 `prompt_baseline` 保留为 QA 与 snapshot provenance；验证所有 snapshot、claim/source/qualifier/metric、narrative/revision/theme、capacity/safe-area/font/Office-safe 关系；按 byte grammar 在唯一 whole-line `{{NARRATIVE}}` 注点执行一次替换，验证 canonical bytes、自包含性并计算全部 hash/snapshot。批内页面可并行做内存准备；全部成功后先协商 fresh-isolation 能力，仍不创建 durable owner。能力通过后才按 pointer-last 写 per-slide `compiling`→prompt→`compiled` transactions、manifest 与 active pointer。
+每次首次生成或 `recompose` 必须先完成下面五个内存阶段：读取批准 outline/storyboard/theme 快照与权威 revisions；按 manifest → tokens → guidance → prompt 的固定 no-follow traversal 解析所选风格必须声明的完整 `files.prompt_template`，未声明则以 `style_asset_field_missing` fail closed，绝不选择仓库 authoring seed；组装不含来源注解、且逐块带唯一稳定 `block_id` 的 canonical narrative/material，并把闭合类型 `prompt_baseline` 保留为 QA 与 snapshot provenance；验证所有 snapshot、claim/source/qualifier/metric、narrative/revision/theme、capacity/safe-area/font/Office-safe 关系；按 byte grammar 在唯一 whole-line `{{NARRATIVE}}` 注点执行一次替换，验证 canonical bytes、自包含性并计算全部 hash/snapshot。批内页面可并行做内存准备；全部成功后先按已接受宿主边界协商 fresh-context 生成能力，仍不创建 durable owner。能力通过后才按 pointer-last 写 per-slide `compiling`→prompt→`compiled` transactions、manifest 与 active pointer。
 
 确定性 preflight 失败必须产生零 transaction／prompt／manifest／candidate 写入、零 generator 调用和零 SVG 写入；capability 失败除一次原子 run-level blocker 写入外保持同样的零生产副作用。成功路径固定为：preflight + capability → transactions/prompts → manifest → active pointer → isolated model dispatch → coordinator candidate/hash → concurrent per-slide QA → validated → ordered serial promotion。
 

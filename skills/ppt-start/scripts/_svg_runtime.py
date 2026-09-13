@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from _xml_safety import parse_xml
-from _svg_geometry import NUMBER, number, validate_geometry
+from _svg_geometry import GeometryError, NUMBER, number, validate_geometry
 
 SVG_NS = "http://www.w3.org/2000/svg"
 _ELEMENTS = {"svg", "g", "rect", "circle", "ellipse", "line", "polyline", "polygon", "path", "text", "tspan", "title", "desc"}
@@ -29,7 +29,7 @@ def extract_svg(generator_text: str) -> str:
     return match.group(1)
 
 
-def _validate_svg(svg_text, *, enriched=False):
+def _validate_svg(svg_text, *, enriched=False, title_min_size=40):
     if not isinstance(svg_text, str) or re.search(r"<\?(?!xml\s)", svg_text, re.IGNORECASE):
         raise ValueError("svg_contract_failed")
     root = parse_xml(svg_text.encode("utf-8"), "candidate SVG", "{" + SVG_NS + "}svg")
@@ -40,7 +40,11 @@ def _validate_svg(svg_text, *, enriched=False):
         if len(nodes) != 1 or not (nodes[0].text or "").strip() or len(nodes[0]):
             raise ValueError("svg_contract_failed")
     seen_ids = set()
+    ordinal = 0
     def visit(element, inherited, parent=None):
+        nonlocal ordinal
+        index = ordinal
+        ordinal += 1
         local = element.tag.rsplit("}", 1)[-1]
         if element.tag != "{" + SVG_NS + "}" + local or local not in _ELEMENTS or (local == "svg" and parent is not None):
             raise ValueError("svg_contract_failed")
@@ -52,7 +56,11 @@ def _validate_svg(svg_text, *, enriched=False):
             if key == "href" and re.fullmatch(r"#[A-Za-z_][\w.-]*", value) is None:
                 raise ValueError("svg_contract_failed")
             if key in _NUMERIC_ATTRIBUTES:
-                numeric = number(value)
+                try:
+                    numeric = number(value)
+                except GeometryError as error:
+                    error.details['element'] = {'tag': local, 'index': index}
+                    raise
                 if key.endswith("opacity") and not 0 <= numeric <= 1:
                     raise ValueError("svg_contract_failed")
             if key == "stroke-dasharray" and value.strip() != "none":
@@ -61,7 +69,12 @@ def _validate_svg(svg_text, *, enriched=False):
                 separator = r"(?:[ \t\r\n]*,[ \t\r\n]*|[ \t\r\n]+)"
                 if re.fullmatch(NUMBER + r"(?:" + separator + NUMBER + r")*", value.strip()) is None:
                     raise ValueError("svg_contract_failed")
-                if any(number(token) < 0 for token in re.findall(NUMBER, value)):
+                try:
+                    invalid_dash = any(number(token) < 0 for token in re.findall(NUMBER, value))
+                except GeometryError as error:
+                    error.details['element'] = {'tag': local, 'index': index}
+                    raise
+                if invalid_dash:
                     raise ValueError("svg_contract_failed")
             if key == "data-source-id" and (not enriched or local != "g" or _SOURCE_ID.fullmatch(value) is None):
                 raise ValueError("fact_source_mismatch")
@@ -75,7 +88,11 @@ def _validate_svg(svg_text, *, enriched=False):
             raise ValueError("svg_contract_failed")
         if (element.tail or "").strip():
             raise ValueError("svg_contract_failed")
-        validate_geometry(element, inherited)
+        try:
+            validate_geometry(element, inherited, title_min_size=title_min_size)
+        except GeometryError as error:
+            error.details['element'] = {'tag': local, 'index': index}
+            raise
         attrs = dict(inherited)
         attrs.update(element.attrib)
         for child in element:
@@ -86,20 +103,22 @@ def _validate_svg(svg_text, *, enriched=False):
     return root
 
 
-def validate_candidate(svg_text, expected_block_ids, source_map) -> bytes:
-    """Validate, enrich, revalidate and serialize in memory; never write files."""
+def validate_candidate(svg_text, expected_block_ids, source_map, *, title_min_size=40) -> bytes:
+    """Title floor comes from verified style data, never the SVG or host input."""
+    if type(title_min_size) not in (int, float) or not 34 <= title_min_size <= 4096:
+        raise ValueError("svg_contract_failed")
     if (not isinstance(expected_block_ids, (list, tuple)) or not expected_block_ids
         or any(not isinstance(block, str) or _BLOCK_ID.fullmatch(block) is None for block in expected_block_ids)
         or len(expected_block_ids) != len(set(expected_block_ids))
         or len({block.split("-B")[0] for block in expected_block_ids}) != 1
         or not isinstance(source_map, dict) or set(expected_block_ids) != set(source_map)):
         raise ValueError("fact_source_mismatch")
-    root = _validate_svg(svg_text)
+    root = _validate_svg(svg_text, title_min_size=title_min_size)
     prefix = expected_block_ids[0].split("-B")[0].lower() + "-"
     if any(node.get("id") and not node.get("id").startswith(prefix) for node in root.iter()):
         raise ValueError("svg_contract_failed")
     result = enrich_candidate_source_metadata(svg_text, source_map)
-    _validate_svg(result.decode("utf-8"), enriched=True)
+    _validate_svg(result.decode("utf-8"), enriched=True, title_min_size=title_min_size)
     return result
 
 _VISIBLE_INTERNAL_SOURCE_ID = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)

@@ -8,7 +8,7 @@
 
 ## 入口与模式规范化
 
-开始任何工作前，先检查用户请求、工作区输入、`ppt-output/` 中的既有运行和相关持久产物。请求或文件已经给出的答案不得再次询问。
+开始任何工作前，先检查用户请求、工作区输入、`ppt-output/` 中的既有运行和相关持久产物，并通过当前安装 Skill 的固定 `scripts/ppt_entry.py` 路由。请求或文件已经给出的答案不得再次询问；同源运行尚未批准、等待、候选失败或审查归因失败，都不是创建另一运行的理由。
 
 - 新运行未显式指定执行策略时，默认并持久化为 `guided`。
 - `run.json.mode` 只保存执行策略，值只能是 `guided` 或 `auto`。只有显式指定 `auto` 才进入自动策略；它跳过可选问题和可选批准，但不能因为请求看起来完整就自行推断为 `auto`。
@@ -16,13 +16,27 @@
 - `new` 表示创建入口，不是写入 `run.json.mode` 的新值。
 - 运行目标无法唯一确定时，使用产物契约定义的工作区级路由状态 `ppt-output/run-selection.json`；不得猜测、覆盖或把选择问题写入任何候选运行。
 
-首次问题也必须可恢复：不存在不持久化的阻塞问题例外。裸入口缺少足够信息生成语义化 `deck_id` 时，先使用宿主既有的安全文件创建惯例新建且不冲突的运行目录；具体临时名称不属于本协议，但不得复用或覆盖既有目录。写入最小 `run.json` 后，先持久化问题，再提出演示意图问题。不能创建安全运行目录时停止并报告原因，不得先提出无法恢复的问题。
+首次问题也必须可恢复：不存在不持久化的阻塞问题例外。明确新建但信息不足以生成语义化 `deck_id` 时，选定一次稳定中性 ID，交给固定入口独占创建新建且不冲突的运行目录；重入复用同一 ID，不覆盖目录或自动追加后缀。最小 `run.json` 通过审计后，先持久化问题，再提出演示意图问题。默认恢复找不到目标时报告 `run_not_found`，不擅自转为新建；不能创建安全运行目录时停止并报告原因，不得先提出无法恢复的问题。
+
+### 固定工作区入口
+
+所有目标发现、采用和新建都调用当前加载 Skill 的 `scripts/ppt_entry.py`。`--workspace` 必须指向用户指定的演示工作区，不是 Skill 安装根或插件源码仓库；二者在不同磁盘/目录时也不能替换。未给出实际工作区且不能从用户指定运行路径唯一确定时先询问，不把示例路径或开发目录当作目标。DSH 明确新建前先完成安装只读诊断；已有目标在路由后先审计，再做阶段／dashboard 写入。
+
+```text
+python <skill-dir>/scripts/ppt_entry.py --workspace <工作区> [--source <原稿>] [--run-id <既有ID>] [--action resume|revise] [--request <原始请求>]
+python <skill-dir>/scripts/ppt_entry.py --workspace <工作区> --action new --run-id <稳定ID> --request <原始请求> [--source <原稿>] [--mode guided|auto] [--allow-duplicate]
+```
+
+- 未传 `--action` 即 `resume`；`revise` 必须有非空 `--request`。发现范围是工作区 `ppt-output/`，同时识别新 `.ppt-pilot/run.json` 与旧根级 `run.json`，保留旧路径和 mode。
+- 新建必须显式 `--action new --run-id`；找到同源或不能排除的已有运行时仍优先采用／选择。只有用户明确要求独立另做一份时才传 `--allow-duplicate`；该参数也不能覆盖已占用 ID。`--mode` 只用于新建，不改变被采用运行的 mode。
+- 入口在工作区锁内重新检查候选并独占创建。源路径与 SHA 只帮助路由；同路径源字节变化或绑定不足可能要求选择，不授权沿用旧批准。新建的 `entry_source` 只是引导信息，真正导入仍由 intake 建立 `source_deck`。
+- 必须检查 JSON `status`：`READY` 只表示已选定 `run_dir`，随后执行返回的 `audit_command`，不是 audit／文稿批准；`CHOICE_REQUIRED` 即使退出码为 0 也只能提出已保存问题并停止；`BLOCKED` 保留现状，不改名新建或复制批准。
 
 ### 目标运行选择
 
-`resume`／`revise` 的目标不能唯一确定时，先按[产物契约](artifact-contract.md)原子创建工作区级路由状态 `ppt-output/run-selection.json`：同时保存 `entry_action` 与完整本地 `operation_payload`，不能只保存候选。然后提出其中同一个目标选择问题并停止。不得写入任何候选运行，也不得改变它们的 `run.json.mode` 或阶段。
+`resume`／`revise` 的目标不能唯一确定时，由入口按[产物契约](artifact-contract.md)原子创建工作区级路由状态 `ppt-output/run-selection.json`：同时保存 `entry_action` 与完整本地 `operation_payload`，不能只保存候选。新建请求需要采用已有候选时，路由动作规范化为 `resume`。然后提出其中同一个目标选择问题并停止。不得写入任何候选运行，也不得改变它们的 `run.json.mode` 或阶段。
 
-恢复时先处理该路由状态：`pending` 原样重放；明确答案先写为 `answered` 并保存原话与规范化候选 `decision`；验证候选目录后读取所选运行、保留既有 `run.json.mode`，并执行已保存的入口动作与原始操作载荷。只有所选运行到达下一个持久状态后才删除 `run-selection.json`。崩溃留下 answered 路由状态时继续消费，不重复询问，也不依赖原对话重建修订请求。已有路由状态格式错误、载荷缺失或与新请求冲突时停止，不创建第二份。
+收到明确回答后调用同一入口：`--workspace <工作区> --run-id <所选ID> --answer <用户原话>`；不能用推荐值代替回答。开放选择须让用户回复精确 ID。入口先写为 `answered` 并保存原话与有限选择的规范化 `decision`，验证所选运行后返回已保存的 `entry_action`／`operation_payload`。恢复时 `pending` 原样重放，`answered` 继续消费而不重复询问。coordinator 完成所选运行的下一个持久状态后才删除 `run-selection.json`；入口的 READY 不负责删除。已有路由状态格式错误、载荷缺失或与新请求冲突时停止，不创建第二份，也不依赖原对话重建修订请求。
 
 ## 决策分类
 
@@ -117,7 +131,7 @@
 
 ## 直接视觉修订与优先级
 
-用户在任何视觉阶段直接提出可执行的品牌、主题、构图或页面修订时，即使该指令不来自 guided 批准问题，也必须先分类并持久化，再修改 brief 或 SVG。按[产物契约](artifact-contract.md)创建下一单调 `visual-revision-<N>`，记录 `kind: visual_revision`、原始 `answer`、`normalized_changes`、`affected_scope`、`supersedes`、`status: applied` 和 `artifact_owner`。整套决定镜像到 `theme.json.user_revision_notes`，锚点与页面决定只镜像到对应故事板／theme owner 与 revision provenance；不得直接改写已选 style pack 的 prompt/tokens 或生成运行时第八条 Step-2 行，需要改变风格时必须选择或重建一个通过完整验证的 style pack。所有镜像都能从权威历史重建。
+用户在任何视觉阶段直接提出可执行的品牌、主题、构图或页面修订时，即使该指令不来自 guided 批准问题，也必须先分类并持久化，再修改 brief 或 SVG。若当前 failed 页只需改 `layout_family`／`visual_intent`，宿主只写[固定 `revise-visual`](runtime-canonical-owners.md#failed-page-visual-revision)的闭合输入，由运行时创建历史和内存 overlay，不改五份已审文稿；以下镜像规则用于其余既有 materialized 修订。按[产物契约](artifact-contract.md)创建下一单调 `visual-revision-<N>`，记录 `kind: visual_revision`、原始 `answer`、`normalized_changes`、`affected_scope`、`supersedes`、`status: applied` 和 `artifact_owner`。整套决定镜像到 `theme.json.user_revision_notes`，锚点与页面决定只镜像到对应故事板／theme owner 与 revision provenance；不得直接改写已选 style pack 的 prompt/tokens 或生成运行时第八条 Step-2 行，需要改变风格时必须选择或重建一个通过完整验证的 style pack。所有镜像都能从权威历史重建。
 
 当前有效视觉契约按以下固定优先级归并：
 
@@ -150,7 +164,7 @@
 - **网络与机密**：外部传输或敏感派生查询需要用户权限；安全的本地盘点和离线工作不询问。
 - **故事板冲突**：页数、密度、必需内容、来源支持或叙事取舍没有安全默认值时询问。
 - **审稿业务决策**：唯一的证据保持型修复可以直接执行；修订会改变核心立场、建议或受众行动时询问。用户选择不能让未解决的 `BLOCKER`／`HIGH` 通过。
-- **品牌与主题**：已提供品牌规范时直接复用；guided 缺少安全视觉方向时询问，auto 可以选择合适的内置种子。
+- **品牌与主题**：优先保留明确请求、已批准选择和工作区偏好；均未指定风格时默认 `jiawei-product`（嘉为产品），选择／移除风格与品牌定制遵循[设计系统](design-system.md)。guided 批准点不变；品牌冲突、权限不清或无安全默认值时，guided／auto 均须询问。
 - **生产阻断**：两次修复和确定性布局回退都失败，且继续需要删除已批准内容或改变交付取舍时询问；无效 SVG 硬失败不能由用户豁免。
 - **恢复与修订**：文件集合、运行目标、审查证据或修改类别无法唯一判断时询问。
 

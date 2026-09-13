@@ -335,7 +335,53 @@ def _files(reader, folder):
     return sorted(result, key=lambda sid: (int(sid[1:]), sid))
 
 
-def _tasks(stage, status):
+def _step_details(snapshot, review, storyboard_count):
+    paths = [item["path"] for item in snapshot["artifacts"]]
+
+    def document(label, *names):
+        path = next((path for path in paths if path.rsplit("/", 1)[-1] in names), None)
+        return label + "已记录：" + path if path else "尚未发现" + label + "产物"
+
+    slides = snapshot["slides"]
+    progress = snapshot["progress"]
+    pages = "正式页 {done} / {total} 页".format(**progress) if progress["total"] else "尚未确定页面任务"
+    dirty = sum(slide["dirty"] for slide in slides)
+    active = sum(slide["status"] == "running" for slide in slides)
+    blocked = sum(slide["status"] == "blocked" for slide in slides)
+    samples = sum(slide["preview_kind"] == "sample" for slide in slides)
+    details = {
+        "brief": "确认用途、受众、页数和交付约束。\n" + document("简报", "简报.md", "brief.md"),
+        "research": "解析资料、梳理事实并核对来源。\n" + document("研究", "研究.md", "research.md") + "；" + document("来源", "来源.md", "sources.md"),
+        "outline": "组织论点、章节顺序和叙事主线。\n" + document("大纲", "大纲.md", "outline.md"),
+        "storyboard": "细化每页标题、内容与证据安排。\n" + document("故事板", "故事板.md", "storyboard.md"),
+        "manuscript_review": "审查内容逻辑与证据，解决阻断问题。\n" + document("文稿审查报告", "文稿审查.md", "manuscript-review.md"),
+        "theme": "确定配色、字体和版式规范。\n" + document("主题配置", "theme.json"),
+        "anchor": "制作样张，确认整套演示的视觉方向。\n可预览样张 %d 页；样张不计入正式交付" % samples,
+        "production": "逐页生成、验证并保存正式 SVG。\n" + pages + "；待更新 %d 页；已记录处理中 %d 页；受阻 %d 页" % (dirty, active, blocked),
+        "qa": "检查页面内容、视觉呈现与兼容性。\n" + document("质量检查报告", "质量检查报告.md", "qa-report.md") + "；文件存在不代表检查通过",
+        "complete": "核对全部正式页与质量结论后交付。\n" + pages + "；" + ("已记录交付完成" if snapshot["status"] == "complete" else "尚未确认交付完成"),
+    }
+    if storyboard_count:
+        details["storyboard"] += "；已解析 %d 页" % storyboard_count
+    if isinstance(review, dict):
+        for key, label in (("cycle", "审查周期"), ("round", "轮")):
+            value = review.get(key)
+            if type(value) is int and 0 < value <= 10000:
+                details["manuscript_review"] += "；第 %d %s" % (value, label)
+        findings = review.get("open_blocking_findings")
+        if isinstance(findings, list):
+            details["manuscript_review"] += "；未解决阻断 %d 项" % len(findings)
+        pending = review.get("pending_round")
+        if isinstance(pending, dict) and pending.get("status") not in {"completed", "applied"}:
+            details["manuscript_review"] += "；等待本轮内容审查结果"
+        elif review.get("state") in {"manuscript_blocked", "review_unavailable"}:
+            details["manuscript_review"] += "；内容审查阻断，等待工作流处理"
+    return details
+
+
+def _tasks(snapshot, review=None, storyboard_count=0):
+    stage, status = snapshot["stage"], snapshot["status"]
+    details = _step_details(snapshot, review, storyboard_count)
     mapped = CHECKPOINTS.get(stage, BLOCKED_STAGES.get(stage, stage))
     names = [item[0] for item in STAGES]
     index = names.index(mapped) if mapped in names else -1
@@ -347,8 +393,10 @@ def _tasks(stage, status):
             state = "complete"
         elif position == index:
             state = status
-        result.append({"id": name, "label": label, "status": state,
-                       "detail": "依据已记录的流程阶段" if state != "pending" else "尚未记录进入此阶段"})
+        detail = details[name]
+        if position == index and snapshot["notice"] and status in {"waiting", "blocked"}:
+            detail += "\n需要处理：" + snapshot["notice"]["message"]
+        result.append({"id": name, "label": label, "status": state, "detail": detail})
     return result
 
 
@@ -376,12 +424,12 @@ def _recovery_records(reader, run):
     return records, invalid
 
 
-def _finish(reader, result):
+def _finish(reader, result, review=None, storyboard_count=0):
     artifacts = list(reader.artifacts.values())
     result["updated_at"] = max((item["updated_at"] for item in artifacts), default=None)
     result["artifacts"] = [{"path": item["path"], "updated_at": item["updated_at"]} for item in artifacts]
     result["warnings"] = reader.warnings
-    result["tasks"] = _tasks(result["stage"], result["status"])
+    result["tasks"] = _tasks(result, review, storyboard_count)
     basis = {"snapshot": result, "digests": [(item["path"], item["digest"]) for item in artifacts]}
     result["revision"] = _digest(json.dumps(basis, ensure_ascii=False, sort_keys=True).encode("utf-8"))
     return result
@@ -428,6 +476,7 @@ def build_snapshot(run_dir):
             except (OSError, ValueError):
                 reader.warn(relative + ": 活动文件暂时不可读取或超过大小上限")
     planned = _storyboard(reader)
+    storyboard_count = len(planned)
     raw_slides = run.get("slides")
     if isinstance(raw_slides, list):
         for item in raw_slides[:MAX_PAGES]:
@@ -546,7 +595,7 @@ def build_snapshot(run_dir):
     if isinstance(pending, dict) and pending and pending.get("status") not in {"applied", "cancelled"}:
         message = "已回答，等待工作流应用答案" if pending.get("status") == "answered" else str(pending.get("question") or pending.get("prompt") or "等待确认或回答")[:2000]
         result.update(status="waiting", notice={"kind": "pending_interaction", "message": message})
-    return _finish(reader, result)
+    return _finish(reader, result, review, storyboard_count)
 
 
 def read_preview(run_dir, relative):

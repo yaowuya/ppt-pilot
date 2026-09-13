@@ -1,5 +1,6 @@
 """Exercise the shipped CLI against actual detached local server processes."""
 import json
+import os
 import concurrent.futures
 import socket
 import subprocess
@@ -21,9 +22,13 @@ class DashboardLifecycleTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.addCleanup(lambda: self.cli('stop'))
 
-    def cli(self, action, *args):
+    def cli(self, action, *args, environment=None):
+        env = dict(os.environ)
+        for name in ('DSH_SESSION_ID', 'DSH_SHELL'):
+            env.pop(name, None)
+        env.update(environment or {})
         return subprocess.run([sys.executable, str(SCRIPT), action, '--run-dir', str(self.root), *args],
-                              capture_output=True, text=True, encoding='utf-8', timeout=20)
+                              capture_output=True, text=True, encoding='utf-8', timeout=20, env=env)
 
     def test_start_reuses_live_server_then_stops_and_restarts(self):
         first_result = self.cli('start')
@@ -42,6 +47,51 @@ class DashboardLifecycleTests(unittest.TestCase):
         restarted = json.loads(self.cli('start').stdout)
         self.assertNotEqual(restarted['instance_id'], first['instance_id'])
         self.assertFalse((self.root / '.ppt-pilot/run.json').exists())
+
+    def test_serve_collision_points_to_status_reuse_not_detached_start(self):
+        launched = self.cli('start')
+        self.assertEqual(launched.returncode, 0, launched.stderr)
+        result = self.cli('serve')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('status', result.stderr)
+        self.assertIn('复用', result.stderr)
+        self.assertNotIn('使用 start', result.stderr)
+        self.assertEqual(json.loads(self.cli('status').stdout)['status'], 'running')
+
+    def test_dsh_start_rejects_turn_scoped_detach_before_writing_metadata(self):
+        for marker in ('DSH_SESSION_ID', 'DSH_SHELL'):
+            with self.subTest(marker=marker):
+                result = self.cli('start', environment={marker: 'fixture'})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('DeepSeek Harness', result.stderr)
+                self.assertIn('serve', result.stderr)
+                self.assertIn('run_in_background', result.stderr)
+                self.assertFalse((self.root / '.ppt-pilot').exists())
+
+    def test_dsh_managed_serve_status_and_stop_remain_available(self):
+        env = dict(os.environ)
+        env['DSH_SESSION_ID'] = 'fixture-session'
+        process = subprocess.Popen([sys.executable, str(SCRIPT), 'serve', '--run-dir', str(self.root), '--port', '0'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', env=env)
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                line = executor.submit(process.stdout.readline).result(timeout=10)
+            launched = json.loads(line)
+            status_result = self.cli('status', environment={'DSH_SESSION_ID': 'fixture-session'})
+            self.assertEqual(status_result.returncode, 0, status_result.stderr)
+            status = json.loads(status_result.stdout)
+            self.assertEqual((status['status'], status['instance_id'], status['url']),
+                             ('running', launched['instance_id'], launched['url']))
+            stopped = self.cli('stop', environment={'DSH_SESSION_ID': 'fixture-session'})
+            self.assertEqual(stopped.returncode, 0, stopped.stderr)
+            self.assertEqual(process.wait(timeout=10), 0, process.stderr.read())
+            self.assertEqual(json.loads(self.cli('status').stdout)['status'], 'stopped')
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
+            process.stdout.close()
+            process.stderr.close()
 
     def test_occupied_requested_port_fails_without_metadata_or_harming_owner(self):
         with socket.socket() as owner:

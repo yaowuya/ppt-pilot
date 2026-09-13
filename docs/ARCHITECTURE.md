@@ -23,7 +23,7 @@ skills/ppt-start/
 └── assets/examples/         # Office-safe SVG 示例
 ```
 
-每个 style pack 的 `manifest.json` 声明机器可读资产（`files.tokens` / `files.guidance` / `files.prompt_template`）；`tokens.json`（schema 2）承载颜色/字体/间距/形状与结构化 `prompt_baseline`；`prompt.md` 是该风格**自带的完整生成指令模板**。所有可执行模板的 hard prefix/suffix 字节完全一致，只有 Step 2 的七条 closed typed 风格指令由同包 tokens 确定性变化。
+每个 style pack 的 `manifest.json` 声明机器可读资产（`files.tokens` / `files.guidance` / `files.prompt_template`）；`tokens.json`（schema 2）承载颜色/字体/间距/形状与结构化 `prompt_baseline`；`prompt.md` 是该风格**自带的完整生成指令模板**。模板仅允许同包已验证 tokens 确定性选择闭合 `prompt_role`、独立布尔 `composition.strict_brand_rules` 引言变体与 Step 2 七条 closed typed 风格指令；其余 hard shell 字节不变，完整模板必须等于 tokens 的确定性合成结果，详见[字节契约](../skills/ppt-start/references/generation-prompt-byte-grammar.md)。
 
 ## 核心范式：风格自带完整模板 + 单注入点
 
@@ -52,8 +52,8 @@ brief -> research? -> outline -> storyboard -> manuscript_review
 
 能力协商在任何生产 durable 写入之前完成；没有安全 adapter 时只原子写入闭合的 run-level `generator_unavailable` blocker，并以零 prompt/transaction/manifest/candidate 写入停止。能力通过后按 **pointer-last** 顺序写 per-slide transactions、batch manifest，最后发布 `run.json.active_visual_generation_batch`：
 
-- [自动并发](../skills/ppt-start/references/adaptive-concurrency.md)无需用户选择，目标从 5 起自动提升至最多 10；只读规划器按实际宿主容量、批次上限和在途任务计算可派发页数，容量／页数不足时报告限制，容量为 0 时等待；并发或 durable lookup 缺失降为 width 1，非 Git 工作区不降级；旧 3／4 页活动批次与 v1 迁移字节保持兼容；
-- coordinator 只传完整 `prompt_by_value`：fresh history、`filesystem=none`、`data_tools=none`、text-only；具体宿主路由与 Claude ambient context 边界见[宿主隔离适配器](../skills/ppt-start/references/host-isolation-adapters.md)；
+- [自动并发](../skills/ppt-start/references/adaptive-concurrency.md)无需用户选择，目标从 5 起自动提升至最多 10；当前固定运行时新批次上限为 5，目标不代表真实扩容；只读规划器按实际宿主容量、批次上限和在途任务计算可派发页数，容量／页数不足时报告限制，容量为 0 时等待；并发或 durable lookup 缺失降为 width 1，非 Git 工作区不降级；旧 3／4 页活动批次与 v1 迁移字节保持兼容；
+- coordinator 按值传入完整冻结 `prompt_by_value`，fresh history、text-only；Claude／Codex 保持 `filesystem=none`、`data_tools=none`。DSH 使用[普通 subagent 协议](../skills/ppt-start/references/deepseek-harness.md)：继承工具，但通过非内容 wrapper 禁止工具调用／再委派，不宣称硬工具隔离，也不修改 DSH 配置；宿主路由与 ambient context 边界见[宿主隔离适配器](../skills/ppt-start/references/host-isolation-adapters.md)；
 - generator 与 per-slide validation 可并发，但 candidate/transaction/final 写入、visible blocker 与 pointer 只由 coordinator 按 `ordered_slide_ids` 串行提交；
 - 每页请求预算固定 4 次（initial/recompose 1 + patch ≤2 + 确定性回退 1），每次派发输出一行进度说明；用尽即停，写 blocker；
 - 页面只有在 transaction promoted、单页 QA 与整套 QA 都通过后才清除 dirty。
@@ -62,7 +62,7 @@ telemetry（compile/model/render/qa/promotion spans、DAG 关键路径、batch w
 
 ## 修订模型
 
-编辑前先把请求唯一分类，并把已应用修订投影回其权威 owner（故事板拥有叙事/素材/事实/来源；`theme.json` 拥有风格身份与软风格基线）：
+编辑前先把请求唯一分类，并把已应用修订投影回其权威 owner（故事板拥有叙事/素材/事实/来源；`theme.json` 拥有风格身份与风格基线）：
 
 | 类别 | 适用 | 输入 | 审查 |
 |---|---|---|---|

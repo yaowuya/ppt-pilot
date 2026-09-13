@@ -14,7 +14,7 @@ powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 
 1. DeepSeek Harness 插件市场（调用 `tools/install-deepseek-plugin.ps1`）；
 2. Claude Code 用户级技能 `~/.claude/skills/` 与 SVG Agent `~/.claude/agents/ppt-svg-generator.md`；
-3. Codex 用户级技能 `$HOME/.agents/skills/`。
+3. 共享用户级技能 `$HOME/.agents/skills/`（Codex 与 DSH 都可能发现此路径）。
 
 安装器对 source inventory、staging copy 与 digest 使用同一过滤规则，排除 `__pycache__`、`.pyc`、`.pyo` 和测试／构建缓存；每个目标先 staging 校验再备份替换。Skill 备份位于扫描根外的 `skill-backups/`，Agent 备份位于 `agent-backups/`。输出列出实际 path、文件数和 digest。多目标混合结果返回非零 `PARTIAL_FAILURE`，并列出 `updated`、`rolled_back`、`failed`，不会声称全部完成。
 
@@ -42,6 +42,12 @@ $pptPluginRoot = Join-Path $env:USERPROFILE '.codex/plugins/cache/personal/ppt-p
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/install-deepseek-plugin.ps1
 ```
+
+单独安装除插件目录外，还刷新 `MarketplaceRoot` 父目录的 `skills/` 下**已存在**的三个 PPT Skill 副本；默认即 `$HOME/.agents/skills/`，不创建缺失的共享根／Skill，不修改无关技能。自定义 `MarketplaceRoot` 时只检查其对应兄弟目录，不暗中写真实用户目录。未知别名目录声明同名 Skill 时，在任何安装写入前报告具体冲突路径；共享目标失败会返回非零 `PARTIAL_FAILURE`，列出已成功目标并回滚失败目标，不声称全部成功。
+
+统一 `update-hosts.ps1` 自己管理共享目标，避免同一路径更新两次而丢失旧版备份；`-CodexSkillsRoot` 仍指定该共享根，`-SkipCodex` 明确跳过此用户级根（即使同时更新 DSH 插件）。有项目级 `.agents/skills` 覆盖时，使用统一脚本的 `-ProjectRoot` 指定真实项目，不靠更新用户级插件覆盖项目副本。
+
+安装后重新加载 Skill（必要时新开会话），从宿主返回的实际 Skill 根目录执行 `python "<实际 Skill 根>/scripts/ppt_runtime.py" inspect-host --host deepseek-harness`，确认输出路径与当前适配器。恢复旧运行还须按[DSH 入口诊断](../skills/ppt-start/references/deepseek-harness.md#入口诊断与升级后恢复)重新观测并构建 capability；安装成功不会自动改写运行目录中遗留的能力文件。
 
 ## Claude Code
 
@@ -120,6 +126,10 @@ $ppt-editable
 ## DeepSeek Harness
 
 按 harness 插件约定安装到 `$HOME/.agents/plugins/plugins/ppt-pilot/`：一个 `ppt-pilot` 插件条目，`skills/` 下同时包含完整的 `skills/ppt-start/` 与 `skills/ppt-editable/`；per-ID 备份位于扫描根之外的插件 `backups/`。
+
+SVG 生成使用插件已接受的 `deepseek-harness / native-subagent / 1.0.0` 适配器，直接调用当前宿主公开的普通 `functions.subagent`（`run_in_background: true`）。不安装专用 generator，不读取／修改 DSH 配置，不要求 profile patch、DSH 重启或 DSH 部署。普通 subagent 不可用时按契约停止，不通过配置探测解锁。
+
+worker 获得 fresh context，但仍继承工具；“不调用工具、不再委派、只返回文本”是提示策略，不是硬工具隔离。coordinator 传入冻结完整 Prompt，独占运行目录写入；返回的 durable `subagent_id` 绑定为 `host_task_id`，不当作 `jobId` 交给 `job_output`。生成、补位与恢复前必须读取[DSH 协议](../skills/ppt-start/references/deepseek-harness.md)。实际并发受可观察容量和当前固定运行时新批次上限 5 约束；容量未知时为 1，不承诺五路活动任务。
 
 手动安装时，在用户级/项目级 agents 根下分别复制两个 Skill 目录：
 

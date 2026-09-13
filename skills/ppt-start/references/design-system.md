@@ -8,7 +8,9 @@
 
 外部旧稿重设计时，旧 PPT 是内容来源，不是默认风格来源；目标产品风格按[旧稿导入契约](source-deck-redesign.md)单独记录和核对。进入 theme／anchor 前通过相应导入 gate，仍须执行下述完整风格解析；不能用导入检查点的 PASS 替代资产验证，也不能拿原稿配色或近似风格静默替换用户指定风格。
 
-新安装先读取 `assets/styles/registry.json` 发现可选风格；缺 registry 时，下方 identity-recovery 表只能为旧运行恢复只读身份，不能用于主题选择或页面生成，任何首次生成／`recompose` 仍以 `registry_missing` fail closed。用户给出稳定 ID 或唯一显示名时可直接选择；未明确选择时仍按 guided／auto 规则决定，不得因新增风格包改变默认行为。根据主题、受众、品牌／风格约束和内容密度选择，不得只按主题关键词机械轮换。用户提供的品牌颜色、字体、间距或形状值若与所选包不同，不能作为 `theme.json` 的运行时覆盖层；必须先完成下方派生风格包闭环。
+新安装先读取 `assets/styles/registry.json` 发现可选风格；当前内置仅 `jiawei-product`（嘉为产品，`1.1.0`，`default: true`）与 `canway-midyear-review`（嘉为年中总结风格，`1.3.0`，`default: false`）。按当前明确请求 > 本运行已批准选择 > 工作区偏好的顺序复用有效选择；均未指定风格时默认 `jiawei-product`，仍按下方 guided／auto 规则处理确认与品牌冲突。用户给出已注册的稳定 ID 或唯一显示名时可直接选择，不按主题关键词机械轮换。用户提供的品牌颜色、字体、间距或形状值若与所选包不同，不能作为 `theme.json` 的运行时覆盖层；必须先完成下方派生风格包闭环。
+
+`minimal-business`、`tech-dark`、`bold-editorial` 已永久移除，不再可选。显式请求或旧运行仍引用这些 ID 时，当前 registry lookup 返回 `style_not_registered`，须要求用户明确选择已注册风格；不得静默替换为嘉为产品或其他风格。缺 registry 时，下方 identity-recovery 表只能为旧运行恢复只读身份，不能用于主题选择或页面生成，任何首次生成／`recompose` 仍以 `registry_missing` fail closed；历史 `.redesign.md` 兼容材料也不构成生成回退。
 
 ### 品牌覆盖的派生风格包闭环
 
@@ -40,7 +42,7 @@
 
 ### 身份握手、ordinary stale 与 blocker
 
-`theme.json` 必须记录并核对 selected style ID、display name、kind、manifest version。四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）由 `theme.json` 权威拥有，并原样投影到 canonical prompt snapshot payload 与每页 generation owner；权威定义见[产物契约 Task 6](artifact-contract.md)。style-pack 的持久值还必须与当前 registry／manifest 精确一致；registry-backed legacy 的 version 必须是字符串 `none`；registry 缺失时只能使用下方 identity-recovery table 恢复旧运行身份并同时匹配 seed `name`，不能据此编译或生成。missing fields 只能从 registry／manifest／identity-recovery table 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。prompt provenance 与 theme 冲突、legacy version 非 `none`、或多个 owner 声明不同 style 时，返回 `prompt_snapshot_conflict` 并写 `generation_prompt_unavailable` blocker。持久身份与 theme 一致但安装升级导致当前 registry display name、manifest version、声明的 prompt template 路径或模板 bytes 改变时，属于 ordinary stale：按现有 theme 失效规则返回 `theme`，重建 theme 和受影响 generation prompts，不写 blocker。只有未声明的历史 `REDESIGN.md`／`*.redesign.md` 的存在、路径或字节变化永远不是 identity、ordinary stale 或 snapshot 输入。
+`theme.json` 必须记录并核对 selected style ID、display name、kind、manifest version。四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）由 `theme.json` 权威拥有，并原样投影到 canonical prompt snapshot payload 与每页 generation owner；权威定义见[产物契约 Task 6](artifact-contract.md)。style-pack 的持久值还必须与当前 registry／manifest 精确一致；registry-backed legacy 的 version 必须是字符串 `none`；registry 缺失时只能使用下方 identity-recovery table 恢复旧运行身份并同时匹配 seed `name`，不能据此编译或生成。missing fields 只能从 registry／manifest／identity-recovery table 派生后重建；不得从 SVG、目录、请求文案或用户措辞推断。prompt provenance 与 theme 冲突、legacy version 非 `none`、或多个 owner 声明不同 style 时，返回 `prompt_snapshot_conflict` 并写 `generation_prompt_unavailable` blocker。持久身份与 theme 一致但安装升级导致当前 registry display name、manifest version、声明的 prompt template 路径或模板 bytes 改变时，旧视觉契约失效（工作流意义上的 ordinary stale）。固定运行时在身份不匹配时返回 `style_identity_mismatch`，模板／活动批次快照不一致时返回 `prompt_snapshot_conflict`；它停止在当前阶段，不自动返回 `theme`、重建 Prompt 或迁移批准。采用新版须显式走主题／视觉修订及受影响锚点确认，不能仅改版本字段沿用旧批准。只有未声明的历史 `REDESIGN.md`／`*.redesign.md` 的存在、路径或字节变化永远不是 identity、ordinary stale 或 snapshot 输入。
 
 ### 缺 registry 的只读 identity-recovery table
 
@@ -62,11 +64,11 @@ Style-assets traversal 顺序固定为：registry target 状态；registry dupli
 
 ### 条件式主题问题
 
-已有明确品牌规范、已确认风格或工作区偏好档案已记录品牌方向时直接复用，不重复询问。`guided` 只有在缺少品牌／风格信息且多个视觉方向会实质改变使用场景、语气或可读性时，才提出一个条件式主题问题，并推荐最适合内容密度与受众的种子。`auto` 使用安全的内置种子并记录选择理由；品牌权限不清或没有安全默认值时仍须询问。
+已有明确品牌规范、已确认风格或工作区偏好档案已记录品牌方向时，按上述优先级和完整风格验证复用，不重复询问。未指定风格且无既有选择／偏好时，`guided` 与 `auto` 均采用默认嘉为产品并记录理由，不为风格另加固定问卷；`guided` 的简报、大纲与锚点批准不变。明确品牌约束与默认风格冲突、品牌权限不清或没有安全默认值时，两种策略都须按交互协议询问；未注册的明确选择不能当作“未选择”而采用默认。
 
 `theme.json` 记录所选种子、最终颜色、字体、间距、形状令牌、语言和已批准覆盖项；这些视觉值必须与当前所选且已验证 pack 的 tokens 精确一致。不得包含远程 URL 或机器绝对路径。生成或重建该文件时，必须从 `run.json.interaction_history` 恢复 `artifact_owner: theme.json` 的阶段产物镜像到 `user_revision_notes`；不得把 `theme.json` 当作锚点修订记录的唯一权威，也不得因主题失效覆盖或丢失权威交互历史。
 
-主题阶段解析当前有效主题后，读取软风格基线（色板角色、字体栈、间距节奏、形状语言、构图规则、禁止母题——来源均为所选中风格包 `tokens.json` 的闭合类型 `prompt_baseline`，由 `StyleBaselineCompiler` 确定性投影）。该基线只作为风格数据、QA 输入与 snapshot provenance，不是 generation prompt 的正文替换域；具体视觉生成指令只由已验证、与 tokens 精确绑定的 resolved style-owned template 承载。不再创建逐页中间规格产物。
+主题阶段解析当前有效主题后，读取风格基线（色板角色、字体栈、间距节奏、形状语言、构图规则、禁止母题——来源均为所选中风格包 `tokens.json` 的闭合类型 `prompt_baseline`，由 `StyleBaselineCompiler` 确定性投影）。该基线只作为风格数据、QA 输入与 snapshot provenance，不是 generation prompt 的正文替换域；具体视觉生成指令只由已验证、与 tokens 精确绑定的 resolved style-owned template 承载。不再创建逐页中间规格产物。
 
 主题归并使用固定优先级：
 
@@ -74,7 +76,7 @@ Style-assets traversal 顺序固定为：registry target 状态；registry dupli
 不可覆盖内容／证据／兼容性规则 > seed defaults > latest deck theme/brand decision > latest scoped slide decision > local patch defect
 ```
 
-每条品牌／主题或页面决定来自 `run.json.interaction_history` 的已应用记录。后续规则替换同字段时必须记录 `supersedes`；废弃规则留在历史中，但不得进入当前主题、active contract 或编译输入。`affected_scope: deck` 的最新决定写入 `theme.json.user_revision_notes`，页面决定只投影到对应故事板／theme owner 与 revision provenance；不得直接改写已选 style pack 的 prompt/tokens 或生成运行时第八条 Step-2 行。需要改变风格时必须按 `brand_override_requires_derived_style_pack` 闭环选择或生成并注册一个新 ID 的完整风格包。同字段冲突而替换关系或作用域不明确时停止，不得混用相互矛盾的令牌或从 SVG 反推主题。
+每条品牌／主题或页面决定来自 `run.json.interaction_history` 的已应用记录。失败页仅调整 `layout_family`／`visual_intent` 时使用[固定 runtime overlay](runtime-canonical-owners.md#failed-page-visual-revision)，不回写 theme／已审故事板；以下镜像和 `supersedes` 规则仅用于原 materialized 路径。后续规则替换同字段时必须记录 `supersedes`；废弃规则留在历史中，但不得进入当前主题、active contract 或编译输入。`affected_scope: deck` 的最新决定写入 `theme.json.user_revision_notes`，页面决定只投影到对应故事板／theme owner 与 revision provenance；不得直接改写已选 style pack 的 prompt/tokens 或生成运行时第八条 Step-2 行。需要改变风格时必须按 `brand_override_requires_derived_style_pack` 闭环选择或生成并注册一个新 ID 的完整风格包。同字段冲突而替换关系或作用域不明确时停止，不得混用相互矛盾的令牌或从 SVG 反推主题。
 
 ## 色彩层级
 
@@ -82,7 +84,7 @@ Style-assets traversal 顺序固定为：registry target 状态；registry dupli
 
 关键数字与关键比较必须用强调色或明确标注（对比色、圈注、箭头差值）突出，且每页只保留一个主强调焦点——这是故事板"每页黄金规则"在视觉层的执行细则。强调服务于该页 `visual_intent`，优先把关键比较绘制为带指标、期间、单位和限定词的图表，而不是文字罗列；来源关联只存在于 coordinator 注入的机器元数据，不得成为可见文字。同一页出现多个并列强调时按重要性只保留一个，其余降级为辅助色或普通标注。
 
-风格基线是软参考方向，生成器可在保持整套 deck 一致性的前提下自选布局与视觉表达；关键数字与关键比较的强调规则仍是输出硬契约的一部分。
+`composition.strict_brand_rules` 省略／`false` 时保留原软参考方向；为 `true` 时，已验证模板中的角色、标题规范、配色用途、字体字号、形状和禁止母题是固定要求，不得降级。布局配方只在匹配已批准内容类型时应用，未指定的构图和卡片数量仍按叙事决定；不得为填满布局新增事实或删除已批准重点，也不要求每页用齐调色板。此布尔选择与 `prompt_role` 独立，允许值与字节规则见[字节契约](generation-prompt-byte-grammar.md)；关键数字与关键比较的强调规则仍是输出硬契约的一部分。
 
 正文／脚注文本的对比度至少为 4.5:1；大号文本和关键图形边界至少为 3:1。用户覆盖色与种子冲突时，应修改令牌，而不是给文字添加描边或阴影。
 
@@ -92,11 +94,11 @@ Style-assets traversal 顺序固定为：registry target 状态；registry dupli
 
 使用所选种子记录的系统字体栈，至少满足：
 
-- 标题：40 px；
+- 标题：默认所选风格 `jiawei-product` 为 36 px；通用 SVG API 默认下限仍为 40 px。已验证的 `strict_brand_rules: true` 风格使用声明的主标题字号，且不得低于 34 px；
 - 正文：20 px；
 - 脚注／来源：14 px。
 
-密度允许时使用更大字号。标题必须是结论，可有意换成两行。正文默认左对齐；只有短标签具有明确语义理由时才居中。
+未被固定品牌令牌锁定的字号，密度允许时可使用更大值。标题必须是结论，可有意换成两行。正文默认左对齐；只有短标签具有明确语义理由时才居中。
 
 SVG 没有可靠且 Office-safe 的自动段落换行。每行必须使用 `<tspan>` 显式拆分，并统一使用绝对 `x`／`y` 定位；禁止 `dy` 相对位移。文字保持为文字，不转换为轮廓路径。内容过多时应拆页，不能把字号降到下限以下。
 

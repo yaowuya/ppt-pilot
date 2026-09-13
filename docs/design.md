@@ -24,12 +24,12 @@ PPT Pilot 是面向 Claude Code、OpenAI Codex 与 DeepSeek Harness 的可移植
 
 - `SKILL.md`：精简的编排入口和发现入口；
 - `references/`：各阶段流程与契约；
-- `assets/styles/registry.json`：风格发现注册表（五个内置风格包）；
+- `assets/styles/registry.json`：风格发现注册表（两个内置风格包，嘉为产品为默认）；
 - `assets/styles/<style-id>/`：自包含 style pack——`manifest.json`、`tokens.json`（schema 2，含结构化 `prompt_baseline`）、中文 `STYLE.md`，以及风格自带完整生成模板 `files.prompt_template`（默认 `prompt.md`）；
 - `references/generation-prompt-template.md`：仅供创建／迁移 style pack 时参考的 authoring seed；运行时不可选择，且故意不能通过 prompt/tokens binding gate；
 - `assets/examples/`：一份 Office-safe SVG 示例。
 
-运行目录不再创建逐页 visual brief。每页由已批准故事板与 `theme.json` 直接编译：读取所选中风格包由 manifest 必需声明、且与 tokens 精确绑定的完整 prompt 模板，把叙事要点注入其**单一** whole-line `{{NARRATIVE}}` 注点；所有模板 hard prefix/suffix 字节固定，只有 Step 2 七条 closed typed 风格指令由同包 tokens 确定性变化。字段缺失立即 fail closed，仓库 authoring seed 不参与运行。编译产物为 `.ppt-pilot/generation-prompts/<slide-id>.md`，持久 envelope 的 `format` 精确为 `creative-brief-v1`。早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 双域协议已被该单注点范式整体取代，旧协议产物只作迁移历史。
+运行目录不再创建逐页 visual brief。每页由已批准故事板与 `theme.json` 直接编译：读取所选中风格包由 manifest 必需声明、且与 tokens 精确绑定的完整 prompt 模板，把叙事要点注入其**单一** whole-line `{{NARRATIVE}}` 注点；模板仅允许同包已验证 tokens 确定性选择闭合 `prompt_role`、独立布尔 `composition.strict_brand_rules` 引言变体与 Step 2 七条 closed typed 风格指令，其余 hard shell 字节不变。字段缺失立即 fail closed，仓库 authoring seed 不参与运行。编译产物为 `.ppt-pilot/generation-prompts/<slide-id>.md`，持久 envelope 的 `format` 精确为 `creative-brief-v1`。早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 双域协议已被该单注点范式整体取代，旧协议产物只作迁移历史。
 
 共享 `references/redesign-prompt.md` 规定 style identity/path containment、单注点编译、无副作用 preflight、宿主能力协商、schema-v2 batch/per-slide state、`prompt_by_value` isolated dispatch、coordinator ownership 和失败恢复。生成正文完全由风格自带模板承载，编译层拒绝 `source=`／`[claim=` 来源注解进入叙事，也不得把某个风格的布局语言作为默认。
 
@@ -65,7 +65,7 @@ brief -> research -> outline -> storyboard -> manuscript_review -> theme -> anch
 
 `guided` 与 `auto` 是写入 `run.json.mode` 的持久执行策略。`guided` 在简报、大纲和锚点 SVG 后提出一个直接问题并等待明确批准；新运行未显式指定策略时默认 `guided`。只有显式 `auto` 才跳过可选问题和批准，但用户权限或没有安全默认值的决策仍然阻塞，且全部中间产物仍需创建和验证。`new`、`resume` 与 `revise` 是入口动作：恢复和修订先读取 `run.json`、保留既有执行策略，再分别继续未完成工作或使受影响依赖项失效。
 
-`theme` 阶段建立 deck-scoped style identity 与软风格基线。活动路径是**故事板 + `theme.json` 直接编译**：故事板拥有逐页叙事／素材／事实／来源，theme 拥有 deck 风格；已应用修订先投影回对应 owner，再把叙事要点注入所选风格自带模板的单一 `{{NARRATIVE}}` 注点。新 batch 在完整内存 preflight 与能力协商后 pointer-last 激活；SVG 不是设计状态，上述工作均属于既有阶段内部步骤。
+`theme` 阶段建立 deck-scoped style identity 与风格基线。活动路径是**故事板 + `theme.json` 直接编译**：故事板拥有逐页叙事／素材／事实／来源，theme 拥有 deck 风格；已应用修订先投影回对应 owner，再把叙事要点注入所选风格自带模板的单一 `{{NARRATIVE}}` 注点。新 batch 在完整内存 preflight 与能力协商后 pointer-last 激活；SVG 不是设计状态，上述工作均属于既有阶段内部步骤。
 
 ## 用户交互与确认
 
@@ -139,15 +139,16 @@ subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创�
 
 ## 视觉系统
 
-设计系统使用 1280×720 画布、64 px 安全边距、24 px 标准间距、系统字体回退和显式 `<tspan>` 换行。标题至少 40 px，正文至少 20 px，脚注至少 14 px。
+设计系统使用 1280×720 画布、64 px 安全边距、24 px 标准间距、系统字体回退和显式 `<tspan>` 换行。通用 SVG API 默认标题下限为 40 px；默认所选风格 `jiawei-product` 的主标题为 36 px。已验证 `strict_brand_rules: true` 风格使用声明的主标题字号且不得低于 34 px，正文至少 20 px，脚注至少 14 px。
 
-新安装通过 `assets/styles/registry.json` 发现风格。注册表当前提供五个内置 style pack：
+新安装通过 `assets/styles/registry.json` 发现风格。注册表当前仅提供两个内置 style pack：
 
-- `canway-midyear-review`（中文显示名"嘉为年中总结风格"，manifest 内容版本必须精确为 `1.3.0`）
-- `jiawei-product`（嘉为产品风格）
-- `minimal-business`
-- `tech-dark`
-- `bold-editorial`
+- `jiawei-product`（嘉为产品，builtin manifest `1.1.0`，`default: true`；`product_manager`、`strict_brand_rules: true`，标题 36px／700／`#000000`）
+- `canway-midyear-review`（中文显示名"嘉为年中总结风格"，manifest 内容版本必须精确为 `1.3.0`，`default: false`）
+
+未指定风格且无本运行已批准选择／工作区偏好时，默认嘉为产品；明确选择优先，guided／auto 的确认规则不变。`minimal-business`、`tech-dark`、`bold-editorial` 已永久移除，显式请求或旧运行引用这些 ID 时返回 `style_not_registered`，要求明确改选已注册风格，不静默替换。历史只读身份表与 `.redesign.md` 兼容材料不构成可选风格或生成回退。
+
+builtin 内容版本更新不改变用户风格包的 immutable-ID 发布语义；旧运行仍受既有 manifest-version／template snapshot 门禁约束，不自动改写或迁移。
 
 每个风格都是自包含 style pack：manifest 声明 `files.tokens`、`files.guidance` 与 `files.prompt_template`；tokens（schema 2）承载颜色、字体、间距、形状与结构化 `prompt_baseline`；`prompt.md` 是风格自带完整生成模板。运行时按 manifest → tokens → guidance → prompt 的固定 no-follow traversal 解析并验证模板，编译层只注入叙事要点并拒绝来源注解；页面区域、卡片数量、连接关系和阅读路径由 isolated generator 在故事板语义边界内自主决定，并由 QA 验证。
 
@@ -157,13 +158,13 @@ subagent 审稿人只返回结构化 findings 载荷，不修改工作区；创�
 
 ### 风格身份、规范编译与恢复边界
 
-每个可选择风格必须经 `files.prompt_template` 自带完整生成模板；style resolver 按 manifest → tokens → guidance → prompt 验证 identity、路径、schema 与精确 binding。模板 hard prefix/suffix 字节固定，仅 Step 2 的七条 closed typed 行可由同包 tokens 改变；compiler 只把叙事要点注入单一 whole-line `{{NARRATIVE}}` 注点，持久 envelope 是 `creative-brief-v1`。字段缺失以 `style_asset_field_missing` fail closed，绝不回退到 repository `references/generation-prompt-template.md` authoring seed。
+每个可选择风格必须经 `files.prompt_template` 自带完整生成模板；style resolver 按 manifest → tokens → guidance → prompt 验证 identity、路径、schema 与精确 binding。模板只接受[字节契约](../skills/ppt-start/references/generation-prompt-byte-grammar.md)规定的闭合角色／独立品牌引言变体与七条 typed 风格行，其余 hard shell 字节不变；compiler 只把叙事要点注入单一 whole-line `{{NARRATIVE}}` 注点，持久 envelope 是 `creative-brief-v1`。字段缺失以 `style_asset_field_missing` fail closed，绝不回退到 repository `references/generation-prompt-template.md` authoring seed。
 
 `theme.json` 权威拥有 deck style identity；故事板拥有逐页叙事、素材、事实与来源；per-slide schema-v2 transaction 拥有 operation/trigger/prompt/candidate/final/state/validation/host/timing。首次 trigger 使用 `initial:<slide-id>:<storyboard_snapshot_id>`，用户重构使用 `interaction:<history-id>`，fallback 与 patch 使用各自稳定 trigger。修订按 `visual-revision-N`／`supersedes` 投影回故事板或 theme，只应用一次。
 
-新批次先按 manifest → tokens → guidance → prompt 固定 traversal 解析必需的 style-owned `files.prompt_template`；字段缺失立即 fail closed，仓库 `references/generation-prompt-template.md` 仅是建包 authoring seed，运行时不得选择。compiler 向唯一 whole-line `{{NARRATIVE}}` 注点注入带稳定 `block_id` 的已批准叙事／素材，再完成 canonical hash preflight 与 fresh-isolation 能力协商；`tokens.json.prompt_baseline` 只作为闭合类型风格数据、QA 与 snapshot provenance，不是第二个正文 replacement。isolated generator 只可把每个 `block_id` 临时写入一次规范 `data-block-id` 精确属性值，禁止进入 text／tail／其他属性，泄漏以 `fact_source_mismatch` 零 candidate write 失败。无能力时除闭合的 run-level `generator_unavailable` blocker 外，保持零 prompt/transaction/manifest/candidate 写入。能力通过后按 pointer-last 写 per-slide transactions、batch manifest 与 `active_visual_generation_batch`。coordinator 只向 isolated task 传入完整 `prompt_by_value`，并要求 fresh history、`filesystem=none`、`data_tools=none`、text-only；具体宿主路由与 Claude ambient context 边界见[宿主隔离适配器](../skills/ppt-start/references/host-isolation-adapters.md)，所有工作区写入仍由 coordinator 独占。
+新批次先按 manifest → tokens → guidance → prompt 固定 traversal 解析必需的 style-owned `files.prompt_template`；字段缺失立即 fail closed，仓库 `references/generation-prompt-template.md` 仅是建包 authoring seed，运行时不得选择。compiler 向唯一 whole-line `{{NARRATIVE}}` 注点注入带稳定 `block_id` 的已批准叙事／素材，再完成 canonical hash preflight 与已接受宿主边界的能力协商；`tokens.json.prompt_baseline` 只作为闭合类型风格数据、QA 与 snapshot provenance，不是第二个正文 replacement。isolated generator 只可把每个 `block_id` 临时写入一次规范 `data-block-id` 精确属性值，禁止进入 text／tail／其他属性，泄漏以 `fact_source_mismatch` 零 candidate write 失败。无能力时除闭合的 run-level `generator_unavailable` blocker 外，保持零 prompt/transaction/manifest/candidate 写入。能力通过后按 pointer-last 写 per-slide transactions、batch manifest 与 `active_visual_generation_batch`。coordinator 按值传入完整冻结 `prompt_by_value`，并要求 fresh history、text-only；Claude／Codex 保持 `filesystem=none`、`data_tools=none`。DSH 使用[普通 subagent 协议](../skills/ppt-start/references/deepseek-harness.md)：worker 继承工具，但以非内容 wrapper 禁止调用工具／再委派，这是提示策略而非硬工具隔离，不修改 DSH 配置。具体宿主路由与 ambient context 边界见[宿主隔离适配器](../skills/ppt-start/references/host-isolation-adapters.md)，所有工作区写入仍由 coordinator 独占。
 
-[自动并发](../skills/ppt-start/references/adaptive-concurrency.md)由插件决定，不询问用户：目标从 5 起，每 5 个连续稳定通过检查的结果增加 2，最高 10；限流、超时、容量压力或失败重置目标为 5。只读规划器在每次 dispatch／补位前扣除在途和已预留任务，并受实际宿主容量与不可变批次 inventory 上限 `batch_width` 约束；目标至少 5 不代表实际容量足够，不足时说明限制。旧 3／4 页批次原位恢复；并发或 durable lookup 缺失时 width 1，非 Git 不降级。generation 与 per-slide validation 可重叠；promotion、最低 visible blocker 与 pointer 由 coordinator 按 `ordered_slide_ids` 串行提交。内部 `SRC-<digits>` 可保留在 `data-source-id`／trace，但可见文字以 `fact_source_mismatch` 阻断。
+[自动并发](../skills/ppt-start/references/adaptive-concurrency.md)由插件决定，不询问用户：目标从 5 起，每 5 个连续稳定通过检查的结果增加 2，最高 10；限流、超时、容量压力或失败重置目标为 5。当前固定运行时新批次上限为 5，规划器目标不证明运行时会扩容。只读规划器在每次 dispatch／补位前扣除在途和已预留任务，并受实际宿主容量与不可变批次 inventory 上限 `batch_width` 约束；目标至少 5 不代表实际容量足够，不足时说明限制。旧 3／4 页批次原位恢复；并发或 durable lookup 缺失时 width 1，非 Git 不降级。generation 与 per-slide validation 可重叠；promotion、最低 visible blocker 与 pointer 由 coordinator 按 `ordered_slide_ids` 串行提交。内部 `SRC-<digits>` 可保留在 `data-source-id`／trace，但可见文字以 `fact_source_mismatch` 阻断。
 
 telemetry 以 compile/model/render/qa/promotion spans、DAG critical path 与 batch wall time解释并发；它是非权威诊断，`telemetry_diagnostic_failed` 不能改变 transaction correctness 或授权 promotion。schema-v1 singular transaction 和旧 prompt 目录只作为迁移历史，永不成为新运行 owner。
 

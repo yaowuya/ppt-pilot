@@ -17,13 +17,16 @@
 ## tokens.json
 
 - `schema_version == 2`
+- 可选根字段 `prompt_role` 只能为 `information_architect`（默认）或 `product_manager`；后者的标题精确为 `# Role:产品经理& SVG 可视化编码专家`，不得接受自由角色文本
 - 存在 `colors`、`typography`、`spacing`、`shape`、`composition`
 - 存在 `prompt_baseline`，且其键恰为：
   `palette_roles, font_stack, spacing_rhythm, shape_language, composition_rules, prohibited_motifs`
-- `palette_roles` 每项恰含 `token/role/use`，`token` 唯一且出现在 `colors`；`role/use` 只能使用 verifier 的闭合枚举，`prohibited_motifs` 也只能使用闭合枚举，不能把自由文本写进 Prompt 数据面
-- `typography` 至少包含安全字体栈、`body >= 20`、一个标题层级和一个 `>= 14` 的支撑层级；ASCII 品牌字体可原样保留，包含换行／Prompt 语法或未知中文短语的字体值必须显式回退为 `Arial, sans-serif`，并写 `font_resolution.fallback_applied: true`
+- `palette_roles` 每项恰含 `token/role/use`，`token` 唯一且出现在 `colors`；`role/use` 只能使用 verifier 的闭合枚举，`prohibited_motifs` 也只能使用闭合枚举，不能把自由文本写进 Prompt 数据面。用途可分别承载背景、标题、正文、注释、边框和连接线，如 `page_canvas`／`optional_canvas`、`page_title`、`body_copy`、`caption_text`、`thin_border`、`flow_connector`，已声明的用途不能被压缩成仅有强调色的角色
+- `typography` 至少包含安全字体栈、`body >= 20`、一个标题层级和一个 `>= 14` 的支撑层级；`strict_brand_rules: true` 时主标题 `page_title`／`slide_title` 的已声明值均必须在 `34..4096` 范围内，runtime 仅从已验证 tokens 推导其标题下限，非固定品牌风格的 SVG 默认标题下限仍为 40；ASCII 品牌字体可原样保留，包含换行／Prompt 语法或未知中文短语的字体值必须显式回退为 `Arial, sans-serif`，并写 `font_resolution.fallback_applied: true`
 - `prompt_baseline.spacing_rhythm` 必须非空并固定包含 `outer_margin: 64`、`standard_gap: 24`；所有值为正数。`shape_language` 必须非空，至少含一个正圆角值和正 `stroke_width`
 - `composition_rules` 必须非空，键和值只能使用 verifier 的闭合类型／枚举；根层 `spacing/shape/composition` 与 `prompt_baseline` 中同名数据必须逐值一致
+- 可选 `composition.strict_brand_rules` 必须是 bool：`true` 选择固定品牌要求引言，省略／`false` 使用原软风格引言；它与 `prompt_role` 独立，不由角色隐式启用
+- 新增可选构图值只允许 `title_decoration=black_blue_offset_squares`、`content_focus=current_and_next_actions`、`surface_style=sparse_enterprise`；`layout_recipes` 必须是非空、无重复数组，每项只能为 `product_overview`、`comparison`、`process_milestone`、`metrics_financial`。中文指令由 verifier 的枚举映射确定性渲染在原七行内，不能追加任意 Prompt 文本
 
 ## prompt.md
 
@@ -32,7 +35,7 @@
 - 从 byte 0 开始按顺序各保留且仅保留一个结构标题：`# Role`、`## Workflow`、`### 步骤 1`、`### 步骤 2`、`### 步骤 3`、`### 兼容约束`；不得缺失、粘连、重复、重排或带前导正文
 - 必须包含 generator 对稳定非来源 `block_id` 的明确指令：每个 ID 只能在规范 `data-block-id` 精确属性值中临时回显一次，禁止进入 text／tail／其他属性名值；不得要求 generator 自行生成来源 ID，泄漏以 `fact_source_mismatch` 在 candidate write 前失败
 - 创建模板时必须把本次提取出的具体颜色、字体、间距、形状、构图与禁止母题静态物化进正文；不同风格证据不得产生相同的通用 prompt bytes
-- 除步骤 2 的七行规范风格指令外，Role、步骤 1、步骤 3、兼容约束和最终输出命令必须与 canonical hard shell 字节一致；整份 `prompt.md` 必须精确等于 verifier 从同包 `tokens.json` 确定性合成的结果，任一同步篡改也要拒绝
+- 仅允许上述 `prompt_role` 与独立 `strict_brand_rules` 选择的闭合前缀变体，以及步骤 2 的七行规范风格指令；其余前缀、步骤 1、步骤 3、兼容约束和最终输出命令必须保持 canonical hard shell 字节一致。规范化后整份 `prompt.md` 必须精确等于 verifier 从同包已验证 `tokens.json` 合成的结果；枚举外角色／引言或硬契约篡改即使与 tokens 同步修改也必须拒绝。省略新字段时保留原默认 prompt bytes
 - CRLF／CR 可规范化为 LF；VT、FF、FS／GS／RS、NEL、U+2028、U+2029 不算换行并必须拒绝；最多剥离文件开头一个 UTF-8 BOM
 - 不含任何 HTML `[[...]]` 遗留 marker、不含 `.redesign.md` 引用
 

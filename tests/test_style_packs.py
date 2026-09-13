@@ -27,6 +27,7 @@ class StylePackTests(unittest.TestCase):
         styles = payload["styles"]
         ids = [style["id"] for style in styles]
         names = [style["display_name"] for style in styles]
+        self.assertEqual(set(ids), {"jiawei-product", "canway-midyear-review"})
         self.assertEqual(len(ids), len(set(ids)))
         self.assertEqual(len(names), len(set(names)))
         for style in styles:
@@ -35,6 +36,25 @@ class StylePackTests(unittest.TestCase):
         canway = next(style for style in styles if style["id"] == "canway-midyear-review")
         self.assertEqual(canway["display_name"], "嘉为年中总结风格")
         self.assertEqual(canway["kind"], "style_pack")
+
+    def test_registered_styles_load_and_jiawei_is_the_only_default(self):
+        scripts = skill_root() / 'scripts'
+        if str(scripts) not in sys.path:
+            sys.path.insert(0, str(scripts))
+        from _prompt_runtime import runtime_style_assets
+        registry = json.loads(read_text(self.registry_path))
+        defaults = []
+        for entry in registry['styles']:
+            path, template = runtime_style_assets(entry['id'])
+            self.assertEqual(path, f"assets/styles/{entry['id']}/prompt.md")
+            self.assertIn(b'{{NARRATIVE}}', template)
+            manifest = json.loads(read_text(self.style_root / entry['entrypoint']))
+            if manifest.get('default') is True:
+                defaults.append(entry['id'])
+        self.assertEqual(defaults, ['jiawei-product'])
+        for retired in ('minimal-business', 'tech-dark', 'bold-editorial'):
+            with self.subTest(retired=retired), self.assertRaisesRegex(ValueError, '^style_not_registered$'):
+                runtime_style_assets(retired)
 
     def test_manifest_declares_only_tokens_and_guidance_as_active_style_assets(self):
         manifest = json.loads(read_text(self.manifest_path))
@@ -180,6 +200,8 @@ class StylePackTests(unittest.TestCase):
             baseline["composition_rules"]["layout_family"],
             "asymmetric_modular",
         )
+        self.assertEqual(tokens["prompt_role"], "product_manager")
+        self.assertFalse(baseline["composition_rules"].get("strict_brand_rules", False))
         self.assertEqual(baseline["composition_rules"]["title_position"], "top_left")
         self.assertTrue(baseline["composition_rules"]["no_english_title"])
         self.assertTrue(baseline["composition_rules"]["no_top_right_logo"])

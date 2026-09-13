@@ -6,6 +6,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parents[1] / 'skills/ppt-start/scripts'
 sys.path.insert(0, str(SCRIPTS))
@@ -44,6 +45,74 @@ class DashboardServerTests(unittest.TestCase):
         finally:
             conn.close()
 
+    def response_handler(self, method='GET'):
+        handler = object.__new__(self.server.RequestHandlerClass)
+        handler.server = self.server
+        handler.command = method
+        handler.path = '/api/state'
+        handler.request_version = 'HTTP/1.1'
+        handler.requestline = method + ' /api/state HTTP/1.1'
+        handler.headers = {'Host': '127.0.0.1:' + str(self.server.server_port)}
+        handler.close_connection = False
+        handler.wfile = mock.Mock()
+        return handler
+
+    def test_response_disconnects_do_not_retry_as_snapshot_errors(self):
+        for error_type in (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            for method, successful_writes in (('GET', 0), ('GET', 1), ('HEAD', 0)):
+                with self.subTest(error=error_type.__name__, method=method, successful_writes=successful_writes):
+                    handler = self.response_handler(method)
+                    writes = 0
+
+                    def disconnect(content):
+                        nonlocal writes
+                        writes += 1
+                        if writes > successful_writes:
+                            raise error_type('client disconnected')
+                        return len(content)
+
+                    handler.wfile.write.side_effect = disconnect
+                    caught = None
+                    with mock.patch.object(handler, 'send_response', wraps=handler.send_response) as response:
+                        try:
+                            handler.do_HEAD() if method == 'HEAD' else handler.do_GET()
+                        except ConnectionError as error:
+                            caught = error
+                        self.assertIsNone(caught, 'Expected client disconnect escaped the response writer')
+                        response.assert_called_once_with(200)
+                    self.assertTrue(handler.close_connection)
+                    self.assertEqual(writes, successful_writes + 1)
+        self.assertEqual(self.request('/api/state')[0], 200)
+
+    def test_response_writer_does_not_swallow_other_oserrors(self):
+        for successful_writes in (0, 1):
+            with self.subTest(successful_writes=successful_writes):
+                handler = self.response_handler()
+                error = OSError('unexpected response write failure')
+                handler.wfile.write.side_effect = [None] * successful_writes + [error]
+                with self.assertRaises(OSError) as caught:
+                    handler.send_bytes(200, b'body', 'text/plain')
+                self.assertIs(caught.exception, error)
+
+    def test_snapshot_errors_still_return_503(self):
+        for error in (OSError('snapshot read failure'), ConnectionAbortedError('snapshot read aborted'),
+                      ValueError('invalid snapshot'), TypeError('invalid field'), KeyError('missing field')):
+            with self.subTest(error=type(error).__name__), mock.patch('_dashboard.server.build_snapshot', side_effect=error):
+                status, _, body = self.request('/api/state')
+                self.assertEqual(status, 503)
+                self.assertEqual(json.loads(body), {'error': 'snapshot_temporarily_unavailable'})
+        self.assertEqual(self.request('/api/state')[0], 200)
+
+    def test_file_errors_still_return_their_http_status(self):
+        for error, expected in ((FileNotFoundError('missing SVG'), 404),
+                                (PermissionError('denied SVG'), 403), (OSError('unreadable SVG'), 503)):
+            with self.subTest(error=type(error).__name__), mock.patch('_dashboard.server.read_preview', side_effect=error):
+                self.assertEqual(self.request('/api/preview?path=slides%2FS01.svg')[0], expected)
+        with mock.patch('_dashboard.server.ASSETS', self.root / 'missing-assets'):
+            status, _, body = self.request('/')
+            self.assertEqual(status, 503)
+            self.assertEqual(json.loads(body), {'error': 'dashboard_assets_missing'})
+
     def test_state_and_preview_change_without_restarting_service(self):
         status, headers, body = self.request('/api/state')
         self.assertEqual(status, 200)
@@ -57,6 +126,19 @@ class DashboardServerTests(unittest.TestCase):
         self.assertIn(b'Second', svg)
         self.assertIn('sandbox', headers['Content-Security-Policy'])
         self.assertEqual(headers['X-Content-Type-Options'], 'nosniff')
+
+    def test_step_details_update_with_artifacts_at_the_same_stage(self):
+        first = json.loads(self.request('/api/state')[2])
+        first_tasks = {task['id']: task for task in first['tasks']}
+        self.assertIn('尚未发现简报', first_tasks['brief']['detail'])
+        self.assertIn('正式页 1 / 1 页', first_tasks['production']['detail'])
+        (self.root / '.ppt-pilot/简报.md').write_text('Private briefing body', encoding='utf-8')
+        second = json.loads(self.request('/api/state')[2])
+        second_tasks = {task['id']: task for task in second['tasks']}
+        self.assertIn('.ppt-pilot/简报.md', second_tasks['brief']['detail'])
+        self.assertNotIn('Private briefing body', json.dumps(second))
+        self.assertNotEqual(first['revision'], second['revision'])
+        self.assertEqual(first['stage'], second['stage'])
 
     def test_static_dashboard_is_served_with_restrictive_policy(self):
         code, headers, body = self.request('/')

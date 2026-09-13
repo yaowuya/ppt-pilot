@@ -6,6 +6,12 @@
       "adapter_id": "ppt-svg-generator",
       "adapter_version": "1.0.0",
       "adapter_digest": "sha256:6dfe51421c974f8f19f9b6c1ea1e4d1596792255115e100977c217b54afe62e7"
+    },
+    {
+      "host": "deepseek-harness",
+      "adapter_id": "native-subagent",
+      "adapter_version": "1.0.0",
+      "adapter_digest": "sha256:2ccbd3367c9a9bc4ed4efd75b4f293401d843d0d71a9895fd833dd4f1f81d1c6"
     }
   ]
 }
