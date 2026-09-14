@@ -966,33 +966,14 @@ class VisualGenerationContractTests(unittest.TestCase):
 
     def test_claude_adapter_contract_names_agent_and_forbids_git_unlocks(self):
         text = read_text(self.host_adapters)
-        for token in (
-            "ppt-svg-generator",
-            "普通 fresh-context subagent",
-            "省略 `isolation`",
-            "data_tools=none",
-            "TodoWrite",
-            "`CLAUDE.md`",
-            "父会话的 Git status",
-            "不提供 byte-pure prompt-only",
-            "结构性不可用",
-            "不得轮询",
-        ):
-            with self.subTest(token=token):
-                self.assertIn(token, text)
-        for forbidden_action in (
-            "`git init`",
-            "`git add`",
-            "`git commit`",
-            "`git push`",
-            "`isolation: worktree`",
-            "`isolation: remote`",
-        ):
-            with self.subTest(forbidden_action=forbidden_action):
-                self.assertRegex(
-                    text,
-                    r"(?:禁止|不得)[^。\n]{0,160}" + re.escape(forbidden_action),
-                )
+        for token in ('ppt-svg-generator', 'ppt-svg-generator-sdk', '1.9.0', 'ordinary fresh-context',
+                      'data_tools=none', 'TodoWrite', 'ListAgents', '`CLAUDE.md`', 'parent Git status',
+                      'do not claim byte-pure prompt-only', '不得轮询', 'run_in_background: false'):
+            self.assertIn(token, text)
+        self.assertIn('Do not run `git init`, `git add`, `git commit`, `git push`', text)
+        self.assertIn('the user has authorized', text)
+        self.assertIn('never use `remote`', text)
+        self.assertIn('SDK-only local-worktree exception', text)
 
     def test_generator_unavailable_has_closed_run_level_blocker(self):
         blocker = {
@@ -1417,9 +1398,9 @@ class VisualGenerationContractTests(unittest.TestCase):
             ["S06", "S04", "S03", "S05"],
         )
         self.assertEqual(case["expected"]["promotion_order"], ["S03", "S05"])
-        self.assertEqual(case["expected"]["visible_blocker"], "S04")
+        self.assertIsNone(case["expected"]["visible_blocker"])
         refs = case["manifest"]["transaction_refs"]
-        self.assertEqual(case["manifest"]["active_blocker_ref"], refs[1])
+        self.assertIsNone(case["manifest"]["active_blocker_ref"])
         tampered = copy.deepcopy(case["manifest"])
         tampered["active_blocker_ref"] = refs[0]
         with self.assertRaisesRegex(ValueError, "active blocker ref is invalid"):
@@ -1448,15 +1429,16 @@ class VisualGenerationContractTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     validate_v2_manifest(manifest, prepared["transactions"])
 
-        failure_not_blocked = copy.deepcopy(mixed["manifest"])
-        failure_not_blocked["state"] = "active"
+        mixed_manifest = copy.deepcopy(mixed["manifest"])
+        page_failure_blocked = copy.deepcopy(mixed_manifest)
+        page_failure_blocked["state"] = "blocked"
         with self.assertRaises(ValueError):
-            validate_v2_manifest(failure_not_blocked, mixed["transactions"])
+            validate_v2_manifest(page_failure_blocked, mixed["transactions"])
 
-        missing_lowest_failure_ref = copy.deepcopy(mixed["manifest"])
-        missing_lowest_failure_ref["active_blocker_ref"] = None
+        false_blocker_ref = copy.deepcopy(mixed_manifest)
+        false_blocker_ref["active_blocker_ref"] = mixed_manifest["transaction_refs"][1]
         with self.assertRaisesRegex(ValueError, "active blocker ref is invalid"):
-            validate_v2_manifest(missing_lowest_failure_ref, mixed["transactions"])
+            validate_v2_manifest(false_blocker_ref, mixed["transactions"])
 
     def test_out_of_order_completion_uses_ordered_promotion_and_lowest_blocker(self):
         payload = json.loads(read_text(self.batch_v2))
@@ -1469,10 +1451,8 @@ class VisualGenerationContractTests(unittest.TestCase):
             eligible_promotions(manifest, transactions),
             case["expected"]["promotion_order"],
         )
-        self.assertEqual(
-            lowest_eligible_blocker(manifest, transactions),
-            case["expected"]["visible_blocker"],
-        )
+        self.assertEqual(lowest_eligible_blocker(manifest, transactions),
+                         case["expected"]["visible_blocker"])
         observed = {
             slide_id: transaction["prior_final_sha256"]
             for slide_id, ref in zip(
@@ -1662,24 +1642,21 @@ class VisualGenerationContractTests(unittest.TestCase):
         workflow = read_text(self.workflow)
         artifact = read_text(self.artifact)
         combined = "\n".join((qa, workflow, artifact))
+        from _generation_runtime import V2_VALIDATION_CHECKS
+        self.assertEqual(V2_VALIDATION_CHECKS, {'xml', 'office', 'geometry_text', 'fact_source', 'narrative', 'visual'})
         for token in (
-            '"state": "pending|running|passed|failed"',
-            '"xml": "pending|passed|failed"',
-            '"office": "pending|passed|failed"',
-            '"geometry_text": "pending|passed|failed"',
-            '"fact_source": "pending|passed|failed"',
-            '"narrative": "pending|passed|failed"',
-            '"visual": "pending|passed|failed|not_rendered"',
             "fact_source_mismatch",
             "ordered_slide_ids",
             "completion order",
-            "只有 coordinator",
+            "coordinator 独占",
             "previous final",
+            'omitted_transaction_sha256',
+            'not_rendered',
         ):
             with self.subTest(token=token):
                 self.assertIn(token, combined)
         self.assertIn("不能授权", artifact)
-        self.assertIn("最低", workflow)
+        self.assertIn('不等待全批', artifact)
 
     def test_v2_documents_define_pointer_last_activation_and_state_ownership(self):
         artifact = read_text(self.artifact)
@@ -1834,8 +1811,17 @@ class VisualGenerationContractTests(unittest.TestCase):
             case = v2["cases"][case_id]
             before = copy.deepcopy(case["before_run"])
             result = migrate_v1_run_to_v2(before, case["corpus_case"])
+            expected = copy.deepcopy(case["expected"])
+            if result["transaction"].get("failure_reason") in {
+                "generator_refused", "generator_timeout", "generator_output_malformed",
+                "svg_contract_failed", "fact_source_mismatch", "visual_qa_failed",
+            }:
+                expected["manifest"].update(blocker_cursor=1, active_blocker_ref=None,
+                                            state="active")
+                expected["manifest_bytes_base64"] = base64.b64encode(
+                    canonical_v2_json_bytes(expected["manifest"])).decode("ascii")
             with self.subTest(case=case_id):
-                self._assert_serialized_migration_result(result, case["expected"])
+                self._assert_serialized_migration_result(result, expected)
                 self.assertEqual(result["generator_calls"], 0)
                 self.assertEqual(before, case["before_run"])
                 self.assertNotIn("visual_generation_transaction", result["run"])
@@ -2350,7 +2336,8 @@ class VisualGenerationContractTests(unittest.TestCase):
         self.assertTrue(self.reference.exists())
         skill = read_text(self.skill)
         self.assertIn("visual-brief-and-generation.md", skill)
-        self.assertIn("generation-prompts/<slide-id>.md", skill)
+        self.assertIn('generation-prompt-byte-grammar.md', skill)
+        self.assertIn('generation-prompts/<slide-id>.md', read_text(self.reference))
         self.assertLess(skill.index("visual-brief-and-generation.md"), skill.index("SVG 契约"))
 
     def test_precedence_fixture_keeps_history_and_one_active_value(self):
@@ -2383,12 +2370,14 @@ class VisualGenerationContractTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, combined)
 
-        qa_owner_line = next(
-            line
-            for line in read_text(self.artifact).splitlines()
-            if "精确 defect" in line and "QA owner" in line
-        )
-        self.assertNotIn("visual-brief", qa_owner_line)
+        runtime = read_text(skill_root() / 'references/runtime-canonical-owners.md')
+        self.assertIn('kind: runtime_qa', runtime)
+        self.assertIn('records', runtime)
+        self.assertIn('exact submitted QA object per transaction and candidate digest', runtime)
+        from _runtime_commands import QA_FIELDS
+        self.assertIn('defect_id', QA_FIELDS)
+        self.assertIn('candidate_sha256', QA_FIELDS)
+        self.assertNotIn('visual_brief', QA_FIELDS)
 
 if __name__ == "__main__":
     unittest.main()

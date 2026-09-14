@@ -22,9 +22,13 @@ slides/<slide-id>.svg
 
 `<tx64>` 是 `transaction_id == prompt_snapshot_id == sha256:<64hex>` 去掉 `sha256:` 后的 64 位后缀。`prior_final_sha256` 必须是完整 SHA-256 或显式字符串 `none`；null／缺失不能表达无 previous final。
 
-每页 transaction 使用精确字段：`schema_version`、`kind`、`batch_id`、`transaction_id`、`slide_id`、`generation_intent`、`generation_trigger_id`、`prompt_path`、`prompt_snapshot_id`、`compiled_prompt_sha256`、`candidate_path`、`final_path`、`prior_final_sha256`、`state`、`generation_attempt`、`candidate_sha256`、`failure_reason`、`dispatch_epoch`、`host_attribution_id`、`host_task_id`、`validation`、`timing`。状态保留 `compiling`、`compiled`、`generating`、`candidate_written`、`validated`、`promoted`、`failed`，以便 v1 状态无损迁移；候选 hash 只能在候选关闭、复读后随 `candidate_written` 提交。host、validation、timing 都由该页 transaction 拥有。
+每页 transaction 使用精确字段：`schema_version`、`kind`、`batch_id`、`transaction_id`、`slide_id`、`generation_intent`、`generation_trigger_id`、`prompt_path`、`prompt_snapshot_id`、`compiled_prompt_sha256`、`candidate_path`、`final_path`、`prior_final_sha256`、`state`、`generation_attempt`、`candidate_sha256`、`failure_reason`、`dispatch_epoch`、`host_attribution_id`、`host_task_id`、`validation`、`timing`。状态保留 `compiling`、`compiled`、`generating`、`candidate_written`、`validated`、`promoted`、`failed`，以便 v1 状态无损迁移；候选 hash 只能在候选关闭、复读后随 `candidate_written` 提交。host、validation、timing 都由该页 transaction 拥有。`generation_attempt` 属于该页面从 initial 到任何 replacement/recovery 的 inherited lifetime counter，整条链最多三次真实 dispatch；replacement transaction 与 recovery journal 必须继承它，不能归零、递减或把模型调用标成 local repair。
 
-batch manifest 使用精确字段：`schema_version`、`kind`、`batch_id`、`batch_width`、`ordered_slide_ids`、`storyboard_snapshot_id`、`theme_snapshot_id`、`source_audit_snapshot_id`、`generation_prompt_template_snapshot_id`、`transaction_refs`、`dispatch_epoch`、`promotion_cursor`、`blocker_cursor`、`active_blocker_ref`、`state`、`created_at`、`updated_at`、`telemetry_summary`。`batch_width` 的 schema 范围是整数 `3..10`；[自动并发规划器](adaptive-concurrency.md)目标从 5 起可到 10，不询问用户，但当前固定运行时新批次上限是 5，必须原样使用 runtime 的 prepare request，不能据规划目标手改 width。3／4 仅保留旧批次恢复兼容；v1 迁移的 width 4 不变。最后一批可含 `1..batch_width` 页，活动批次 width 与 inventory 不因升档改变。`transaction_refs` 必须按 `ordered_slide_ids` 一一对齐到规范 transaction 路径，且所有 transaction 使用同一 `batch_id`。
+batch manifest 的基础字段为：`schema_version`、`kind`、`batch_id`、`batch_width`、`ordered_slide_ids`、`storyboard_snapshot_id`、`theme_snapshot_id`、`source_audit_snapshot_id`、`generation_prompt_template_snapshot_id`、`transaction_refs`、`dispatch_epoch`、`promotion_cursor`、`blocker_cursor`、`active_blocker_ref`、`state`、`created_at`、`updated_at`、`telemetry_summary`。terminal omission manifest 还必须同时包含闭合的 `omitted_transaction_refs` 与 `omitted_transaction_sha256`：前者是按原 `ordered_slide_ids` 顺序排列的遗漏 transaction ref 子集，后者是以这些 ref 为 key、以其未改写完整文件摘要为 value 的精确 map。任何一个字段单独出现、未知 ref、错序或摘要不匹配都 fail closed。
+
+`state` 的非终态值按运行时状态机使用；终态只为 `completed|partial|failed`：`completed` 无 omissions，`partial` 同时有 promoted 与 omitted slot，`failed` 没有 promoted slot。manifest 的完整性只表示 batch 已结算，不把 omitted transaction 改成 PASS，也不清除该页 dirty flag。
+
+`batch_width` 的 schema 范围是整数 `3..10`；[自动并发规划器](adaptive-concurrency.md)目标从 5 起可到 10，不询问用户，但当前固定运行时新批次上限是 5，必须原样使用 runtime 的 prepare request，不能据规划目标手改 width。3／4 仅保留旧批次恢复兼容；v1 迁移的 width 4 不变。最后一批可含 `1..batch_width` 页，活动批次 width 与 inventory 不因升档改变。`transaction_refs` 必须按 `ordered_slide_ids` 一一对齐到规范 transaction 路径，且所有 transaction 使用同一 `batch_id`。
 
 新批次只有在完整内存 preflight 与[宿主隔离适配器](host-isolation-adapters.md)能力协商都通过后，才能进入下面的 durable 协议；无能力时 prompt、transaction、manifest 与 candidate writes 均为 0。
 
@@ -52,7 +56,7 @@ crash after transaction 时复读并复用 byte-identical transaction，只补 m
 
 新批次没有符合已接受边界的 adapter 时，只由固定运行时以一次原子 `run.json` 替换写入下文闭合的 `visual_generation_blocker`：`state: generator_unavailable`、`reason: generator_unavailable`、`resource: none`，`slide_id` 取目标有序页面中的最低项；prompt 写入、per-slide transaction 写入、manifest 写入、candidate／SVG 写入与 generator 调用均为 0。已激活批次暂时失去能力时保留所有 transaction 与 previous final，把 manifest 标为 `blocked`，并只发布 `ordered_slide_ids` 中最低未派发页面的失败；不得删除 sibling 状态或改用 coordinator 当前上下文。adapter 缺失或不安全是结构性不可用而非容量等待，不得轮询。
 
-coordinator 向 fresh-context generator 按值传入完整冻结 `prompt_by_value`，并要求 `fresh_history=true`、text output 与 expected `xml` fence。Claude／Codex 的 `filesystem=none`／`data_tools=none` 表示 generator 没有可主动读写业务／工作区数据的工具；无数据控制工具不改变此约束。DSH 必须读取[普通 subagent 协议](deepseek-harness.md)：继承工具，receipt 明确 `filesystem_none=false`、`data_tools_none=false`，非内容 wrapper 禁止工具调用和再委派，不修改冻结 Prompt，不宣称硬工具隔离。各宿主 ambient context 由[宿主隔离适配器](host-isolation-adapters.md)明确列出，不得冒充 byte-pure prompt-only；所有 durable 写入仍只归 coordinator。只有 coordinator 可处理返回 text：先提取并解析裸 SVG，在任何 candidate 写入或 hash 前大小写不敏感地扫描全部属性名／属性值以及每个节点的 `text`／`tail`，拒绝预存 `data-source-id`、内部 source ID、大小写伪装的 `data-block-id`，以及出现在 text／tail／任何其他属性名值中的 canonical `block_id`；再验证每个 canonical narrative `block_id` 恰由一个语义 `<g data-block-id>` 精确回显一次，并从冻结故事板及 `source_audit_snapshot_id` 确定性关联 `block_id -> ordered source_ids`。未知、遗漏、重复、泄漏 block 或非法 source ID 立即以 `fact_source_mismatch` 停止且 candidate writes 为 0。coordinator 对每个来源使用确定性嵌套 `<g data-source-id>` 关联，移除全部临时 `data-block-id`，规范化序列化；完成该 source-enrichment gate 后才允许按 temp+rename、复读、hash 顺序写 candidate 并提交 `candidate_written`。隔离任务、callback、manifest 和 host lookup 都不能直接写 transaction/final 或授权 promotion；coordinator 必须按 `ordered_slide_ids` 串行提交 final、visible blocker 与 `run.json` pointer。
+coordinator 向 fresh-context generator 按值传入完整冻结 `prompt_by_value`，并要求 `fresh_history=true`、text output 与 expected `xml` fence。Claude／Codex 的 `filesystem=none`／`data_tools=none` 表示 generator 没有可主动读写业务／工作区数据的工具；无数据控制工具不改变此约束。DSH 必须读取[普通 subagent 协议](deepseek-harness.md)：继承工具，receipt 明确 `filesystem_none=false`、`data_tools_none=false`，非内容 wrapper 禁止工具调用和再委派，不修改冻结 Prompt，不宣称硬工具隔离。各宿主 ambient context 由[宿主隔离适配器](host-isolation-adapters.md)明确列出，不得冒充 byte-pure prompt-only；所有 durable 写入仍只归 coordinator。只有 coordinator 可处理返回 text：先提取并解析裸 SVG，在任何 candidate 写入或 hash 前大小写不敏感地扫描全部属性名／属性值以及每个节点的 `text`／`tail`，拒绝预存 `data-source-id`、内部 source ID、大小写伪装的 `data-block-id`，以及出现在 text／tail／任何其他属性名值中的 canonical `block_id`；再验证每个 canonical narrative `block_id` 恰由一个语义 `<g data-block-id>` 精确回显一次，并从冻结故事板及 `source_audit_snapshot_id` 确定性关联 `block_id -> ordered source_ids`。未知、遗漏、重复、泄漏 block 或非法 source ID 立即以 `fact_source_mismatch` 停止且 candidate writes 为 0。coordinator 对每个来源使用确定性嵌套 `<g data-source-id>` 关联，移除全部临时 `data-block-id`，规范化序列化；完成该 source-enrichment gate 后才允许按 temp+rename、复读、hash 顺序写 candidate 并提交 `candidate_written`。绑定任务的原始 host response 保持为 task／dispatch 原始证据；上述 source-enriched、normalized candidate bytes 是 coordinator 产物，不能归作未经改动的 generator 输出。隔离任务、callback、manifest 和 host lookup 都不能直接写 transaction/final 或授权 promotion；coordinator 必须按 `ordered_slide_ids` 串行提交 final、visible blocker 与 `run.json` pointer。
 
 DSH task attribution 使用现有字段，不新增 owner：`reserve-dispatch` 的 `dispatch_id` 放入无页面内容的启动 `description`，将真实返回的 durable `subagent_id` 经 `bind-task` 绑定为 `host_task_id`，完成通知来源 child ID 匹配后才可 ingest。`subagent_id` 不是 `jobId`；`list_agents` 只发现任务，`send_message` 只向原 child 取回已完成原答案，不再生成。无法用真实宿主日志唯一恢复丢失 launch 时保留 reservation 并停止，不猜 ID、不重复派发；完整去重／旧 epoch／恢复协议见[DSH 参考](deepseek-harness.md)。
 
@@ -81,9 +85,9 @@ telemetry 是**非权威**诊断。写入、解析、父引用、时钟或 DAG �
 
 新运行根目录只保留用户可读的 `大纲.md`、最终页面 `slides/` 与内部目录 `.ppt-pilot/`；`.ppt-pilot/大纲.md` 不得作为活动读取或写入路径。`resume`／`revise` 对旧英文运行或旧布局运行原位读取并存续既有路径。
 
-最小 `run.json` 建立后使用 `scripts/ppt_workflow_gate.py --audit-run` 执行只读运行级合规检查；外部旧稿的每个累计 gate 也自动执行。顶层 `native_*`、`run_level_generator_blocker`、`anchor_plan` 与 `execution_hold` 是非法平行控制状态，不能表达暂停、阻断、锚点或交付。绑定源稿的精确绝对路径可位于运行目录内，但除此之外，`stage != complete` 时运行目录内不得出现任何 `.pptx`；`stage: complete` 后的 `.pptx` 只能由 `ppt-editable` 放在 `delivery/editable/`。违规分别返回 `workflow_escape_state`、`precomplete_pptx`、`pptx_outside_delivery`，并以 `reentry_stage: theme`（错误交付位置使用 `complete`）停止。
+最小 `run.json` 建立后使用 `scripts/ppt_workflow_gate.py --audit-run` 执行只读运行级合规检查；外部旧稿的每个累计 gate 也自动执行。顶层 `native_*`、`run_level_generator_blocker`、`anchor_plan` 与 `execution_hold` 是非法平行控制状态，不能表达暂停、阻断、锚点或交付。绑定源稿的精确绝对路径可位于运行目录内；除此之外，只有 `stage: complete` 配 `delivery.status: complete` 或 `stage: partial` 配 `delivery.status: partial` 才允许 PPTX，且都只能由 `ppt-editable` 写在 `delivery/editable/`。`stage: qa`／`delivery.status: prepared` 与 `stage: failed`／`delivery.status: failed` 均不允许 PPTX。违规返回 `workflow_escape_state`、`precomplete_pptx` 或 `pptx_outside_delivery` 并停止；错误交付位置的 reentry 指向当前合法 final stage，其他违规回到报告的最早安全阶段。
 
-`generation-prompts/` 位于 `.ppt-pilot/` 内部，是新运行的必需视觉执行产物目录。每个首次生成或 `recompose` 的页面都必须创建 `.ppt-pilot/generation-prompts/<slide-id>.md`；`patch` 不重新生成。每份文件严格遵循黄金格式：`# <slide-id> 页面生成 Prompt` 标题、恰好九个加粗字段的 `## Snapshot metadata`（slide_id、storyboard_snapshot_id、theme_snapshot_id、applied_visual_revision_ids、prompt_snapshot_id、user_page_request、expected_output、workspace_output_path、format），以及 `## Compiled Prompt` 后的规范正文。`format` 字段值精确为 `creative-brief-v1`，标识新格式；prompt snapshot 不再引用 brief。`expected_output` 字段值精确为常量 `恰好一个 xml 代码围栏中的完整 SVG`。正文模板由 `theme.selected_style_id` 经 registry 定位 manifest，再按 manifest → tokens → guidance → prompt 的固定 traversal 解析；每个可选择 `style_pack` 必须声明并携带已静态物化具体视觉约定的 `files.prompt_template`，字段缺失以 `style_asset_field_missing` fail closed。仓库 [generation-prompt-template.md](generation-prompt-template.md) 只作建包 authoring seed，不参与运行时解析。模板必须恰含一个 whole-line `{{NARRATIVE}}` 注点，compiler 只把不含来源注解的已批准故事板叙事／素材与非来源 `block_id` 注入一次；`tokens.json.prompt_baseline` 只作为风格数据、QA 输入与 snapshot provenance，不作为正文替换域。历史旧 marker `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]` 对新编译均无效并必须拒绝。具体 byte derivation 以 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md) 为唯一权威。全文件只允许工作区相对路径，禁止绝对路径、盘符、UNC、URL、raw answer、history JSON 与 UNTRUSTED 围栏。
+`generation-prompts/` 位于 `.ppt-pilot/` 内部，是新运行的必需视觉执行产物目录。当前 `initial_generation` 或 `user_recompose` 的页面必须创建／重新编译 `.ppt-pilot/generation-prompts/<slide-id>.md`；已持久化的历史 `local_patch` 记录只按旧 owner/journal 重放，不能成为新操作或省略当前完整编译。每份文件严格遵循黄金格式：`# <slide-id> 页面生成 Prompt` 标题、恰好九个加粗字段的 `## Snapshot metadata`（slide_id、storyboard_snapshot_id、theme_snapshot_id、applied_visual_revision_ids、prompt_snapshot_id、user_page_request、expected_output、workspace_output_path、format），以及 `## Compiled Prompt` 后的规范正文。`format` 字段值精确为 `creative-brief-v1`，标识新格式；prompt snapshot 不再引用 brief。`expected_output` 字段值精确为常量 `恰好一个 xml 代码围栏中的完整 SVG`。正文模板由 `theme.selected_style_id` 经 registry 定位 manifest，再按 manifest → tokens → guidance → prompt 的固定 traversal 解析；每个可选择 `style_pack` 必须声明并携带已静态物化具体视觉约定的 `files.prompt_template`，字段缺失以 `style_asset_field_missing` fail closed。仓库 [generation-prompt-template.md](generation-prompt-template.md) 只作建包 authoring seed，不参与运行时解析。模板必须恰含一个 whole-line `{{NARRATIVE}}` 注点，compiler 只把不含来源注解的已批准故事板叙事／素材与非来源 `block_id` 注入一次；`tokens.json.prompt_baseline` 只作为风格数据、QA 输入与 snapshot provenance，不作为正文替换域。历史旧 marker `[[CANONICAL_NARRATIVE_BULLETS]]` 与 `[[STYLE_BASELINE]]` 对新编译均无效并必须拒绝。具体 byte derivation 以 [generation-prompt-byte-grammar.md](generation-prompt-byte-grammar.md) 为唯一权威。全文件只允许工作区相对路径，禁止绝对路径、盘符、UNC、URL、raw answer、history JSON 与 UNTRUSTED 围栏。
 
 `generation-prompts/<slide-id>.md` 是由已批准故事板与 theme.json 直接编译的可恢复执行产物，不得成为主张、来源、主题或修订历史的唯一副本。输入快照变化后旧 Prompt 失效；恢复时必须重新编译，不能依赖旧对话。不存在根目录 `redesign-prompts/` 兼容目录；所有生成统一写入 `.ppt-pilot/generation-prompts/`。
 
@@ -99,7 +103,7 @@ telemetry 是**非权威**诊断。写入、解析、父引用、时钟或 DAG �
 
 `theme.json` 拥有四个 deck-level schema-v1 identity 字段：`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`，以及整套 palette、typography、spacing 与品牌方向；它不拥有任何 per-slide operation。逐页 `generation_intent`、`generation_trigger_id` 与 `prompt_snapshot_id` 只持久在 generation prompt provenance／schema-v2 per-slide transaction owner 中；不得写入 `theme.json`。missing identity 只能由已验证 registry／manifest 重建；registry 缺失时 identity-recovery table 只允许恢复旧运行身份，不授权模板编译或页面生成，生成仍以 `registry_missing` 停止。不得从 SVG、目录、请求文案或用户措辞推断。
 
-`generation_intent`／`generation_trigger_id` 的产物矩阵固定为：`initial_generation` + `initial:<slide-id>:<storyboard_snapshot_id>` + `initial generation from approved storyboard and theme`；`user_recompose` + `interaction:<applied-history-id>` + 已规范化的 intent 摘要（旧 materialized 或固定 runtime_visual 投影），raw answer/history JSON 不进入 generation prompt；`deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` + `deterministic single-column or two-column fallback after two failed patches`；尾缀 `:2` 为常量标识，不随后续重试递增。`local_patch` + `patch:<slide-id>:<qa-defect-id>` + `requires_current_svg` + `compile_full_prompt: false`。
+`generation_intent`／`generation_trigger_id` 的新产物矩阵以 `initial_generation` + `initial:<slide-id>:<storyboard_snapshot_id>` 和 `user_recompose` + `interaction:<applied-history-id>` 为当前入口；后者包含固定 runtime_visual overlay 的规范化 intent，raw answer/history JSON 不进入 generation prompt。历史 `deterministic_fallback` + `fallback:<slide-id>:<failed-transaction-64hex>:2` 与 `local_patch` + `patch:<slide-id>:<qa-defect-id>` 只在已有、可验证的旧 owner／journal 重放时继续可读，尾缀 `:2` 仍是 legacy 常量。它们不能承诺“先有两次免费 patch”、重命名一次模型调用、创建新 attempt lifetime，或在该页三次真实 dispatch 已用尽后返回 recovery。历史 `local_patch` 记录仍须满足 `requires_current_svg`、`compile_full_prompt: false`；它只用于精确 replay。当前 deterministic local repair 必须由 runtime 在剩余预算内返回，且不创建新的 generation intent。
 
 Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受影响页的编译输入；每页仍保有不同的 storyboard snapshot、prompt snapshot 和 transaction identity。
 
@@ -150,7 +154,7 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 
 外部旧 PPT 首次导入新增可选 `source_deck`，绑定原稿、`.ppt-pilot/源稿清单.json`、`源页映射.json` 与 `导入检查点.json`。schema、hash 绑定、逐页覆盖、累计阶段检查和失效规则以[旧稿导入契约](source-deck-redesign.md)为单一权威。普通运行不自动添加这些字段；旧运行不迁移。导入证据是可核对的执行记录，不是自行声明 PASS 的授权。
 
-每个运行目录都必须包含 `run.json`，其顶层字段至少且统一使用：`schema_version`、`deck_id`、`mode`、`stage`、`manuscript_review` 和 `dirty_slides`。
+每个运行目录都必须包含 `run.json`，其顶层字段至少且统一使用：`schema_version`、`deck_id`、`mode`、`stage`、`manuscript_review` 和 `dirty_slides`。新运行还必须持久化 `production_policy`；`delivery` 在交付准备／结算时由固定 runtime 创建。旧运行缺少后两者仍可读取，但缺少 `production_policy` 必须解释为 strict，不能因恢复或安装而自动补为 best-effort。
 
 - `schema_version`
 - `deck_id`
@@ -158,8 +162,53 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 - `stage`
 - `manuscript_review`
 - `dirty_slides`
+- `production_policy`（新运行必需；`strict|best_effort`）
+- `delivery`（进入 QA 结算后可选；见下节）
 
-`schema_version` 是整数 `1`。`deck_id` 与运行目录名一致。`mode` 只能是 `guided` 或 `auto`，表示持久执行策略，不得改用 `delivery_mode` 等别名。`resume`／`revise` 是入口动作，不是该字段的值；打开既有运行时保留既有 `run.json.mode`，除非用户明确切换执行策略。`stage` 表示当前工作流状态。`dirty_slides` 保存需要重新生成的页面 ID。
+`schema_version` 是整数 `1`。`deck_id` 与运行目录名一致。`mode` 只能是 `guided` 或 `auto`，表示持久执行策略，不得改用 `delivery_mode` 等别名。`resume`／`revise` 是入口动作，不是该字段的值；打开既有运行时保留既有 `run.json.mode`，除非用户明确切换执行策略。`stage` 只能按规范工作流使用 `brief|research|outline|storyboard|manuscript_review|theme|anchor|production|qa|complete|partial|failed`；三个终态分别绑定同名 final delivery，`delivery.status: prepared` 只允许在 `stage: qa`。`dirty_slides` 保存需要重新生成的页面 ID。`production_policy` 与 mode 正交：新运行默认显式写 `best_effort`，显式 strict 请求写 `strict`；既有运行只有 `advance --allow-partial` 才能持久升级为 `best_effort`，不得从失败、auto mode 或用户沉默推断。
+
+### `delivery`
+
+`delivery` 是 fixed runtime 唯一可写的 schema-version 1 顶层对象，字段集精确如下，不接受别名或额外字段：
+
+```json
+{
+  "schema_version": 1,
+  "status": "prepared|complete|partial|failed",
+  "policy": "strict|best_effort",
+  "target_slide_ids": ["S01", "S02"],
+  "delivered_slide_ids": ["S01"],
+  "missing_slides": [{
+    "slide_id": "S02",
+    "reason": "attempts_exhausted|user_skipped",
+    "failure_reason": "svg_contract_failed",
+    "generation_attempt": 3,
+    "transaction_id": "sha256:<64 lowercase hex>",
+    "transaction_ref": ".ppt-pilot/visual-generation-transactions/S02-<same hex>.json",
+    "transaction_sha256": "sha256:<failed transaction file digest>"
+  }],
+  "storyboard_sha256": "sha256:<current storyboard bytes>",
+  "theme_sha256": "sha256:<current theme bytes>",
+  "quality_report_sha256": null,
+  "slide_sha256": {
+    "S01": "sha256:<current formal SVG bytes>"
+  }
+}
+```
+
+约束：
+
+- 任何显式交付结算（`prepared|complete|partial|failed`）都要求 `run.json.manuscript_review.state == manuscript_approved`，且当前批准快照对权威内容 bytes 仍然有效；否则拒绝创建或改变 delivery／终态并保持原 owner。此门复用既有 `manuscript_review` 与 review evidence，不给 delivery 增加字段。
+- `policy` 必须等于 persisted `production_policy`；legacy 缺失按 strict，不自动升级。
+- `target_slide_ids` 是最初 ordered target set，非空且不可因失败、skip 或重试缩减／重排。
+- delivered 与 missing ID 互斥、无重复、按 original target order 排列，并且恰好穷尽 targets；`slide_sha256` 的 key 恰好等于 delivered IDs。
+- `complete` 至少有一页 delivered 且 missing 为空；`partial` 只允许 best-effort，且 delivered 与 missing 均非空；`failed` 的 delivered 与 slide hash map 均为空。`prepared` 是 QA 中间态，不可导出。
+- stage/status 组合是硬约束：`prepared -> qa`、`complete -> complete`、`partial -> partial`、`failed -> failed`。`finalize` 原子写入 final delivery 与同名终态；不得留下 `stage: complete` + partial delivery 或任何其他混搭。
+- `storyboard_sha256` 与 `theme_sha256` 绑定当前实际 bytes。final `complete|partial` 还必须有非 null `quality_report_sha256`，并绑定当前 QA report；每个 delivered digest 绑定 `slides/<slide-id>.svg` 的当前正式 bytes 和 report 中同 digest 的真实 render evidence。
+- 每个 missing 对象字段集如示例所列；`failure_reason` 只能是 `generator_refused|generator_timeout|generator_output_malformed|svg_contract_failed|fact_source_mismatch|visual_qa_failed`。transaction ref、ID、slide、failure reason、attempt 和文件 digest 必须匹配原 schema-v2 `state: failed` transaction；`attempts_exhausted` 还要求 `generation_attempt >= 3`。其 batch manifest 必须为 terminal `partial|failed`，原 slot 仍指向该 ref，且 paired omission fields 密封同一 digest。原 transaction bytes 和 counter 永不改写来适配 delivery。
+- omitted slide 始终留在 `dirty_slides`。prepared、partial 或 failed 都不得借清理 dirty state 宣称页面已完成。
+
+`complete|partial|failed` 是完整度；QA／editable `PASS|GENERATED_UNVERIFIED|BLOCKED|FAILED_VERIFICATION` 是独立验证状态。partial 的 SVG／editable artifact 与 manifest 必须使用 exporter 定义的独立、明确 partial 名称，不能覆盖 full artifact。`failed` 和 `prepared` 不产生 PPTX。
 
 部分既有夹具和运行包含可选 `approved` 对象。它不是必需字段，也不能授权阶段转换、替代 `pending_interaction` 的明确回答或覆盖文稿质量门；顶层 `stage` 和嵌套审查状态始终是权威记录。如果保留该对象，批准后必须与权威阶段保持一致：简报、大纲和锚点批准分别更新 `approved.brief`、`approved.outline` 和 `approved.style`。旧运行缺少该对象时不得自动添加。
 
@@ -186,7 +235,7 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 - `status: applied`；
 - `artifact_owner`：权威记录所镜像到的当前阶段产物。
 
-`affected_scope: deck` 或整套主题／品牌决定镜像到 `theme.json.user_revision_notes`；`affected_scope: anchor` 镜像到 `theme.json.user_revision_notes` 和受影响锚点页的故事板／revision provenance；具体页面决定只镜像到对应故事板／theme owner 与 revision provenance。镜像不得直接改写已选 style pack 的 prompt/tokens 或制造运行时第八条 Step-2 指令；需要改变风格时必须选择或重建一个通过完整验证的 style pack。镜像使用同一 `visual-revision-<N>` ID 并可以从历史重建；`run.json.interaction_history` 是权威记录并且必须跨失效保留。直接视觉修订与 guided 锚点修订采用同一记录、归并和冲突规则，不得把探索性预览、对话摘要或 SVG 本身作为唯一副本。
+`affected_scope: deck` 的全局风格／品牌决定镜像到 `theme.json.user_revision_notes`；新 style-only anchor 或单页决定写入 theme owner，或在失败页使用固定 runtime 的 `projection: runtime_visual` overlay，不为表达视觉变化改写简报、研究、来源、大纲或故事板内容。闭合 allowlist 内的 visual／metadata-only 变化由 semantic snapshot 证明，不要求重写 source-gate `evidence.files`。历史 materialized 修订继续按其原 owner 只读验证，但不得作为新写法复制。事实、来源、主张、限定、文案、content block 或叙事变化先返回对应内容 owner，并触发正式失效／重审。所有视觉修订使用同一 `visual-revision-<N>` ID 并可从历史重建；`run.json.interaction_history` 是权威记录并且必须跨失效保留。它们不得直接改写已选 style pack 的 prompt/tokens；需要改变 pack 时选择或重建通过完整验证的 style pack。探索性预览、对话摘要或 SVG 本身都不能成为唯一副本。
 
 明确替换同一字段的后续记录必须在 `supersedes` 中列出旧记录及字段。被替换记录保留在历史中，但其废弃规则不得进入当前有效契约。若无法确定新规则是共存还是替换、作用域不明确、目标字段不存在，或镜像与权威记录冲突，停止应用并持久化一个澄清问题；不得同时激活互斥规则。
 
@@ -207,7 +256,9 @@ Deck-scope `user_recompose` 把同一个 `interaction:<id>` 复制到每份受�
 
 不得把 `open_blocking_findings` 改名为 `unresolved_findings`。审查对象保存质量门状态、执行方式、轮次、最新报告、未解决阻断问题和完整历史。新运行的 `latest_report` 始终是 `文稿审查.md`；旧英文运行保留既有 `manuscript-review.md`。历史 `review_unavailable` 报告继续可读，但新运行的委派失败优先写 `inline_fallback` round，而不是空 review history。
 
-`manuscript_review.review_history` 保存每轮的 `cycle`、`round`、`reviewer_id`、`reviewer_context`、`review_mode`、冻结的 `reviewed_file_snapshot`、问题列表和作者修订说明。`review_mode: subagent` 必须包含宿主返回且非空、child/result 一致的 `delegation_evidence`，且不能包含 fallback evidence；`review_mode: inline_fallback` 必须包含 `delegation_attempted: true`、稳定 `reason` 和非空 `host_detail` 的 `fallback_evidence`，且不能包含 delegation evidence。旧记录缺 `review_mode` 但含 delegation evidence 时按 `subagent`。此前阻断问题 ID 必须持续可追踪，直到后续正式 subagent 或 inline round 用冻结证据标为 `RESOLVED`。
+`manuscript_review.review_history` 保存每轮的 `cycle`、`round`、`reviewer_id`、`reviewer_context`、`review_mode`、冻结的 `reviewed_file_snapshot`、问题列表和作者修订说明。新记录的 `reviewed_file_snapshot` 只来自只读 `ppt_review_snapshot.py --run-dir RUN` 的 `status: SNAPSHOT` 结果，字段集精确为 `{snapshot_id, files, file_hashes, semantic_file_hashes}`；`schema_version`／`kind` 只参与 helper 的 digest domain，不能加入 persisted object。对象原样冻结，`文稿审查.md` semantic snapshot machine block 必须等于最新 history 记录。legacy snapshot 没有 semantic map 时保持原字段与 exact-byte 语义，绝不 retroactively augment。
+
+`review_mode: subagent` 必须包含宿主返回且非空、child/result 一致的 `delegation_evidence`，且不能包含 fallback evidence；`review_mode: inline_fallback` 必须包含 `delegation_attempted: true`、稳定 `reason` 和非空 `host_detail` 的 `fallback_evidence`，且不能包含 delegation evidence。旧记录缺 `review_mode` 但含 delegation evidence 时按 `subagent`。此前阻断问题 ID 必须持续可追踪，直到后续正式 subagent 或 inline round 用冻结证据标为 `RESOLVED`。
 
 这些字段只是可移植的交接记录，不是可以自证的审计证明。行为验收必须把它们与保存的宿主 transcript 或协作日志逐项关联。
 
@@ -304,15 +355,15 @@ Markdown 记录使用与 JSON 相同的字段名。阶段产物镜像可以随�
 3. 同一 slide 已有 active blocker 时，显式 resume 后按 state 恢复：style/prompt blocker 重新验证当前资源和快照；`generator_unavailable` blocker 先复核快照，再重新协商同一宿主 adapter。仍失败则幂等刷新同一对象，不启动 generator，且结构性失败不得定时轮询。
 4. 另一 slide 已有 active blocker 时，先处理原 blocker，不创建并行 blocker；同一运行一次只允许一个 active `visual_generation_blocker`。
 5. canonical blocker 只能在无副作用 preflight 失败后，或该 preflight 成功而 adapter 协商失败后独立写入；本次尝试不得同时存在 prompt、`compiling` transaction 与 active blocker。历史 crash 留下 active blocker 与旧 v1 transaction 的非法组合时，不采用 durable prompt；恢复者先重新验证 blocker，仍失败则保留／刷新 blocker、保持旧 transaction 原样并停止。blocker 修复且完整无副作用 preflight 成功后，必须先以一次原子 `run.json` 替换只移除 blocker、原样保留旧 v1 owner，再重新进入全局顺序；不得跨过 v1 创建新 transaction。旧 v1 只能在等价 v2 transaction 与 manifest 已持久化并复读后，于发布 active pointer 的同一次原子 `run.json` 替换中删除。
-6. 阻断只作用于受影响 slide：该 slide 的 generator calls 与 SVG writes 必须为 0，不得降级为 patch、不得改用其他风格、不得创建或覆盖 SVG。blocker 必须在下一页开始前处理或停止；不存在其他 slide 的 active durable transaction 可以绕过它。
+6. 该 owner 只表示共享结构性／能力阻断，因此存在时全局停止生产写入；`slide_id` 只是按 original order 记录首个观察位置。受影响页 generator calls 与 SVG writes 为 0，且不能改风格、patch 或以 skip/best-effort 绕过。普通 `generator_refused|generator_timeout|generator_output_malformed|svg_contract_failed|fact_source_mismatch|visual_qa_failed` 不创建此 owner：它们保留在原 page transaction 中，由 active batch 继续处理独立 sibling 并在预算耗尽时结算 omission。
 
 全局恢复顺序固定为：`pending_interaction` > `manuscript_review.pending_round` > `visual_generation_blocker` > schema-v1 `visual_generation_transaction` migration > `active_visual_generation_batch` > stage scan。前一项存在时不得处理后一项。pending review 必须复用同一 cycle／round／snapshot；匹配 durable 报告只提交一次 history 并清除 pending。
 
 ### Transaction 创建前的无副作用 preflight
 
-每次首次生成或 `recompose` 必须先完成下面五个内存阶段：读取批准 outline/storyboard/theme 快照与权威 revisions；按 manifest → tokens → guidance → prompt 的固定 no-follow traversal 解析所选风格必须声明的完整 `files.prompt_template`，未声明则以 `style_asset_field_missing` fail closed，绝不选择仓库 authoring seed；组装不含来源注解、且逐块带唯一稳定 `block_id` 的 canonical narrative/material，并把闭合类型 `prompt_baseline` 保留为 QA 与 snapshot provenance；验证所有 snapshot、claim/source/qualifier/metric、narrative/revision/theme、capacity/safe-area/font/Office-safe 关系；按 byte grammar 在唯一 whole-line `{{NARRATIVE}}` 注点执行一次替换，验证 canonical bytes、自包含性并计算全部 hash/snapshot。批内页面可并行做内存准备；全部成功后先按已接受宿主边界协商 fresh-context 生成能力，仍不创建 durable owner。能力通过后才按 pointer-last 写 per-slide `compiling`→prompt→`compiled` transactions、manifest 与 active pointer。
+每次首次生成或 `recompose` 都先完成共享 owner／snapshot／adapter preflight，再对每个目标页执行闭合内存编译：读取批准 outline/storyboard/theme 与权威 revisions；按 manifest → tokens → guidance → prompt 的固定 no-follow traversal 解析所选风格声明的 `files.prompt_template`；组装不含来源注解、逐块带唯一稳定 `block_id` 的 canonical narrative/material；验证 claim/source/qualifier/metric、narrative/revision/theme、capacity/safe-area/font/Office-safe 关系；按 byte grammar 在唯一 whole-line `{{NARRATIVE}}` 注点替换一次并计算 identities。`prompt_baseline` 只作 QA 与 provenance。确定性 preflight 失败必须产生零 transaction／prompt／manifest／candidate 写入、零 generator 调用和零 SVG 写入。canonical owner 有效时，已定义的风格／模板阻断以及 capability 失败可由固定运行时独立写一次原子 run-level blocker；这不授权任何生产副作用。状态、snapshot、权限或路径完整性损坏仍停止所有写入，不能降级成 omission。
 
-确定性 preflight 失败必须产生零 transaction／prompt／manifest／candidate 写入、零 generator 调用和零 SVG 写入；capability 失败除一次原子 run-level blocker 写入外保持同样的零生产副作用。成功路径固定为：preflight + capability → transactions/prompts → manifest → active pointer → isolated model dispatch → coordinator candidate/hash → concurrent per-slide QA → validated → ordered serial promotion。
+共享 preflight 与能力通过后，runtime 才按 pointer-last 写 per-slide `compiling`→prompt→`compiled` transactions、manifest 与 active pointer。随后各页可独立 dispatch、source-enrich、写 candidate、执行结构检查与真实非 Office render QA；一个页面的普通输出／视觉失败只更新该页 transaction。任一页面达到 `validated` 且轮到其确定性 promotion slot 时即可 CAS 提升，不等待全批 candidate 都验证成功。promotion 仍按 `ordered_slide_ids` 串行；失败 slot 只有在 best-effort／explicit skip 已授权时才能密封为 omission，strict 未授权时保留失败并阻止 partial final，但后续独立 slot 仍可继续。最终以 `completed|partial|failed` manifest 收束可结算 batch。
 
 ## v1 只读迁移输入：可选 `visual_generation_transaction`
 
@@ -331,24 +382,26 @@ recovery: failed -> validated
 replacement: failed transaction -> new compiling transaction
 ```
 
-`failed transaction -> new compiling transaction` 只用于 authoritative inputs changed 或 deterministic fallback，是原子对象替换，不是同一 transaction edge。新操作到来时若已有非终态 transaction，必须先按全局恢复顺序恢复或停止，不得覆盖；transaction 未达到 `promoted` 前不得清除对应 `dirty_slides`，没有 pending 和 blocker 时才恢复 transaction，transaction 未完成时不得进入普通 stage scan。
+`failed transaction -> new compiling transaction` 在当前流程只用于 authoritative inputs changed 后的 canonical `user_recompose`／runtime visual replacement，并以 immutable journal 保留旧失败；已持久化的历史 `deterministic_fallback` replacement 只允许精确 replay，不能发出新的 current intent 或额外 dispatch。这是原子对象替换，不是同一 transaction edge。新操作到来时若已有非终态 transaction，必须先按全局恢复顺序恢复或停止，不得覆盖；transaction 未达到 `promoted` 前不得清除对应 `dirty_slides`，没有 pending 和 blocker 时才恢复 transaction，transaction 未完成时不得进入普通 stage scan。
 
-`failure_reason` 只能为 null 或以下 12 个稳定 reason：`prompt_write_failed`、`generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch`、`svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed`、`final_promotion_conflict`、`transaction_state_conflict`。
+`failure_reason` 只能为 null 或以下 13 个稳定 reason：`prompt_write_failed`、`generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch`、`svg_contract_failed`、`locked_content_mismatch`、`fact_source_mismatch`、`visual_qa_failed`、`final_promotion_conflict`、`transaction_state_conflict`。
 
 固定跨文件顺序和 crash 恢复如下：步骤只在上节五阶段无副作用 preflight 已完整成功后开始。先原子创建 `state: compiling` 并保留 previous final SVG；再以同目录 temp file + rename 原子持久化 `.ppt-pilot/generation-prompts/<slide-id>.md`，关闭、复读并验证 `prompt_snapshot_id` 与 `compiled_prompt_sha256`；匹配后才以一次 `run.json` 原子替换提交 `compiled`。prompt temp 写入、rename、复读或 hash 验证失败必须记录 `prompt_write_failed` 并原子 `compiling -> failed`，且此前 generator calls、candidate writes 与 SVG writes 必须为 0。显式 resume 时，authoritative inputs、template/body bytes 与 snapshots unchanged 才允许同一 transaction `failed -> compiling`，先隔离／删除 orphan temp，再完整执行原子写、复读与 hash 验证；authoritative inputs changed 时保留 failed audit，并以新的 `compiling` transaction 原子替换。本次尝试不得同时存在 active `visual_generation_blocker`；canonical blocker 只可能由 transaction 创建前的独立 preflight 失败写入。golden block 第 11 条 unhashed 回退生效时，复核改为重新推导并比对九个元数据字段与 payload keys，不做摘要比较。随后先原子改为 `generating`，再调用恰好一个 fresh generator。若 crash 留在 `generating`，此时没有 committed expected candidate hash；deterministic path 上的任何 orphan candidate 都必须 delete/isolate，never adopted，然后在显式恢复中重新调用 generator。只有 transaction durable 为 `candidate_written` 且记录非空 `candidate_sha256` 时，resume 才可复读候选并比较 hash；不匹配转 `failed: candidate_hash_mismatch`，匹配才继续验证。
 
-候选验证通过后原子改为 `validated`。只有 `validated` 能提升候选到 final：先把候选原子替换为 final path，再原子把 transaction 改为 `promoted`。如果 final 替换后、状态提交前 crash，resume 比较 final bytes 与记录的 `candidate_sha256`；相同补写 `promoted`，不同转 `failed: final_promotion_conflict`。dirty_slides 只在 promoted transaction 的页面和整套 QA 均通过后，随移除 transaction 的同一 `run.json` 原子替换清除；previous final SVG 在失败、验证和冲突期间始终保留。
+候选验证通过后原子改为 `validated`。只有 `validated` 能提升候选到 final：先把候选原子替换为 final path，再原子把 transaction 改为 `promoted`。如果 final 替换后、状态提交前 crash，resume 比较 final bytes 与记录的 `candidate_sha256`；相同补写 `promoted`，不同转 `failed: final_promotion_conflict`。`dirty_slides` 只有在该页 promoted、当前正式 SVG 通过所需 render-bound QA 并被 final delivery 列为 delivered 后才可清除；任何 omitted／failed／user-skipped page 始终保留 dirty。previous final SVG 在失败、验证和冲突期间始终保留。
 
-失败 consumer 唯一且完整：
+v1 表只规定迁移解释；迁移后所有动作由当前 v2 runtime 的 `advance`/recovery action 决定：
 
-| failed reasons | 唯一下一步 |
+| failed reasons | 唯一安全解释 |
 |---|---|
-| `prompt_write_failed` | 显式 resume 先确认 authoritative inputs、template/body bytes 与 snapshots 是否 unchanged。unchanged：保留同一 transaction ID，原子 `failed -> compiling`，隔离／删除 orphan temp，重新执行 temp+rename、关闭、复读、hash 验证，成功后才提交 `compiled`；整个过程在 `compiled -> generating` 前 generator/SVG side effects 为 0。changed：保留 failed audit，以新的 `compiling` transaction 原子替换。 |
-| `generator_unavailable`、`generator_refused`、`generator_timeout`、`generator_output_malformed`、`candidate_write_failed`、`candidate_hash_mismatch` | 下一次显式 resume 删除或隔离 orphan candidate，同一 transaction 原子 `failed -> generating`，`generation_attempt + 1`，保留同一 trigger 与 authoritative inputs，并重新调用 generator；每次宿主调用最多 generator 1 次，不自动循环；同一 transaction 的 `generation_attempt` 达到 `3` 后不得再次 resume 为 `generating`，改为持久化 production blocker 并停止，等待用户决定。 |
-| `svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed` | 先把 failure reason 与一个精确 defect 幂等持久化到该页 QA owner；然后进入 patch，或在已更新 QA defect 的同一次 `run.json` 替换中以新的 deterministic_fallback `compiling` transaction 替换 failed transaction。失败 candidate 不能提升为 final。 |
-| `final_promotion_conflict`、`transaction_state_conflict` | 持久化一个 production `blocker` 的 `pending_interaction` 并停止；不得覆盖未知 final 或删除 failed transaction。用户解决后若是 unchanged valid candidate 且 candidate/hash/provenance 未变，则原子 `failed -> validated` 并重试 promotion；若 authoritative inputs changed，则以新的 `compiling` transaction 替换。 |
+| `prompt_write_failed` | authoritative inputs 与 bytes unchanged 时可在同一 identity 内做零模型调用的原子重写、复读和验证；changed 时保留旧失败并重建新 transaction。 |
+| `generator_refused`、`generator_timeout`、`generator_output_malformed` | page-local。`generation_attempt < 3` 时 runtime 可返回同一页面下一次真实 dispatch；达到 3 时没有 retry/recompose/fallback 动作，原失败字节和 counter 保持，独立 sibling 继续。只有当前 best-effort／explicit skip 授权可把 omission 密封进 terminal manifest。 |
+| `svg_contract_failed`、`locked_content_mismatch`、`visual_qa_failed` | page-local。先把精确 defect 绑定到同页 QA；仍有真实预算时 runtime 可返回有界 local repair/recompose，预算耗尽时按同一 immutable failure 结算。失败 candidate 不能提升。legacy `locked_content_mismatch` 保留用于 migration，不自动改写成新的 failure label。 |
+| `generator_unavailable` | global adapter blocker；保持所有页面 evidence，不轮询、不改用当前上下文，也不以 best-effort omission 绕过。 |
+| `candidate_write_failed`、`candidate_hash_mismatch` | integrity recovery；隔离 owned orphan 并按 observed hashes 恢复，不能作为可交付 omission 或伪造 candidate。 |
+| `final_promotion_conflict`、`transaction_state_conflict` | global CAS/state blocker；保留 unknown final、previous final 与 failed transaction，由同一运行显式解决，不能转成 page omission。 |
 
-No arbitrary delete/cancel：除上述 failed consumer 与 promoted 后最终 QA 清理外，不存在取消、任意终止或直接删除 transaction。
+No arbitrary delete/cancel：除 runtime 返回的 owned-orphan 清理、immutable replacement journal 与 terminal settlement 外，不存在取消、任意终止、手改 PASS 或直接删除 transaction。
 
 ## 旧英文运行的只读兼容
 

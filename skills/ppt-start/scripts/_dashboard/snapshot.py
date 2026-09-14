@@ -13,6 +13,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
+from _delivery_contract import (
+    PAGE_FAILURE_REASONS, validate_delivery, verify_delivery_evidence, validate_delivery_review_state,
+)
+
 
 MAX_PAGES = 1000
 MAX_JSON_BYTES = 4 * 1024 * 1024
@@ -36,6 +40,14 @@ CHECKPOINTS = {
 BLOCKED_STAGES = {"manuscript_blocked": "manuscript_review", "review_unavailable": "manuscript_review"}
 TX_STATES = {"compiling", "compiled", "generating", "candidate_written",
              "validated", "promoted", "failed"}
+FAILURE_LABELS = {
+    "generator_refused": "生成器拒绝请求",
+    "generator_timeout": "生成器响应超时",
+    "generator_output_malformed": "生成结果格式无效",
+    "svg_contract_failed": "SVG 合规校验失败",
+    "fact_source_mismatch": "事实与来源不一致",
+    "visual_qa_failed": "视觉质量检查失败",
+}
 OBSERVED_DOCUMENTS = (
     ".ppt-pilot/简报.md", ".ppt-pilot/研究.md", ".ppt-pilot/来源.md",
     ".ppt-pilot/文稿审查.md", ".ppt-pilot/theme.json", ".ppt-pilot/质量检查报告.md",
@@ -251,6 +263,25 @@ def _storyboard(reader):
             continue
         try:
             text = reader.read(relative).decode("utf-8-sig")
+            if '```ppt-pilot-json' in text:
+                from _run_store import parse_json
+                fences = re.findall(r'(?ms)^```ppt-pilot-json\r?\n(.*?)\r?\n```[ \t]*\r?$', text)
+                if text.count('```ppt-pilot-json') != 1 or len(fences) != 1:
+                    raise ValueError('storyboard_owner_invalid')
+                owner = parse_json(fences[0].encode('utf-8'))
+                rows = owner.get('slides') if isinstance(owner, dict) else None
+                if not isinstance(rows, list) or not 1 <= len(rows) <= MAX_PAGES:
+                    raise ValueError('storyboard_owner_invalid')
+                structured = {}
+                for row in rows:
+                    sid = row.get('slide_id') if isinstance(row, dict) else None
+                    if not isinstance(sid, str) or not SLIDE_ID.fullmatch(sid) or sid in structured:
+                        raise ValueError('storyboard_owner_invalid')
+                    title = row.get('assertion_title', '')
+                    if not isinstance(title, str):
+                        raise ValueError('storyboard_owner_invalid')
+                    structured[sid] = title[:500]
+                return structured
             current = None
             for line in text.splitlines():
                 plain = line.replace("`", "").replace("**", "").strip()
@@ -270,6 +301,58 @@ def _storyboard(reader):
             reader.warn(relative + ": 故事板暂时不可解析")
             return result
     return result
+
+
+def _delivery(reader, run, planned_ids):
+    value = run.get("delivery")
+    if value is None:
+        return None, False
+    try:
+        targets = value.get("target_slide_ids") if isinstance(value, dict) else None
+        expected_targets = list(planned_ids) if planned_ids else targets
+        validate_delivery(value, expected_targets, final=False)
+        validate_delivery_review_state(run)
+        if run.get("production_policy", "strict") != value["policy"]:
+            raise ValueError("delivery_policy_mismatch")
+        status = value["status"]
+        if status in {"complete", "partial", "failed"} and run.get("stage") != status:
+            raise ValueError("delivery_stage_mismatch")
+        if status == "prepared" and run.get("stage") not in {"qa", "qa_approved"}:
+            raise ValueError("delivery_stage_mismatch")
+
+        def owner(candidates):
+            return next((relative for relative in candidates if reader.exists(relative)), candidates[0])
+
+        verify_delivery_evidence(
+            value,
+            lambda relative: reader.read(relative),
+            storyboard_path=owner((
+                ".ppt-pilot/故事板.md", ".ppt-pilot/storyboard.md",
+                "故事板.md", "storyboard.md",
+            )),
+            theme_path=owner((".ppt-pilot/theme.json", "theme.json")),
+            quality_report_path=owner((
+                ".ppt-pilot/质量检查报告.md", ".ppt-pilot/qa-report.md",
+                "质量检查报告.md", "qa-report.md",
+            )),
+            target_slide_ids=expected_targets,
+            final=status in {"complete", "partial"},
+        )
+        return {
+            "status": status,
+            "policy": value["policy"],
+            "target_slide_ids": list(value["target_slide_ids"]),
+            "delivered_slide_ids": list(value["delivered_slide_ids"]),
+            "missing_slides": [{
+                "slide_id": item["slide_id"],
+                "reason": item["reason"],
+                "failure_reason": item["failure_reason"],
+                "generation_attempt": item["generation_attempt"],
+            } for item in value["missing_slides"]],
+        }, False
+    except (OSError, KeyError, TypeError, ValueError, RecursionError):
+        reader.warn("delivery: 交付记录无效、证据过期或遗漏声明未验证")
+        return None, True
 
 
 def _batch(reader, run):
@@ -361,6 +444,8 @@ def _step_details(snapshot, review, storyboard_count):
         "qa": "检查页面内容、视觉呈现与兼容性。\n" + document("质量检查报告", "质量检查报告.md", "qa-report.md") + "；文件存在不代表检查通过",
         "complete": "核对全部正式页与质量结论后交付。\n" + pages + "；" + ("已记录交付完成" if snapshot["status"] == "complete" else "尚未确认交付完成"),
     }
+    if snapshot['status'] == 'partial':
+        details['complete'] = '本轮制作已结束，结果为部分交付。\n' + pages + '；未交付页面及失败证据已保留'
     if storyboard_count:
         details["storyboard"] += "；已解析 %d 页" % storyboard_count
     if isinstance(review, dict):
@@ -382,7 +467,16 @@ def _step_details(snapshot, review, storyboard_count):
 def _tasks(snapshot, review=None, storyboard_count=0):
     stage, status = snapshot["stage"], snapshot["status"]
     details = _step_details(snapshot, review, storyboard_count)
-    mapped = CHECKPOINTS.get(stage, BLOCKED_STAGES.get(stage, stage))
+    delivery = snapshot.get("delivery")
+    invalid_delivery = "delivery" in snapshot and delivery is None
+    if invalid_delivery and stage in {"complete", "partial", "failed"}:
+        mapped = "production"
+    elif stage == "failed" and isinstance(delivery, dict) and delivery.get("status") == "failed":
+        mapped = "production"
+    elif stage == "partial" and isinstance(delivery, dict) and delivery.get("status") == "partial":
+        mapped = "complete"
+    else:
+        mapped = CHECKPOINTS.get(stage, BLOCKED_STAGES.get(stage, stage))
     names = [item[0] for item in STAGES]
     index = names.index(mapped) if mapped in names else -1
     checkpoint = stage in CHECKPOINTS
@@ -392,7 +486,16 @@ def _tasks(snapshot, review=None, storyboard_count=0):
         if 0 <= position < index or position == index and checkpoint:
             state = "complete"
         elif position == index:
-            state = status
+            if invalid_delivery:
+                state = "blocked"
+            elif stage == "failed":
+                state = "failed"
+            elif stage == "partial":
+                state = "partial"
+            elif status == "prepared":
+                state = "running"
+            else:
+                state = status
         detail = details[name]
         if position == index and snapshot["notice"] and status in {"waiting", "blocked"}:
             detail += "\n需要处理：" + snapshot["notice"]["message"]
@@ -426,8 +529,12 @@ def _recovery_records(reader, run):
 
 def _finish(reader, result, review=None, storyboard_count=0):
     artifacts = list(reader.artifacts.values())
+    public_artifacts = [item for item in artifacts if not item["path"].startswith((
+        ".ppt-pilot/visual-generation-transactions/",
+        ".ppt-pilot/visual-generation-batches/",
+    ))]
     result["updated_at"] = max((item["updated_at"] for item in artifacts), default=None)
-    result["artifacts"] = [{"path": item["path"], "updated_at": item["updated_at"]} for item in artifacts]
+    result["artifacts"] = [{"path": item["path"], "updated_at": item["updated_at"]} for item in public_artifacts]
     result["warnings"] = reader.warnings
     result["tasks"] = _tasks(result, review, storyboard_count)
     basis = {"snapshot": result, "digests": [(item["path"], item["digest"]) for item in artifacts]}
@@ -496,40 +603,66 @@ def build_snapshot(run_dir):
             planned.setdefault("S%02d" % number, "")
             if len(planned) >= count:
                 break
+    delivery_present = "delivery" in run
+    delivery, delivery_error = _delivery(reader, run, list(planned))
+    if delivery_present:
+        result["delivery"] = delivery
     transactions, batch_error = _batch(reader, run)
+    legacy_targets_declared = bool(planned or transactions)
     finals = _files(reader, "slides")
     samples = {}
     for folder in (".ppt-pilot/samples", "samples"):
         for sid in _files(reader, folder):
             samples.setdefault(sid, folder + "/" + sid + ".svg")
-    ids = list(planned)
-    for sid in list(transactions) + finals + list(samples):
-        if sid not in ids:
-            ids.append(sid)
+    ids = list(delivery["target_slide_ids"]) if delivery else list(planned)
+    if not delivery_present:
+        for sid in list(transactions) + finals + list(samples):
+            if sid not in ids:
+                ids.append(sid)
     dirty = run.get("dirty_slides", [])
     if not isinstance(dirty, list) or not all(isinstance(sid, str) and SLIDE_ID.fullmatch(sid) for sid in dirty):
         reader.warn("dirty_slides 状态无效")
         dirty = []
         batch_error = True
-    for sid in dirty[:MAX_PAGES]:
-        if sid not in ids:
-            ids.append(sid)
+    if not delivery_present:
+        for sid in dirty[:MAX_PAGES]:
+            if sid not in ids:
+                ids.append(sid)
     if len(ids) > MAX_PAGES:
         reader.warn("逐页任务数量超过显示上限 1000")
         ids = ids[:MAX_PAGES]
     done = 0
     has_active = False
+    local_failures = []
+    active_siblings = []
+    delivered_ids = set(delivery["delivered_slide_ids"]) if delivery else set()
+    missing_by_id = ({item["slide_id"]: item for item in delivery["missing_slides"]}
+                     if delivery else {})
     for sid in ids:
         slide = {"id": sid, "title": planned.get(sid) or sid, "status": "pending", "dirty": sid in dirty,
                  "preview_path": None, "preview_kind": None, "version": None, "updated_at": None,
                  "detail": "等待页面产物"}
-        final = reader.preview("slides/" + sid + ".svg", "final") if sid in finals else None
+        expected_final = None
+        if delivery and sid in delivered_ids:
+            expected_final = run["delivery"]["slide_sha256"][sid]
+        final = (reader.preview("slides/" + sid + ".svg", "final", expected_final)
+                 if sid in finals else None)
         sample = reader.preview(samples[sid], "sample") if sid in samples and not final else None
         if final:
             slide.update(final)
-            slide.update(status="complete", detail="正式页面已产出；不代表质量检查已通过")
-            if not slide["dirty"]:
-                done += 1
+            if delivery and sid in delivered_ids:
+                if delivery['status'] == 'prepared':
+                    slide.update(status='ready', detail='正式页面已产出，等待交付质量检查')
+                else:
+                    slide.update(status="delivered", detail="正式页面已按交付证据验证")
+                if not slide["dirty"]:
+                    done += 1
+            elif delivery_present:
+                slide.update(status="waiting", detail="已有正式页面未被有效交付记录证明")
+            else:
+                slide.update(status="complete", detail="正式页面已产出；不代表质量检查已通过")
+                if not slide["dirty"]:
+                    done += 1
         elif sample:
             slide.update(sample)
             slide.update(status="waiting", detail="锚点样例可预览，尚非正式页面")
@@ -550,10 +683,19 @@ def build_snapshot(run_dir):
                     slide.update(status="running", detail="候选已持久化，等待验证或正式晋升")
                 has_active = True
             elif tx_state == "failed":
-                slide.update(status="blocked", detail="生成事务失败：" + str(tx.get("failure_reason") or "原因未记录")[:300])
-                batch_error = True
+                failure_reason = tx.get("failure_reason")
+                if failure_reason in PAGE_FAILURE_REASONS:
+                    local_failures.append(sid)
+                    slide.update(
+                        status="failed",
+                        detail=FAILURE_LABELS[failure_reason] + "；失败证据与尝试次数已保留",
+                    )
+                else:
+                    slide.update(status="blocked", detail="共享生成能力或事务状态失败，需要工作流检查")
+                    batch_error = True
             elif tx_state != "promoted":
                 has_active = True
+                active_siblings.append(sid)
                 slide.update(status="running", detail="已记录生成事务：" + tx_state + "；宿主活性未验证")
             elif not final:
                 reader.warn(sid + ": 晋升事务缺少可读取的正式页面")
@@ -563,24 +705,107 @@ def build_snapshot(run_dir):
             if not tx or tx["state"] == "promoted":
                 slide["status"] = "waiting"
             slide["detail"] += "；页面已标记待更新，已有正式预览可能过期"
+        if delivery:
+            if sid in delivered_ids:
+                if final is None or slide["dirty"]:
+                    delivery_error = True
+                    slide.update(status="blocked", detail="交付声明与当前正式页面不一致")
+            else:
+                missing = missing_by_id[sid]
+                omitted = missing["reason"] == "user_skipped"
+                slide["status"] = "omitted" if omitted else "failed"
+                slide["terminal_omission"] = True
+                slide["stale_preview"] = bool(final)
+                reason = "用户已跳过" if omitted else "生成尝试已用尽"
+                failure = FAILURE_LABELS[missing["failure_reason"]]
+                slide["detail"] = reason + "（" + failure + "）；未计入已交付页面；本轮不再自动重试，失败证据与次数已保留"
+                if final:
+                    slide["detail"] += "；当前显示的是旧版正式预览"
         result["slides"].append(slide)
-    result["progress"] = {"done": done, "total": len(ids)}
+    if delivery:
+        result["progress"] = {
+            "done": done,
+            "total": len(delivery["target_slide_ids"]),
+            "delivered": 0 if delivery['status'] == 'prepared' else done,
+            "processed": len(delivery["delivered_slide_ids"]) + len(delivery["missing_slides"]),
+        }
+    elif delivery_present:
+        result["progress"] = {
+            "done": 0, "total": len(ids), "delivered": 0, "processed": 0,
+        }
+    elif transactions:
+        result["progress"] = {
+            "done": done,
+            "total": len(ids),
+            "delivered": done,
+            "processed": sum(
+                tx.get("state") in {"promoted", "failed"} for tx in transactions.values()
+            ),
+        }
+    else:
+        result["progress"] = {"done": done, "total": len(ids)}
 
     recovery, invalid_recovery = _recovery_records(reader, run)
     batch_error = batch_error or invalid_recovery
-    known_stage = stage in {item[0] for item in STAGES} or stage in CHECKPOINTS or stage in BLOCKED_STAGES
+    terminal_stage = isinstance(delivery, dict) and stage in {"partial", "failed"}
+    known_stage = (stage in {item[0] for item in STAGES} or stage in CHECKPOINTS
+                   or stage in BLOCKED_STAGES or terminal_stage)
     result["status"] = "running" if known_stage else "unknown"
     if stage in BLOCKED_STAGES:
         result.update(status="blocked", notice={"kind": "pending_review", "message": "内容审查阻断，等待工作流处理"})
     if not known_stage:
         reader.warn("流程阶段未记录或无法识别")
-    if stage == "complete":
-        if ids and done == len(ids) and not has_active and not reader.warnings and not batch_error:
+    if delivery:
+        outcome = delivery["status"]
+        if delivery_error:
+            result.update(status="blocked", notice={
+                "kind": "invalid_delivery",
+                "message": "交付记录或当前正式页面未通过证据验证",
+            })
+        elif outcome == "partial":
+            result.update(status="partial", notice={
+                "kind": "partial_delivery",
+                "message": "已交付 %d / %d 页；其余页面已明确记录为跳过或失败" % (
+                    result["progress"]["delivered"], result["progress"]["total"]),
+            })
+        elif outcome == "failed":
+            result.update(status="failed", notice={
+                "kind": "failed_delivery",
+                "message": "本轮已结束，没有通过检查的可交付页面；失败记录已保留",
+            })
+        elif outcome == "prepared":
+            result.update(status="prepared", notice={
+                "kind": "prepared_delivery",
+                "message": "交付范围已准备，等待质量检查完成",
+            })
+        elif (result["progress"]["delivered"] == result["progress"]["total"]
+              and not has_active and not reader.warnings and not batch_error):
+            result["status"] = "complete"
+        else:
+            result.update(status="blocked", notice={
+                "kind": "invalid_delivery",
+                "message": "完整交付声明与当前正式页面不一致",
+            })
+    elif delivery_present:
+        result.update(status="blocked", notice={
+            "kind": "invalid_delivery",
+            "message": "交付记录无效、证据过期或遗漏声明未验证",
+        })
+    elif stage == "complete":
+        if (legacy_targets_declared and ids and done == len(ids) and not has_active
+                and not reader.warnings and not batch_error):
             result["status"] = "complete"
         else:
             result.update(status="blocked", notice={"kind": "incomplete_delivery", "message": "已记录完成，但正式页缺失、过期或仍有待处理状态"})
     if batch_error:
         result.update(status="blocked", notice={"kind": "generation_state", "message": "生成事务需要工作流检查"})
+    elif local_failures and result["status"] == "running":
+        failed_text = "、".join(local_failures[:8])
+        active_text = "、".join(active_siblings[:8])
+        message = failed_text + " 生成失败，失败证据与尝试次数已保留"
+        if active_text:
+            message += "；" + active_text + " 等健康页面仍可独立处理"
+        result["notice"] = {"kind": "page_failures", "message": message}
 
     pending = recovery["pending_interaction"]
     review = recovery["manuscript_review"]

@@ -156,7 +156,7 @@ def audit_artifacts(root, stage='brief', source_path=None):
             pass
     for name, path, directory in entries:
         if directory:
-            allowed = name in allowed_dirs or (stage == 'complete' and
+            allowed = name in allowed_dirs or (stage in ('complete', 'partial') and
                 (name in ('delivery/editable/.tmp', 'delivery/editable/quarantine') or
                  name.startswith(('delivery/editable/.tmp/', 'delivery/editable/quarantine/'))))
         else:
@@ -165,7 +165,7 @@ def audit_artifacts(root, stage='brief', source_path=None):
             if p.suffix.lower() == '.pptx':
                 if path.suffix.lower() == '.pptx' and source_name == os.path.normcase(str(path)):
                     continue
-                if stage != 'complete':
+                if stage not in ('complete', 'partial'):
                     reject('precomplete_pptx', name)
                 elif not name.startswith('delivery/editable/'):
                     reject('pptx_outside_delivery', name)
@@ -174,8 +174,9 @@ def audit_artifacts(root, stage='brief', source_path=None):
                 (p.parent.as_posix() in ('.', '.ppt-pilot') and p.name in DOCUMENTS) or
                 (p.parent.as_posix() == '.ppt-pilot' and p.name in INTERNAL) or
                 p.suffix.lower() in DIRECTORY_TYPES.get(p.parent.as_posix(), set()))
-            if stage == 'complete' and name.startswith('delivery/editable/'):
-                allowed = (base in ('delivery/editable/editable-result.json', 'delivery/editable/.editable.lock') or
+            if stage in ('complete', 'partial') and name.startswith('delivery/editable/'):
+                allowed = (base in ('delivery/editable/editable-result.json', 'delivery/editable/.editable.lock',
+                                    'delivery/editable/editable-result-partial.json', 'delivery/editable/.editable-partial.lock') or
                     (name.startswith(('delivery/editable/.tmp/', 'delivery/editable/quarantine/')) and
                      p.suffix.lower() in DATA_TYPES | {'.pptx'}))
         if not allowed:

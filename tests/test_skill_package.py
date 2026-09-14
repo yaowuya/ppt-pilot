@@ -88,7 +88,7 @@ class SkillPackageTests(unittest.TestCase):
         self.assertNotIn("$ppt-start", shared_skill)
 
         for token in (
-            "纯指令",
+            "固定运行时",
             "可选网络",
             "独立子 agent",
             "review_unavailable",

@@ -29,7 +29,9 @@ def extract_svg(generator_text: str) -> str:
     return match.group(1)
 
 
-def _validate_svg(svg_text, *, enriched=False, title_min_size=40):
+def validate_svg(svg_text, *, enriched=False, title_min_size=40, warnings=None):
+    if warnings is not None and not isinstance(warnings, list):
+        raise ValueError("svg_contract_failed")
     if not isinstance(svg_text, str) or re.search(r"<\?(?!xml\s)", svg_text, re.IGNORECASE):
         raise ValueError("svg_contract_failed")
     root = parse_xml(svg_text.encode("utf-8"), "candidate SVG", "{" + SVG_NS + "}svg")
@@ -89,10 +91,26 @@ def _validate_svg(svg_text, *, enriched=False, title_min_size=40):
         if (element.tail or "").strip():
             raise ValueError("svg_contract_failed")
         try:
-            validate_geometry(element, inherited, title_min_size=title_min_size)
+            geometry_warnings = validate_geometry(element, inherited, title_min_size=title_min_size)
         except GeometryError as error:
             error.details['element'] = {'tag': local, 'index': index}
             raise
+        if warnings is not None and geometry_warnings:
+            warnings.extend(geometry_warnings)
+        if warnings is not None and local == "text":
+            size = number(element.get("font-size", ""))
+            if element.get("data-role") == "footnote" and title_min_size == 40 and 14 <= size < 20:
+                warnings.append({"code": "text_role_normalization_unverified",
+                                 "element_index": index, "font_size": size})
+            y = number(element.get("y", ""))
+            merged = dict(inherited)
+            merged.update(element.attrib)
+            stroke = (number(merged.get("stroke-width", "1"))
+                      if merged.get("stroke", "none") != "none" else 0)
+            top, bottom = y - size - stroke / 2, y + size * .25 + stroke / 2
+            if abs(top - 64) < 1e-9 or abs(bottom - 656) < 1e-9:
+                warnings.append({"code": "text_vertical_normalization_unverified",
+                                 "element_index": index, "top": top, "bottom": bottom})
         attrs = dict(inherited)
         attrs.update(element.attrib)
         for child in element:
@@ -103,17 +121,74 @@ def _validate_svg(svg_text, *, enriched=False, title_min_size=40):
     return root
 
 
-def validate_candidate(svg_text, expected_block_ids, source_map, *, title_min_size=40) -> bytes:
+_validate_svg = validate_svg  # Backward-compatible internal name.
+
+
+def normalize_text_roles(svg_text, *, title_min_size=40, warnings=None):
+    """Correct invalid role pairs and minimal vertical text overflow pre-write."""
+    if warnings is not None and not isinstance(warnings, list):
+        raise ValueError("svg_contract_failed")
+    if not isinstance(svg_text, str):
+        raise ValueError("svg_contract_failed")
+    root = parse_xml(svg_text.encode("utf-8"), "candidate SVG", "{" + SVG_NS + "}svg")
+    changed = False
+    for index, element in enumerate(root.iter()):
+        if element.tag.rsplit("}", 1)[-1] != "text":
+            continue
+        try:
+            size = number(element.get("font-size", ""))
+        except GeometryError:
+            continue
+        role = element.get("data-role")
+        corrected = None
+        if role == "body" and title_min_size == 40 and 14 <= size < 20:
+            corrected = "footnote"
+        if corrected is not None:
+            element.set("data-role", corrected)
+            changed = True
+            if warnings is not None:
+                warnings.append({"code": "text_role_normalized", "element_index": index,
+                                 "font_size": size})
+        try:
+            y = number(element.get("y", ""))
+            stroke = (number(element.get("stroke-width", "1"))
+                      if element.get("stroke", "none") != "none" else 0)
+        except GeometryError:
+            continue
+        top, bottom = y - size - stroke / 2, y + size * .25 + stroke / 2
+        shift = (64 - top if 60 <= top < 64 else
+                 656 - bottom if 656 < bottom <= 660 else 0)
+        if shift:
+            old_y = element.get("y")
+            new_y = y + shift
+            formatted = str(int(new_y)) if new_y.is_integer() else format(new_y, ".15g")
+            element.set("y", formatted)
+            if len(element) == 1 and element[0].get("y") == old_y:
+                element[0].set("y", formatted)
+            changed = True
+            if warnings is not None:
+                warnings.append({"code": "text_vertical_shifted", "element_index": index,
+                                 "original_y": y, "normalized_y": new_y, "shift": shift})
+    if not changed:
+        return svg_text
+    ET.register_namespace("", SVG_NS)
+    return ET.tostring(root, encoding="unicode")
+
+
+def validate_candidate(svg_text, expected_block_ids, source_map, *, title_min_size=40, warnings=None) -> bytes:
     """Title floor comes from verified style data, never the SVG or host input."""
+    if warnings is not None and not isinstance(warnings, list):
+        raise ValueError("svg_contract_failed")
     if type(title_min_size) not in (int, float) or not 34 <= title_min_size <= 4096:
         raise ValueError("svg_contract_failed")
+    svg_text = normalize_text_roles(svg_text, title_min_size=title_min_size, warnings=warnings)
     if (not isinstance(expected_block_ids, (list, tuple)) or not expected_block_ids
         or any(not isinstance(block, str) or _BLOCK_ID.fullmatch(block) is None for block in expected_block_ids)
         or len(expected_block_ids) != len(set(expected_block_ids))
         or len({block.split("-B")[0] for block in expected_block_ids}) != 1
         or not isinstance(source_map, dict) or set(expected_block_ids) != set(source_map)):
         raise ValueError("fact_source_mismatch")
-    root = _validate_svg(svg_text, title_min_size=title_min_size)
+    root = validate_svg(svg_text, title_min_size=title_min_size, warnings=warnings)
     prefix = expected_block_ids[0].split("-B")[0].lower() + "-"
     if any(node.get("id") and not node.get("id").startswith(prefix) for node in root.iter()):
         raise ValueError("svg_contract_failed")

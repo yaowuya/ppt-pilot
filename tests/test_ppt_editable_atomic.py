@@ -15,6 +15,7 @@ sys.path.insert(0, str(SCRIPTS_ROOT))
 
 import _ppt_editable.atomic_io as atomic_io  # noqa: E402
 from _ppt_editable import EditableError, EditableResult  # noqa: E402
+from _ppt_editable.model import MissingSlide  # noqa: E402
 from _ppt_editable.atomic_io import (  # noqa: E402
     OutputLock,
     atomic_write_bytes,
@@ -167,6 +168,55 @@ class AtomicIoTests(unittest.TestCase):
         self.assertFalse(transaction.directory.exists())
         self.assertEqual(report.cleaned, 1)
         self.assertEqual(report.quarantined, 0)
+
+    def test_partial_crash_recovery_quarantines_only_partial_namespace(self):
+        paths = build_output_paths(self.run_dir, "example-deck", "partial")
+        missing = MissingSlide(
+            slide_id="S02",
+            reason="attempts_exhausted",
+            failure_reason="svg_contract_failed",
+            generation_attempt=3,
+            transaction_id="sha256:" + "b" * 64,
+            transaction_ref=(
+                ".ppt-pilot/visual-generation-transactions/S02-"
+                + "b" * 64
+                + ".json"
+            ),
+            transaction_sha256="sha256:" + "c" * 64,
+        )
+        result = EditableResult(
+            status="PASS",
+            deck_id="example-deck",
+            input_snapshot_id=self.snapshot,
+            slide_count=1,
+            delivery_status="partial",
+            delivery_policy="best_effort",
+            target_slide_ids=("S01", "S02"),
+            delivered_slide_ids=("S01",),
+            missing_slides=(missing,),
+        )
+        transaction = begin_promotion(paths, self.snapshot, "verified")
+        staged = self._stage(transaction)
+
+        def crash(phase):
+            if phase == "after_target_replaced":
+                raise RuntimeError("crash")
+
+        with self.assertRaisesRegex(RuntimeError, "crash"):
+            promote_output(transaction, staged, result, fault_injector=crash)
+        self.assertTrue(paths.verified_path.is_file())
+
+        report = recover_incomplete_transactions(paths)
+
+        self.assertEqual(report.quarantined, 1)
+        self.assertFalse(paths.verified_path.exists())
+        self.assertTrue(any(paths.quarantine_dir.iterdir()))
+        self.assertEqual(paths.quarantine_dir.name, "partial")
+        self.assertEqual(paths.tmp_dir.name, "partial")
+        self.assertEqual(paths.lock_path.name, ".editable-partial.lock")
+        full = build_output_paths(self.run_dir, "example-deck")
+        self.assertFalse(full.manifest_path.exists())
+        self.assertFalse(full.verified_path.exists())
 
     def test_recovery_quarantines_uncommitted_target_without_previous_final(self):
         transaction = begin_promotion(self.paths, self.snapshot, "verified")

@@ -49,7 +49,7 @@ EXPECTED_GREEN_OUTPUT_SHA256 = {
 
 
 EXPECTED_DESCRIPTION = (
-    "Use when a completed PPT Pilot SVG run must be delivered as a PowerPoint "
+    "Use when a finalized PPT Pilot SVG run, complete or explicitly partial, must be delivered as a PowerPoint "
     "deck with editable native shapes, editable text, preserved SVG groups, or "
     "verified Office rendering."
 )
@@ -229,7 +229,7 @@ class PptEditablePressureFixtureTests(unittest.TestCase):
                 self.assertTrue(record["observed_failures"])
 
         self.assertEqual(set(by_id), set(case_by_id))
-    def test_pressure_green_outputs_are_hash_locked_and_compliant(self):
+    def test_historical_pressure_green_outputs_are_hash_locked_and_compliant(self):
         baseline_path = self.fixture_root / "pressure-baseline.json"
         baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
         self.assertIn("green_cases", baseline)
@@ -239,8 +239,9 @@ class PptEditablePressureFixtureTests(unittest.TestCase):
         provenance = baseline["green_provenance"]
         self.assertEqual([record["id"] for record in provenance], list(case_by_id))
         skill_hash = hashlib.sha256(
-            (skill_root("ppt-editable") / "SKILL.md").read_bytes()
+            (self.fixture_root / "pressure-skill-v1.md").read_bytes()
         ).hexdigest()
+        self.assertEqual(skill_hash, '83d4ebfcd43a04ed4eb5b8e0a373799c9df51b956a85b3a83df736a13a7aa353')
         for record in provenance:
             self.assertEqual(
                 set(record),
@@ -308,6 +309,43 @@ class PptEditablePressureFixtureTests(unittest.TestCase):
                 )
             self.assertTrue(record["complied"])
             self.assertEqual(record["observed_failures"], [])
+    def test_current_resilient_policy_has_fresh_hash_bound_decisions(self):
+        records = json.loads((self.fixture_root / 'pressure-resilient-delivery.json').read_text(encoding='utf-8'))
+        self.assertEqual(records['run_kind'], 'fresh-agent-policy-only')
+        self.assertEqual(records['model_requested'], 'haiku')
+        self.assertIsNone(records['model_resolved'])
+        self.assertEqual(records['skill_sha256'], hashlib.sha256((skill_root('ppt-editable') / 'SKILL.md').read_bytes()).hexdigest())
+        expected = {
+            'missing-powerpoint-no-false-pass': 'e27b63a60e5ac38e38b4259009187f1c6722003b9f8706b2bd19af83a7a0a807',
+            'unsupported-transform-no-image-fallback': '5526cf97cd09d006ad543946bef4d36616fdb639695f61308ddaf1beee829539',
+            'unverified-never-overwrites-pass': '8d39cae6686f681f4c78d6720bafffd1df9b15ca745b3594db45a1b081b20a7c',
+            'partial-does-not-pretend-complete': 'd870cf4bf799ae9d9c997e3ac6bdfdccf84affde39cf68fef5d5dee594fb8e14',
+        }
+        self.assertEqual({record['id'] for record in records['cases']}, set(expected))
+        self.assertEqual(len({record['agent_id'] for record in records['cases']}), 4)
+        for record in records['cases']:
+            with self.subTest(case=record['id']):
+                self.assertEqual(record['scenario_sha256'], hashlib.sha256(record['scenario'].encode('utf-8')).hexdigest())
+                self.assertEqual(record['output_sha256'], expected[record['id']])
+                self.assertEqual(hashlib.sha256(record['verbatim_output'].encode('utf-8')).hexdigest(), expected[record['id']])
+        outputs = {record['id']: record['verbatim_output'] for record in records['cases']}
+        unavailable = outputs['missing-powerpoint-no-false-pass']
+        self.assertIn('GENERATED_UNVERIFIED', unavailable)
+        self.assertIn('-editable-unverified.pptx', unavailable)
+        self.assertNotIn('PASS', unavailable)
+        unsupported = outputs['unsupported-transform-no-image-fallback']
+        self.assertIn('BLOCKED', unsupported)
+        self.assertIn('svg_attribute_unsupported', unsupported)
+        self.assertIn('Publish no new deck', unsupported)
+        preserved = outputs['unverified-never-overwrites-pass']
+        self.assertIn('-editable-unverified.pptx', preserved)
+        self.assertRegex(preserved.lower(), r'preserve.*verified.*unchanged')
+        partial = outputs['partial-does-not-pretend-complete']
+        for text in ('verification_status=GENERATED_UNVERIFIED', 'delivery_status=partial',
+                     '-editable-partial-unverified.pptx', 'S06'):
+            self.assertIn(text, partial)
+        self.assertNotIn('-editable.pptx', partial)
+        self.assertNotIn('status=PASS', partial)
 
 
 if __name__ == "__main__":

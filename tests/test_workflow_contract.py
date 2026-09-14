@@ -83,15 +83,14 @@ class WorkflowContractTests(unittest.TestCase):
             )
         )
         for token in (
-            "已有运行先审计",
-            "不启动或重启 dashboard",
-            "不暂存 generator 响应",
-            "不调用 `ingest-result`",
-            "不得手写 owner",
-            "固定 `ppt_runtime.py` 不存在",
-            "不得手写 `generator_unavailable`",
+            "audit", "BLOCKED", "停止写入", "全局阻断",
+            "不启动或重启 dashboard", "维护脚本", "CAS",
         ):
             self.assertIn(token, combined)
+        skill = read_text(skill_root() / 'SKILL.md')
+        self.assertIn('scripts/ppt_entry.py', skill)
+        self.assertIn('runtime-canonical-owners.md', skill)
+        self.assertIn('不要自行计算或编辑事务', skill)
 
     def test_style_blocker_tuple_allows_malformed_guidance_but_not_schema_guidance(self):
         contract = read_text(self.contract_path)
@@ -129,22 +128,18 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertEqual(stages[: len(self.WORKFLOW_STAGES)], self.WORKFLOW_STAGES)
 
     def test_workflow_modes_and_review_hard_gate(self):
-        text = read_text(self.workflow_path)
+        text = '\n'.join((read_text(self.workflow_path),
+                          read_text(self.reference_root / 'interaction-protocol.md'),
+                          read_text(self.reference_root / 'manuscript-review.md')))
         lower = text.lower()
-
         for mode in self.REQUIRED_MODE_TOKENS:
-            self.assertIn(mode, lower, f"workflow.md should declare mode: {mode}")
-
-        self.assertIn("硬质量门", lower)
-        self.assertRegex(
-            lower,
-            r"最多(?:执行)?三轮|三轮文稿审查",
-            "workflow.md 应明确文稿审查最多三轮",
-        )
-        self.assertTrue(
-            all(state in lower for state in self.REVIEW_STATES),
-            f"workflow.md should include explicit states: {sorted(self.REVIEW_STATES)}",
-        )
+            self.assertIn(mode, lower, f"workflow references should declare mode: {mode}")
+        for token in ('blocker', 'high', 'resolved', 'manuscript_approved', 'reviewed_file_snapshot'):
+            self.assertIn(token, lower)
+        self.assertTrue(all(state in lower for state in self.REVIEW_STATES))
+        workflow = read_text(self.workflow_path)
+        for token in ('四节点', 'complete|partial|failed', 'best_effort', 'strict', 'advance', 'finalize'):
+            self.assertIn(token, workflow)
 
     def test_artifact_contract_reference_exists(self):
         self.assertTrue(self.contract_path.exists(), f"Missing artifact contract file: {self.contract_path}")
@@ -346,14 +341,16 @@ class WorkflowContractTests(unittest.TestCase):
             "重叠",
             "对比度",
             "对齐",
-            "整套演示 qa",
+            "整套 qa",
             "叙事",
             "节奏",
             "visual_qa: rendered",
             "visual_qa: not_rendered",
-            "两次修复",
-            "single-column",
-            "two-column",
+            "page-local",
+            "最多三次真实",
+            "best_effort",
+            "partial",
+            "omitted_transaction_sha256",
             "硬检查",
             "每个非背景元素",
             "页脚",
@@ -394,10 +391,10 @@ class WorkflowContractTests(unittest.TestCase):
                 f"{label} must guard visual stages with persistent review state",
             )
         self.assertNotIn("production starts only from `run.json.stage: manuscript_approved`", qa)
-        self.assertIn("`manuscript_approved` 检查点", workflow)
-        self.assertIn("设置 `stage: theme`", workflow)
-        self.assertIn("设置 `stage: anchor`", workflow)
-        self.assertIn("设置 `stage: production`", workflow)
+        self.assertIn('manuscript_review.state == manuscript_approved', workflow)
+        for token in ('`theme`', '`anchor`', '`production`', 'advance', 'finalize'):
+            self.assertIn(token, workflow)
+        self.assertNotIn('设置 `stage: production`', workflow)
 
     def test_resume_and_revision_prompts_define_expected_branching(self):
         expected = {"resume-after-review.md", "revise-single-slide.md"}
@@ -476,15 +473,14 @@ class WorkflowContractTests(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(token, combined)
-        self.assertIn("patch` 必须读取", qa)
-        self.assertIn("当前 SVG", qa)
-        self.assertIn("旧 SVG 不得提供给 `recompose`", qa)
-        self.assertIn("事实、主张、来源", qa)
-        self.assertIn("文稿批准失效", qa)
-        self.assertIn(
-            "schema-v1 `visual_generation_transaction` migration：只有没有 pending 与 blocker 时执行零模型调用迁移",
-            qa,
-        )
+        for token in ('advance', 'remaining attempts 为 0', 'immutable', 'best_effort', 'partial'):
+            self.assertIn(token, qa)
+        self.assertIn('recompose 接收完整 frozen prompt，不接收旧 SVG', qa)
+        for token in ('事实', '主张', '来源', '正式重审'):
+            self.assertIn(token, qa)
+        runtime = read_text(self.reference_root / 'runtime-canonical-owners.md')
+        self.assertIn('migrate-v1', runtime)
+        self.assertIn('No runtime command calls a model', runtime)
 
 
 if __name__ == "__main__":

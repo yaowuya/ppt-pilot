@@ -20,7 +20,7 @@ class PathCompatibilityContractTests(unittest.TestCase):
         cls.qa = read_reference("qa-and-revision.md")
         cls.review = read_reference("manuscript-review.md")
         cls.combined = "\n".join(
-            (cls.workflow, cls.artifacts, cls.qa, cls.review)
+            (cls.workflow, cls.artifacts, cls.qa, cls.review, read_reference('runtime-canonical-owners.md'))
         )
 
     def test_active_path_map_keeps_outline_at_root(self):
@@ -39,7 +39,6 @@ class PathCompatibilityContractTests(unittest.TestCase):
         for text, label in (
             (self.workflow, "workflow.md"),
             (self.artifacts, "artifact-contract.md"),
-            (self.qa, "qa-and-revision.md"),
         ):
             self.assertRegex(
                 text,
@@ -53,14 +52,13 @@ class PathCompatibilityContractTests(unittest.TestCase):
         )
 
     def test_resume_snapshot_reads_root_outline(self):
-        self.assertRegex(
-            self.qa,
-            r"resume[^\n]*(?:运行)?根目录[^\n]*`大纲\.md`[^\n]*outline_snapshot_id",
-        )
-        self.assertRegex(
-            self.qa,
-            r"outline_snapshot_id[^\n]*(?:读取|来源|计算)[^\n]*(?:运行)?根目录[^\n]*`大纲\.md`",
-        )
+        import sys
+        sys.path.insert(0, str(ROOT / 'skills/ppt-start/scripts'))
+        from _review_snapshot import CHINESE_MANUSCRIPT_FILES, ENGLISH_MANUSCRIPT_FILES
+        self.assertEqual(CHINESE_MANUSCRIPT_FILES[3], '大纲.md')
+        self.assertEqual(ENGLISH_MANUSCRIPT_FILES[3], 'outline.md')
+        self.assertIn('`大纲.md` carries `outline_snapshot_id`', read_reference('runtime-canonical-owners.md'))
+        self.assertIn('runtime-canonical-owners.md', self.qa)
 
     def test_new_runs_write_only_chinese_canonical_names(self):
         self.assertRegex(
@@ -87,11 +85,11 @@ class PathCompatibilityContractTests(unittest.TestCase):
         )
 
         for name in expected - {"manuscript-review.md"}:
-            self.assertIn(name, self.qa)
+            self.assertIn(name, self.combined)
             self.assertIn(name, self.review)
 
+        self.assertIn('runtime-canonical-owners.md', self.qa)
         for text, label in (
-            (self.qa, "qa-and-revision.md"),
             (self.review, "manuscript-review.md"),
         ):
             self.assertRegex(text, r"(?:resume|revise)[^\n]*(?:原位|就地)[^\n]*(?:读取|使用)")
@@ -102,15 +100,14 @@ class PathCompatibilityContractTests(unittest.TestCase):
             )
 
     def test_legacy_compatibility_does_not_bypass_state_validation(self):
-        for text, label in (
-            (self.qa, "qa-and-revision.md"),
-            (self.review, "manuscript-review.md"),
-        ):
-            self.assertRegex(
-                text,
-                r"(?:缺失|无效|invalid|stale|过期|dirty|脏)[^\n]*(?:阻断|拒绝|停止)",
-                f"{label} must still block invalid or dirty legacy state",
-            )
+        self.assertIn('snapshot', self.qa)
+        self.assertIn('全局', self.qa)
+        self.assertIn('阻断', self.qa)
+        self.assertIn('previous final', self.qa)
+        self.assertRegex(self.review, r'(?:缺失|无效|invalid|stale|过期|dirty|脏)[^\n]*(?:阻断|拒绝|停止)')
+        owner = read_reference('runtime-canonical-owners.md')
+        self.assertIn('Legacy approvals', owner)
+        self.assertIn('exact-byte strict', owner)
 
 
 if __name__ == "__main__":

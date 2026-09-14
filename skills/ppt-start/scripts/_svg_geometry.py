@@ -176,12 +176,13 @@ def validate_geometry(element, inherited, *, title_min_size=40):
         raise GeometryError("invalid_geometry")
     get = lambda key, default="0": number(element.get(key, default))
     points = []
+    warnings = []
     if tag == "rect":
         x, y, width, height = get("x"), get("y"), get("width"), get("height")
         if width < 0 or height < 0 or get("rx") < 0 or get("ry") < 0:
             raise GeometryError("invalid_geometry")
         if (x, y, width, height) == (0, 0, 1280, 720) and attrs.get("stroke", "none") == "none":
-            return
+            return None
         points = [(x, y), (x + width, y + height)]
     elif tag in ("circle", "ellipse"):
         x, y = get("cx"), get("cy")
@@ -226,8 +227,11 @@ def validate_geometry(element, inherited, *, title_min_size=40):
             raise GeometryError("invalid_text")
         left = x - (width / 2 if anchor == "middle" else width if anchor == "end" else 0)
         available = 2 * min(x - 64, 1216 - x) if anchor == "middle" else x - 64 if anchor == "end" else 1216 - x
-        if width > available * .88:
+        if width > available:
             raise GeometryError("text_overflow")
+        if width > available * .88:
+            warnings.append({"code": "text_margin_unverified", "estimated_width": width,
+                             "available_width": available, "margin_limit": available * .88})
         line_attrs = dict(attrs)
         line_attrs.update(line.attrib)
         text_stroke = number(line_attrs.get("stroke-width", "1")) if line_attrs.get("stroke", "none") != "none" else 0
@@ -250,3 +254,4 @@ def validate_geometry(element, inherited, *, title_min_size=40):
             allowance = max(allowance, stroke / 2 * math.sqrt(2))
         _safe_box(min(p[0] for p in points) - allowance, min(p[1] for p in points) - allowance,
                   max(p[0] for p in points) + allowance, max(p[1] for p in points) + allowance)
+    return warnings or None

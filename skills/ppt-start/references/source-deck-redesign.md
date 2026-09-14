@@ -77,7 +77,7 @@ python <skill-dir>/scripts/ppt_source_intake.py --source <旧稿.pptx绝对路�
 python <skill-dir>/scripts/ppt_workflow_gate.py --run-dir <run绝对路径> --audit-run
 ```
 
-它不要求当前运行一定是外部旧稿，并且只读检查：顶层 stage/control 是否仍属于规范工作流；是否出现 `native_*`、`run_level_generator_blocker`、`anchor_plan`、`execution_hold` 等宿主自创旁路；`complete` 前是否写入绑定源稿之外的 `.pptx`；完成后的 `.pptx` 是否只位于 `delivery/editable/`。发现旁路时返回 `workflow_escape_state`、`precomplete_pptx` 或 `pptx_outside_delivery` 并停止。生成／恢复流程遇此结果必须停止，不能自动移动文件或创建新的“干净”运行绕过审计。若用户另行明确授权维护，应先保留审计证据，在维护步骤处理违规产物后重新审计，再按报告阶段原地恢复；不得删除痕迹后沿用旁路状态。
+它不要求当前运行一定是外部旧稿，并且只读检查：顶层 stage/control 是否仍属于规范工作流；是否出现 `native_*`、`run_level_generator_blocker`、`anchor_plan`、`execution_hold` 等宿主自创旁路；是否在合法 final delivery 前写入绑定源稿之外的 `.pptx`；final `.pptx` 是否只位于 `delivery/editable/`。只有 `stage: complete` + `delivery.status: complete` 或 `stage: partial` + `delivery.status: partial` 可进入 editable 导出；`stage: qa`／prepared 与 `stage: failed` 均不得有 PPTX。发现旁路时返回 `workflow_escape_state`、`precomplete_pptx` 或 `pptx_outside_delivery` 并停止。生成／恢复流程遇此结果必须停止，不能自动移动文件或创建新的“干净”运行绕过审计。若用户另行明确授权维护，应先保留审计证据，在维护步骤处理违规产物后重新审计，再按报告阶段原地恢复；不得删除痕迹后沿用旁路状态。
 
 每次进入下表阶段**之前**执行，PASS 才进行阶段工作。每个新的 anchor／production 批次在生成 prompt、transaction、candidate 或调用 generator **之前**重新检查；恢复时先处理原全局恢复链，再在合法重入点检查，不清除或跨过 durable state。
 
@@ -98,8 +98,10 @@ python <skill-dir>/scripts/ppt_workflow_gate.py --run-dir <run绝对路径> --be
 | theme | 加当前五文件与正式 PASS 审查绑定 |
 | anchor | 加当前 theme 身份及 hash；风格资产仍走原 traversal 验证 |
 | production | 加当前锚点及 guided 批准／auto 内部验证 |
-| qa | 加每个目标的正式 SVG |
-| complete | 加所有当前 SVG 对应的渲染、实际视觉 PASS、QA 报告，dirty_slides 为空 |
+| qa | 加 original target/delivered/missing partition；每个拟 delivered target 有正式 SVG，每个 missing target 有 unchanged failed transaction／explicit skip 与 terminal omission seal |
+| complete | 加所有 targets 的当前 SVG 对应渲染、实际视觉 PASS、QA 报告；missing 为空且 dirty_slides 为空 |
+| partial | 加 best-effort 策略、非空 delivered 与 missing；每个 delivered 有当前 SVG／render-bound QA，每个 missing 有 immutable omission evidence 且保持 dirty |
+| failed | delivered 为空，missing 穷尽 original targets，失败证据有效且无 PPTX |
 
 检查 JSON 的 `status` 和进程退出码。`BLOCKED` 返回退出码 2，`errors[]` 含 `code`、`reentry_stage`、`next_action`；向用户报告这些信息，并返回最早受影响阶段修复，不能把失败记录后继续生成。`NOT_APPLICABLE` 仅表示不是外部旧稿运行，不是整套工作流 PASS；当请求实际含外部旧稿时得到此状态，先修复缺失的 source_deck 绑定。
 
@@ -122,10 +124,10 @@ coordinator 在各步骤真正完成时更新 `.ppt-pilot/导入检查点.json`�
 
 - `approvals`（guided）：brief／outline 各含 `interaction_id`、`artifact_snapshot_id`、`artifact_sha256`；匹配该检查点最新 applied approve 历史及当前简报／大纲字节。
 - `source_audit`：`status: complete`、`inventory_sha256`、`reviewed_slide_ids`（全部源页）、`visual_checked_slide_ids`（至少所有带警告源页）和非空 `notes`。由实际完成源稿核对的上下文记录。
-- `manuscript`：`files` 为五份文稿的 `{运行相对路径: sha256}`；`report` 为 `{path, sha256}`；`review_snapshot_id` 等于 run 中最新正式审查轮次的 snapshot_id。新导入运行发起审查时在 `reviewed_file_snapshot` 中保留既有 `files` 路径列表，并新增 `file_hashes` 保存这五文件 hash 映射；完成 round 沿用同一冻结值，检查器要求它与 manuscript.files 及当前文件一致。收到真实 PASS 才绑定报告；不能给旧审查补写新文件 hash。无未解决 BLOCKER/HIGH，委派或 inline fallback 证据按原审查契约检查。
+- `manuscript`：`files` 为五份文稿的 `{运行相对路径: sha256}`；`report` 为 `{path, sha256}`；`review_snapshot_id` 等于 run 中最新正式审查轮次的 snapshot_id。新导入运行的 `reviewed_file_snapshot` 只复制 `ppt_review_snapshot.py --run-dir RUN` 返回的精确四字段 `{snapshot_id, files, file_hashes, semantic_file_hashes}`，不得手算、补字段或把 digest-domain-only 的 `schema_version`／`kind` 持久化；报告 machine block 必须等于最新 history 记录。收到真实 PASS 才绑定报告；allowlisted visual／metadata-only 变化不要求重写本 source-gate `files`，而内容语义 hash 变化必须重审。legacy snapshot 保持原 exact 证据，不追补 semantic map。无未解决 BLOCKER/HIGH，委派或 inline fallback 证据按原审查契约检查。
 - `style`：`files` 为主题有关文件的 hash 映射，必须含 `.ppt-pilot/theme.json`；另含与当前 theme 一致的 `selected_style_id`、`style_manifest_version`。风格包 manifest、tokens、guidance、prompt 的真实校验仍必须按设计系统和生成 preflight 执行，不能用此对象取代。
 - `anchor`：`files` 为 `.ppt-pilot/samples/` 样例 SVG 的 hash 映射（通常两页，目标不足两页则全部），`style_sha256` 为当前 theme hash，`review_snapshot_id` 为当前文稿快照；guided 使用 `status: approved`、`approval_interaction_id`、`artifact_snapshot_id` 匹配真实最新锚点批准；auto 使用 `status: validated`，仍须完成实际锚点检查。
-- `qa`：`status: PASS`、`report: {path, sha256}`、`slides[]`。每目标恰好一项，含 `slide_id`、`svg: {path, sha256}`、`render: {path, sha256}`、`render_input_sha256`、`renderer` 和 `visual_review: PASS`。本版本 gate 的渲染证据接受 PNG，检查基本文件头与尺寸；其他格式先用实际渲染工具导出 PNG，不改后缀冒充。渲染时记录输入 SVG hash；改 SVG 后旧渲染失效，不能只更新 hash 字段。报告、SVG 和渲染文件都必须存在且在当前运行内；格式与 hash 一致不等于视觉质量已经通过。
+- `qa`：`status: PASS`、`report: {path, sha256}`、`slides[]`。`slides[]` 只覆盖 final delivered IDs，按 original target order 每页恰好一项，含 `slide_id`、`svg: {path, sha256}`、`render: {path, sha256}`、`render_input_sha256`、`renderer` 和 `visual_review: PASS`；missing IDs 由同一 `run.delivery.missing_slides`、immutable failed transaction／explicit skip 与 terminal manifest seal 证明，不能伪造 QA slide 条目或从 original targets 删除。complete 要求 delivered 等于全部 targets；partial 要求 delivered 与 missing 均非空；failed 不写虚假 PASS QA。渲染证据接受 PNG，检查基本文件头与尺寸；其他格式先用实际渲染工具导出 PNG，不改后缀冒充。渲染时记录输入 SVG hash；改 SVG 后旧渲染失效，不能只更新 hash 字段。报告、SVG 和渲染文件都必须存在且在当前运行内；格式与 hash 一致不等于视觉质量已经通过。
 
 ## 5. 目标风格、生产与交付
 
@@ -133,6 +135,6 @@ coordinator 在各步骤真正完成时更新 `.ppt-pilot/导入检查点.json`�
 
 锚点展示时说明“当前目标风格／版本、源页映射、真实渲染结果、待批准内容”；生产前明确“文稿和锚点已通过，开始其余页面”。任何样例仍待视觉核对时不能标成已批准。
 
-完成前核对所有源页去向、目标 SVG、当前非 Office 渲染、文字／指标／限定条件保留、目标产品风格及 QA 报告。此处不启动 Office；截图存在、结构 lint PASS 或“人工检查待完成”均不是视觉 PASS，必须实际检查渲染内容。不能渲染时保持未验证状态并说明限制。
+结算前核对 original source-page destinations 与 target partition。对 delivered pages 核对当前非 Office render、文字／指标／限定条件保留、目标产品风格及 render-bound QA；对 missing pages 核对 unchanged failure／explicit skip 与原 target 位置，并说明 omission 对叙事的影响。此处不启动 Office；截图存在、结构 lint PASS 或“人工检查待完成”均不是视觉 PASS，必须实际检查 delivered render。不能渲染的页面不得进入 delivered partition，可保持失败／dirty 并在 best-effort 下诚实列为 missing。
 
-通过 complete 检查后才设 `stage: complete`。只有之后且用户明确需要 `.pptx`／Office 实测时，才进入相应交付流程执行实际 Office 保存、关闭、重开与渲染验证，记录实际应用与输入 hash；原生可编辑 PPTX 交给 `ppt-editable` 并遵守它的验证与结果状态。此检查器不生成 PPTX，也不豁免转换门禁。
+`finalize` 必须原子保持以下对应：无 omissions 才能 `stage: complete` + `delivery.status: complete`；best-effort 且 delivered、missing 均非空时是 `stage: partial` + `delivery.status: partial`；零 delivered 时是 `stage: failed` + `delivery.status: failed` 且无 PPTX。prepared 只在 `stage: qa`，不可导出。只有 final complete／partial 且用户明确需要 `.pptx`／Office 实测时，才进入相应交付流程执行实际 Office 保存、关闭、重开与渲染验证，记录实际应用与输入 hash；partial 必须使用独立 partial artifact／manifest，不覆盖完整产物。原生可编辑 PPTX 交给 `ppt-editable` 并遵守它的验证与结果状态。此检查器不生成 PPTX，也不豁免转换门禁。

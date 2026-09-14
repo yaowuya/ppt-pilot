@@ -74,8 +74,8 @@ _ALLOWED_ATTRIBUTES = {
     "line": _COMMON_ATTRIBUTES | _LEAF_STYLE_ATTRIBUTES | {"x1", "y1", "x2", "y2"},
     "polyline": _COMMON_ATTRIBUTES | _LEAF_STYLE_ATTRIBUTES | {"points"},
     "polygon": _COMMON_ATTRIBUTES | _LEAF_STYLE_ATTRIBUTES | {"points"},
-    "text": _COMMON_ATTRIBUTES | _LEAF_STYLE_ATTRIBUTES | {"x", "y", "xml:space"},
-    "tspan": _COMMON_ATTRIBUTES | _LEAF_STYLE_ATTRIBUTES | {"x", "dy", "xml:space"},
+    "text": _COMMON_ATTRIBUTES | _LEAF_STYLE_ATTRIBUTES | {"x", "y", "xml:space", "data-role"},
+    "tspan": _COMMON_ATTRIBUTES | _LEAF_STYLE_ATTRIBUTES | {"x", "y", "dy", "xml:space"},
     "title": frozenset(),
     "desc": frozenset(),
 }
@@ -176,6 +176,12 @@ def _validate_attributes(
     tree_path: str,
 ) -> None:
     allowed = _ALLOWED_ATTRIBUTES[kind]
+    if kind == 'text' and 'data-role' in attributes and attributes['data-role'] not in ('title', 'body', 'footnote'):
+        raise _error('svg_attribute_unsupported', 'unknown runtime text role',
+                     slide_id=slide_id, tree_path=tree_path, element_type=kind)
+    if kind == 'tspan' and 'y' in attributes and 'dy' in attributes:
+        raise _error('svg_attribute_unsupported', 'absolute y cannot be combined with dy',
+                     slide_id=slide_id, tree_path=tree_path, element_type=kind)
     for name, value in attributes.items():
         if name not in allowed:
             raise _error(

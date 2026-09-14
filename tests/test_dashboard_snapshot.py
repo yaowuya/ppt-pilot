@@ -11,6 +11,10 @@ from unittest import mock
 
 
 MODULE = Path(__file__).resolve().parents[1] / "skills/ppt-start/scripts/_dashboard/snapshot.py"
+SCRIPTS = MODULE.parent.parent
+ASSETS = MODULE.parents[2] / "assets/dashboard"
+if str(SCRIPTS) not in os.sys.path:
+    os.sys.path.insert(0, str(SCRIPTS))
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><text>One</text></svg>'
 
 
@@ -42,6 +46,9 @@ class DashboardSnapshotTests(unittest.TestCase):
     def run_state(self, **changes):
         state = {"schema_version": 1, "deck_id": "deck", "mode": "guided", "stage": "brief",
                  "manuscript_review": {"state": "pending"}, "dirty_slides": []}
+        if isinstance(changes.get('delivery'), dict):
+            state['manuscript_review'] = {'required': True, 'state': 'manuscript_approved',
+                                         'status': 'PASSED', 'open_blocking_findings': []}
         state.update(changes)
         return state
 
@@ -62,6 +69,488 @@ class DashboardSnapshotTests(unittest.TestCase):
     def save_transaction(self, case):
         for path, data in case["transactions"].items():
             self.put(path, data)
+
+    def sha(self, relative):
+        return "sha256:" + hashlib.sha256((self.root / relative).read_bytes()).hexdigest()
+
+    def prepare_partial_delivery(self, *, omission_reason="attempts_exhausted",
+                                 failure_reason="svg_contract_failed",
+                                 generation_attempt=3):
+        storyboard = "# 故事板\n## S01\n- `slide_id`: `S01`\n- `assertion_title`: 完成页\n## S02\n- `slide_id`: `S02`\n- `assertion_title`: 缺失页\n"
+        self.put(".ppt-pilot/故事板.md", storyboard)
+        self.put(".ppt-pilot/theme.json", {"name": "synthetic"})
+        self.put(".ppt-pilot/质量检查报告.md", "S01 reviewed PASS; S02 omitted.")
+        self.put("slides/S01.svg", SVG)
+        transaction_id = "sha256:" + "b" * 64
+        transaction_ref = (
+            ".ppt-pilot/visual-generation-transactions/S02-" + "b" * 64 + ".json"
+        )
+        transaction = {
+            "schema_version": 2,
+            "kind": "visual_generation_transaction",
+            "batch_id": "batch-partial",
+            "slide_id": "S02",
+            "transaction_id": transaction_id,
+            "state": "failed",
+            "failure_reason": failure_reason,
+            "generation_attempt": generation_attempt,
+        }
+        self.put(transaction_ref, transaction)
+        self.put(".ppt-pilot/visual-generation-batches/batch-partial.json", {
+            "batch_id": "batch-partial",
+            "state": "partial",
+            "ordered_slide_ids": ["S01", "S02"],
+            "transaction_refs": [
+                ".ppt-pilot/visual-generation-transactions/S01-" + "a" * 64 + ".json",
+                transaction_ref,
+            ],
+            "omitted_transaction_refs": [transaction_ref],
+            "omitted_transaction_sha256": {
+                transaction_ref: self.sha(transaction_ref),
+            },
+        })
+        delivery = {
+            "schema_version": 1,
+            "status": "partial",
+            "policy": "best_effort",
+            "target_slide_ids": ["S01", "S02"],
+            "delivered_slide_ids": ["S01"],
+            "missing_slides": [{
+                "slide_id": "S02",
+                "reason": omission_reason,
+                "failure_reason": failure_reason,
+                "generation_attempt": generation_attempt,
+                "transaction_id": transaction_id,
+                "transaction_ref": transaction_ref,
+                "transaction_sha256": self.sha(transaction_ref),
+            }],
+            "storyboard_sha256": self.sha(".ppt-pilot/故事板.md"),
+            "theme_sha256": self.sha(".ppt-pilot/theme.json"),
+            "quality_report_sha256": self.sha(".ppt-pilot/质量检查报告.md"),
+            "slide_sha256": {"S01": self.sha("slides/S01.svg")},
+        }
+        self.put(".ppt-pilot/run.json", self.run_state(
+            stage="partial",
+            production_policy="best_effort",
+            dirty_slides=["S02"],
+            delivery=delivery,
+        ))
+        return delivery
+
+    def prepare_active_batch(self, first_failure="generator_timeout"):
+        batch_id = "batch-locality"
+        refs = []
+        transactions = {}
+        for sid, digest, state in (("S01", "a" * 64, "failed"),
+                                   ("S02", "b" * 64, "generating")):
+            transaction_id = "sha256:" + digest
+            ref = (
+                ".ppt-pilot/visual-generation-transactions/" + sid + "-" + digest + ".json"
+            )
+            refs.append(ref)
+            transaction = {
+                "schema_version": 2,
+                "kind": "visual_generation_transaction",
+                "batch_id": batch_id,
+                "slide_id": sid,
+                "transaction_id": transaction_id,
+                "prompt_snapshot_id": transaction_id,
+                "candidate_path": "slides/.candidates/" + sid + "-" + digest + ".svg",
+                "final_path": "slides/" + sid + ".svg",
+                "state": state,
+                "generation_attempt": 1,
+            }
+            if state == "failed":
+                transaction["failure_reason"] = first_failure
+            transactions[ref] = transaction
+            self.put(ref, transaction)
+        manifest_path = ".ppt-pilot/visual-generation-batches/" + batch_id + ".json"
+        self.put(manifest_path, {
+            "schema_version": 2,
+            "kind": "visual_generation_batch",
+            "batch_id": batch_id,
+            "state": "generating",
+            "ordered_slide_ids": ["S01", "S02"],
+            "transaction_refs": refs,
+        })
+        self.put(".ppt-pilot/故事板.md", (
+            "## S01\n- `slide_id`: `S01`\n- `assertion_title`: 失败页\n"
+            "## S02\n- `slide_id`: `S02`\n- `assertion_title`: 健康页\n"
+        ))
+        self.put(".ppt-pilot/run.json", self.run_state(
+            stage="production",
+            dirty_slides=["S01", "S02"],
+            active_visual_generation_batch={
+                "schema_version": 2,
+                "batch_id": batch_id,
+                "manifest_path": manifest_path,
+            },
+        ))
+        return refs, transactions
+
+    def prepare_failed_delivery(self):
+        delivery = self.prepare_partial_delivery()
+        (self.root / "slides/S01.svg").unlink()
+        transaction_id = "sha256:" + "a" * 64
+        transaction_ref = (
+            ".ppt-pilot/visual-generation-transactions/S01-" + "a" * 64 + ".json"
+        )
+        self.put(transaction_ref, {
+            "schema_version": 2,
+            "kind": "visual_generation_transaction",
+            "batch_id": "batch-partial",
+            "slide_id": "S01",
+            "transaction_id": transaction_id,
+            "state": "failed",
+            "failure_reason": "generator_timeout",
+            "generation_attempt": 3,
+        })
+        second = delivery["missing_slides"][0]
+        self.put(".ppt-pilot/visual-generation-batches/batch-partial.json", {
+            "batch_id": "batch-partial",
+            "state": "failed",
+            "ordered_slide_ids": ["S01", "S02"],
+            "transaction_refs": [transaction_ref, second["transaction_ref"]],
+            "omitted_transaction_refs": [transaction_ref, second["transaction_ref"]],
+            "omitted_transaction_sha256": {
+                transaction_ref: self.sha(transaction_ref),
+                second["transaction_ref"]: second["transaction_sha256"],
+            },
+        })
+        delivery.update(
+            status="failed",
+            delivered_slide_ids=[],
+            quality_report_sha256=None,
+            slide_sha256={},
+        )
+        delivery["missing_slides"].insert(0, {
+            "slide_id": "S01",
+            "reason": "attempts_exhausted",
+            "failure_reason": "generator_timeout",
+            "generation_attempt": 3,
+            "transaction_id": transaction_id,
+            "transaction_ref": transaction_ref,
+            "transaction_sha256": self.sha(transaction_ref),
+        })
+        self.put(".ppt-pilot/run.json", self.run_state(
+            stage="failed",
+            production_policy="best_effort",
+            dirty_slides=["S01", "S02"],
+            delivery=delivery,
+        ))
+        return delivery
+
+    def test_valid_partial_delivery_counts_only_verified_declared_outputs(self):
+        self.prepare_partial_delivery()
+
+        snap = self.snapshot()
+
+        self.assertEqual(snap["status"], "partial")
+        self.assertEqual(snap["progress"], {
+            "done": 1, "total": 2, "delivered": 1, "processed": 2,
+        })
+        self.assertEqual([slide["id"] for slide in snap["slides"]], ["S01", "S02"])
+        self.assertEqual([slide["status"] for slide in snap["slides"]], ["delivered", "failed"])
+        self.assertEqual(snap["delivery"], {
+            "status": "partial",
+            "policy": "best_effort",
+            "target_slide_ids": ["S01", "S02"],
+            "delivered_slide_ids": ["S01"],
+            "missing_slides": [{
+                "slide_id": "S02",
+                "reason": "attempts_exhausted",
+                "failure_reason": "svg_contract_failed",
+                "generation_attempt": 3,
+            }],
+        })
+        public = json.dumps(snap, ensure_ascii=False)
+        self.assertNotIn("visual-generation-transactions", public)
+        self.assertNotIn("transaction_id", public)
+        self.assertNotEqual(snap["status"], "complete")
+
+    def test_malformed_partial_delivery_fails_closed_without_svg_completion(self):
+        delivery = self.prepare_partial_delivery()
+        delivery["delivered_slide_ids"] = ["S01", "S02"]
+        self.put(".ppt-pilot/run.json", self.run_state(
+            stage="partial",
+            production_policy="best_effort",
+            dirty_slides=["S02"],
+            delivery=delivery,
+        ))
+
+        snap = self.snapshot()
+
+        self.assertEqual(snap["status"], "blocked")
+        self.assertEqual(snap["notice"]["kind"], "invalid_delivery")
+        self.assertEqual(snap["delivery"], None)
+        self.assertEqual(snap["progress"], {
+            "done": 0, "total": 2, "delivered": 0, "processed": 0,
+        })
+        self.assertNotIn("delivered", [slide["status"] for slide in snap["slides"]])
+        tasks = {task["id"]: task for task in snap["tasks"]}
+        self.assertNotIn("partial", [task["status"] for task in snap["tasks"]])
+        self.assertEqual(tasks["complete"]["status"], "pending")
+
+    def test_terminal_stage_without_delivery_metadata_is_not_trusted(self):
+        for stage in ("partial", "failed"):
+            with self.subTest(stage=stage):
+                self.put(".ppt-pilot/run.json", self.run_state(stage=stage))
+                snap = self.snapshot()
+                self.assertEqual(snap["status"], "unknown")
+                self.assertTrue(all(
+                    task["status"] == "pending" for task in snap["tasks"]
+                ))
+
+    def test_omitted_page_keeps_old_svg_as_stale_preview_not_delivery(self):
+        self.prepare_partial_delivery(
+            omission_reason="user_skipped",
+            failure_reason="svg_contract_failed",
+            generation_attempt=1,
+        )
+        self.put("slides/S02.svg", SVG.replace(b"One", b"Old"))
+
+        snap = self.snapshot()
+        omitted = snap["slides"][1]
+
+        self.assertEqual(omitted["status"], "omitted")
+        self.assertTrue(omitted["stale_preview"])
+        self.assertEqual(omitted["preview_kind"], "final")
+        self.assertIn("用户已跳过", omitted["detail"])
+        self.assertIn("SVG 合规校验失败", omitted["detail"])
+        self.assertIn("旧版正式预览", omitted["detail"])
+        self.assertEqual(snap["progress"]["delivered"], 1)
+        self.assertEqual(snap["progress"]["processed"], 2)
+
+    def test_page_local_failed_transaction_does_not_block_healthy_sibling(self):
+        self.prepare_active_batch("generator_timeout")
+
+        snap = self.snapshot()
+        slides = {slide["id"]: slide for slide in snap["slides"]}
+
+        self.assertEqual(snap["status"], "running")
+        self.assertEqual(slides["S01"]["status"], "failed")
+        self.assertIn("生成器响应超时", slides["S01"]["detail"])
+        self.assertEqual(slides["S02"]["status"], "running")
+        self.assertEqual(snap["progress"], {
+            "done": 0, "total": 2, "delivered": 0, "processed": 1,
+        })
+        self.assertEqual(snap["notice"]["kind"], "page_failures")
+        self.assertIn("S01", snap["notice"]["message"])
+        self.assertIn("S02", snap["notice"]["message"])
+
+    def test_all_declared_page_failure_reasons_remain_page_local(self):
+        reasons = (
+            "generator_refused", "generator_timeout", "generator_output_malformed",
+            "svg_contract_failed", "fact_source_mismatch", "visual_qa_failed",
+        )
+        for reason in reasons:
+            with self.subTest(reason=reason):
+                self.prepare_active_batch(reason)
+                snap = self.snapshot()
+                self.assertEqual(snap["status"], "running")
+                self.assertEqual(snap["slides"][0]["status"], "failed")
+                self.assertEqual(snap["slides"][1]["status"], "running")
+
+    def test_generator_unavailable_still_globally_blocks_active_batch(self):
+        self.prepare_active_batch("generator_unavailable")
+
+        snap = self.snapshot()
+
+        self.assertEqual(snap["status"], "blocked")
+        self.assertEqual(snap["notice"]["kind"], "generation_state")
+        self.assertEqual(snap["slides"][0]["status"], "blocked")
+        self.assertEqual(snap["slides"][1]["status"], "running")
+
+    def test_zero_output_terminal_failure_is_not_complete_or_qa_complete(self):
+        self.prepare_failed_delivery()
+
+        snap = self.snapshot()
+        tasks = {task["id"]: task for task in snap["tasks"]}
+
+        self.assertEqual(snap["status"], "failed")
+        self.assertEqual(snap["notice"]["kind"], "failed_delivery")
+        self.assertEqual(snap["progress"], {
+            "done": 0, "total": 2, "delivered": 0, "processed": 2,
+        })
+        self.assertEqual([slide["status"] for slide in snap["slides"]], ["failed", "failed"])
+        self.assertEqual(tasks["production"]["status"], "failed")
+        self.assertEqual(tasks["qa"]["status"], "pending")
+        self.assertEqual(tasks["complete"]["status"], "pending")
+
+    def test_delivery_rejects_stale_artifacts_and_unverified_omissions(self):
+        mutations = {
+            "storyboard": lambda: self.put(".ppt-pilot/故事板.md", "changed"),
+            "theme": lambda: self.put(".ppt-pilot/theme.json", {"name": "changed"}),
+            "qa": lambda: self.put(".ppt-pilot/质量检查报告.md", "changed"),
+            "formal_svg": lambda: self.put("slides/S01.svg", SVG.replace(b"One", b"Changed")),
+            "omission": self.remove_omission_authorization,
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                self.prepare_partial_delivery()
+                mutate()
+                snap = self.snapshot()
+                self.assertEqual(snap["status"], "blocked")
+                self.assertEqual(snap["notice"]["kind"], "invalid_delivery")
+                self.assertEqual(snap["progress"]["delivered"], 0)
+                self.assertNotIn("delivered", [slide["status"] for slide in snap["slides"]])
+
+    def remove_omission_authorization(self):
+        path = self.root / ".ppt-pilot/visual-generation-batches/batch-partial.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest["omitted_transaction_refs"] = []
+        self.put(".ppt-pilot/visual-generation-batches/batch-partial.json", manifest)
+
+    def test_delivery_target_inventory_cannot_shrink_storyboard(self):
+        delivery = self.prepare_partial_delivery()
+        delivery.update(
+            status="complete",
+            target_slide_ids=["S01"],
+            delivered_slide_ids=["S01"],
+            missing_slides=[],
+        )
+        self.put(".ppt-pilot/run.json", self.run_state(
+            stage="complete",
+            production_policy="best_effort",
+            delivery=delivery,
+        ))
+
+        snap = self.snapshot()
+
+        self.assertEqual(snap["status"], "blocked")
+        self.assertEqual(snap["notice"]["kind"], "invalid_delivery")
+        self.assertEqual(snap["progress"]["delivered"], 0)
+        self.assertEqual(snap["progress"]["total"], 2)
+
+    def test_explicit_complete_delivery_uses_verified_target_inventory(self):
+        delivery = self.prepare_partial_delivery()
+        self.put("slides/S02.svg", SVG.replace(b"One", b"Two"))
+        delivery.update(
+            status="complete",
+            delivered_slide_ids=["S01", "S02"],
+            missing_slides=[],
+            slide_sha256={
+                "S01": self.sha("slides/S01.svg"),
+                "S02": self.sha("slides/S02.svg"),
+            },
+        )
+        self.put(".ppt-pilot/run.json", self.run_state(
+            stage="complete",
+            production_policy="best_effort",
+            delivery=delivery,
+        ))
+
+        snap = self.snapshot()
+
+        self.assertEqual(snap["status"], "complete")
+        self.assertEqual(snap["progress"], {
+            "done": 2, "total": 2, "delivered": 2, "processed": 2,
+        })
+        self.assertEqual([slide["status"] for slide in snap["slides"]], ["delivered", "delivered"])
+
+    def test_invalid_complete_delivery_does_not_claim_qa_completion(self):
+        delivery = self.prepare_partial_delivery()
+        self.put("slides/S02.svg", SVG.replace(b"One", b"Two"))
+        delivery.update(
+            status="complete",
+            delivered_slide_ids=["S01", "S02"],
+            missing_slides=[],
+            slide_sha256={
+                "S01": self.sha("slides/S01.svg"),
+                "S02": self.sha("slides/S02.svg"),
+            },
+        )
+        self.put(".ppt-pilot/质量检查报告.md", "stale after delivery")
+        self.put(".ppt-pilot/run.json", self.run_state(
+            stage="complete",
+            production_policy="best_effort",
+            delivery=delivery,
+        ))
+
+        snap = self.snapshot()
+        tasks = {task["id"]: task for task in snap["tasks"]}
+
+        self.assertEqual(snap["status"], "blocked")
+        self.assertEqual(snap["notice"]["kind"], "invalid_delivery")
+        self.assertEqual(tasks["production"]["status"], "blocked")
+        self.assertEqual(tasks["qa"]["status"], "pending")
+        self.assertEqual(tasks["complete"]["status"], "pending")
+
+    def test_dirty_declared_output_does_not_erase_healthy_delivery_count(self):
+        delivery = self.prepare_partial_delivery()
+        self.put("slides/S02.svg", SVG.replace(b"One", b"Two"))
+        delivery.update(
+            status="complete",
+            delivered_slide_ids=["S01", "S02"],
+            missing_slides=[],
+            slide_sha256={
+                "S01": self.sha("slides/S01.svg"),
+                "S02": self.sha("slides/S02.svg"),
+            },
+        )
+        self.put(".ppt-pilot/run.json", self.run_state(
+            stage="complete",
+            production_policy="best_effort",
+            dirty_slides=["S02"],
+            delivery=delivery,
+        ))
+
+        snap = self.snapshot()
+
+        self.assertEqual(snap["status"], "blocked")
+        self.assertEqual(snap["notice"]["kind"], "invalid_delivery")
+        self.assertEqual(snap["progress"], {
+            "done": 1, "total": 2, "delivered": 1, "processed": 2,
+        })
+        self.assertEqual([slide["status"] for slide in snap["slides"]], [
+            "delivered", "blocked",
+        ])
+
+    def test_prepared_delivery_is_not_complete_while_qa_is_actionable(self):
+        delivery = self.prepare_partial_delivery()
+        delivery.update(status="prepared", quality_report_sha256=None)
+        self.put(".ppt-pilot/run.json", self.run_state(
+            stage="qa",
+            production_policy="best_effort",
+            dirty_slides=["S02"],
+            delivery=delivery,
+        ))
+
+        snap = self.snapshot()
+        tasks = {task["id"]: task for task in snap["tasks"]}
+
+        self.assertEqual(snap["status"], "prepared")
+        self.assertNotEqual(snap["status"], "complete")
+        self.assertEqual(snap["notice"]["kind"], "prepared_delivery")
+        self.assertEqual(tasks["production"]["status"], "complete")
+        self.assertEqual(tasks["qa"]["status"], "running")
+        self.assertEqual(tasks["complete"]["status"], "pending")
+        self.assertEqual(snap['progress']['done'], 1)
+        self.assertEqual(snap['progress']['delivered'], 0)
+        self.assertEqual(snap['slides'][0]['status'], 'ready')
+
+    def test_incidental_svg_alone_cannot_complete_legacy_run(self):
+        self.put(".ppt-pilot/run.json", self.run_state(stage="complete"))
+        self.put("slides/S01.svg", SVG)
+
+        snap = self.snapshot()
+
+        self.assertEqual(snap["status"], "blocked")
+        self.assertEqual(snap["notice"]["kind"], "incomplete_delivery")
+        self.assertNotEqual(snap["status"], "complete")
+
+    def test_runtime_structured_storyboard_preserves_original_targets_and_titles(self):
+        self.put('run.json', self.run_state(stage='production'))
+        value = {'outline_snapshot_id': 'sha256:' + 'a' * 64,
+                 'storyboard_snapshot_id': 'sha256:' + 'b' * 64,
+                 'slides': [{'slide_id': 'S01', 'assertion_title': '首要结论'},
+                            {'slide_id': 'S02', 'assertion_title': '支持证据'},
+                            {'slide_id': 'S03', 'assertion_title': '下一步'}]}
+        self.put('.ppt-pilot/故事板.md', '# 故事板\n\n```ppt-pilot-json\n' + json.dumps(value, ensure_ascii=False) + '\n```\n')
+        snap = self.snapshot()
+        self.assertEqual(snap['progress']['total'], 3)
+        self.assertEqual([slide['title'] for slide in snap['slides']], ['首要结论', '支持证据', '下一步'])
+        self.assertIn('已解析 3 页', next(t['detail'] for t in snap['tasks'] if t['id'] == 'storyboard'))
 
     def test_empty_directory_waits_without_creating_state(self):
         before = list(self.root.iterdir())
@@ -495,6 +984,120 @@ class DashboardSnapshotTests(unittest.TestCase):
         self.assertNotIn(str(target), json.dumps(snap))
         with self.assertRaises((ValueError, FileNotFoundError)):
             self.module().read_preview(self.root, "slides/S01.svg")
+
+    def test_frontend_progress_distinguishes_delivery_processing_and_target_total(self):
+        markup = (ASSETS / "index.html").read_text(encoding="utf-8")
+        script = (ASSETS / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="progress-processed"', markup)
+        self.assertIn('progress.delivered', script)
+        self.assertIn('progress.processed', script)
+        self.assertIn("已交付 ${delivered}，已处理 ${processed}，原目标 ${total}", script)
+        self.assertIn('"已产出正式页 / 原目标"', script)
+        self.assertIn('"已交付 / 原目标"', script)
+
+    def test_frontend_names_explicit_delivery_and_page_outcomes(self):
+        script = (ASSETS / "app.js").read_text(encoding="utf-8")
+        for label in ['prepared: "待质量检查"', 'partial: "部分交付"',
+                      'delivered: "已交付"', 'omitted: "已跳过"']:
+            with self.subTest(label=label):
+                self.assertIn(label, script)
+        self.assertIn('status === "omitted"', script)
+        self.assertIn('status === "failed"', script)
+        self.assertIn('status === "delivered"', script)
+
+    def test_frontend_marks_omitted_formal_preview_as_old_and_undelivered(self):
+        script = (ASSETS / "app.js").read_text(encoding="utf-8")
+        self.assertIn("slide.stale_preview === true", script)
+        self.assertIn("旧版预览 · 未计入交付", script)
+        self.assertIn('element("preview-dirty").hidden = !(url && (slide.dirty || slide.stale_preview === true))', script)
+
+    def test_partial_delivery_cannot_hide_an_unapproved_content_node(self):
+        self.prepare_partial_delivery()
+        path = self.root / '.ppt-pilot/run.json'
+        run = json.loads(path.read_text(encoding='utf-8'))
+        run['manuscript_review'] = {'required': True, 'state': 'pending', 'status': 'PENDING',
+                                    'open_blocking_findings': []}
+        self.put('.ppt-pilot/run.json', run)
+        snap = self.snapshot()
+        self.assertEqual(snap['status'], 'blocked')
+        self.assertEqual(snap['progress']['delivered'], 0)
+
+    def test_final_partial_delivery_is_finished_without_suggesting_exhausted_retries(self):
+        self.prepare_partial_delivery()
+        snap = self.snapshot()
+        final_task = next(task for task in snap['tasks'] if task['id'] == 'complete')
+        self.assertIn('本轮制作已结束', final_task['detail'])
+        self.assertIn('部分交付', final_task['detail'])
+        self.assertNotIn('尚未确认交付完成', final_task['detail'])
+        missing = next(slide for slide in snap['slides'] if slide['id'] == 'S02')
+        self.assertTrue(missing.get('terminal_omission'))
+        self.assertIn('本轮不再自动重试', missing['detail'])
+        self.assertNotIn('请修正后重新生成', missing['detail'])
+        self.prepare_failed_delivery()
+        failed = self.snapshot()
+        self.assertNotIn('重试', failed['notice']['message'])
+
+    def test_page_failure_notice_does_not_authorize_an_exhausted_retry(self):
+        refs, transactions = self.prepare_active_batch()
+        transactions[refs[0]]['generation_attempt'] = 3
+        self.put(refs[0], transactions[refs[0]])
+        snap = self.snapshot()
+        self.assertNotIn('重试', snap['notice']['message'])
+        self.assertIn('健康页面', snap['notice']['message'])
+
+    def test_frontend_does_not_present_omitted_pages_as_still_preparing(self):
+        script = (ASSETS / 'app.js').read_text(encoding='utf-8')
+        self.assertIn('slide.terminal_omission === true', script)
+        self.assertIn('"本页未交付"', script)
+        self.assertIn('"本轮已跳过此页，不会自动重试。"', script)
+
+    def test_frontend_explains_explicit_delivery_outcomes(self):
+        script = (ASSETS / "app.js").read_text(encoding="utf-8")
+        for copy_text in [
+            'prepared: "交付范围已准备，等待质量检查"',
+            'partial: "演示文稿已部分交付"',
+            'failed: "演示文稿交付失败"',
+            'prepared_delivery: "交付范围已准备，等待质量检查"',
+            'partial_delivery: "本轮已结束，部分页面未交付"',
+            'failed_delivery: "交付失败，尚无成功交付页面"',
+        ]:
+            with self.subTest(copy_text=copy_text):
+                self.assertIn(copy_text, script)
+        self.assertIn("OUTCOME_TITLES[status]", script)
+        self.assertIn("NOTICE_TITLES[kind]", script)
+
+    def test_frontend_maps_only_valid_terminal_delivery_to_actionable_stage(self):
+        script = (ASSETS / "app.js").read_text(encoding="utf-8")
+        self.assertIn('const TERMINAL_STAGE_IDS = { partial: "complete", failed: "production" }', script)
+        self.assertIn('const actionable = state.tasks.find', script)
+        self.assertIn('["running", "waiting", "blocked", "failed", "partial"].includes(task.status)', script)
+        self.assertIn('status === stage && Object.hasOwn(TERMINAL_STAGE_IDS, stage)', script)
+        self.assertIn('currentStageId(state)', script)
+
+    def test_frontend_announces_delivered_processed_and_original_totals(self):
+        script = (ASSETS / "app.js").read_text(encoding="utf-8")
+        self.assertIn(
+            '`${STATUS_NAMES[state.status] || "状态已更新"}，已交付 ${delivered} 页，已处理 ${processed} 页，原目标 ${total} 页。`',
+            script,
+        )
+        self.assertIn('const processed = element("progress-processed").textContent', script)
+        self.assertIn('const total = element("progress-total").textContent', script)
+
+    def test_frontend_status_palette_distinguishes_delivery_outcomes(self):
+        styles = (ASSETS / "styles.css").read_text(encoding="utf-8")
+        expectations = [
+            r'\.stage-item\[data-status="failed"\]\s*\{[^}]*var\(--red-soft\)[^}]*var\(--red\)',
+            r'\.stage-item\[data-status="partial"\][^{]*\{[^}]*var\(--amber-soft\)[^}]*var\(--amber\)',
+            r'\.stage-item\[data-status="waiting"\][^{]*\{[^}]*var\(--amber-soft\)[^}]*var\(--amber\)',
+            r'\.badge\[data-status="failed"\]\s*\{[^}]*var\(--red-soft\)[^}]*var\(--red\)',
+            r'\[data-status="omitted"\] > \.slide-card-status[^{]*\{[^}]*var\(--amber\)',
+            r'\[data-status="failed"\] > \.slide-card-status[^{]*\{[^}]*var\(--red\)',
+            r'\.notice\[data-kind="prepared_delivery"\]\s*\{[^}]*var\(--blue-soft\)[^}]*var\(--blue\)',
+            r'\.notice\[data-kind="failed_delivery"\][^{]*\{[^}]*var\(--red-soft\)[^}]*var\(--red\)',
+        ]
+        for pattern in expectations:
+            with self.subTest(pattern=pattern):
+                self.assertRegex(styles, pattern)
 
 
 if __name__ == "__main__":

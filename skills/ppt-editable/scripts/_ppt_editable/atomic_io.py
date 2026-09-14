@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 import hashlib
 import json
 import os
@@ -17,7 +17,7 @@ import uuid
 
 from .contract import _deck_id_is_safe, _is_reparse_stat
 from .errors import EditableError
-from .model import EditableResult, Failure
+from .model import EditableResult, Failure, editable_result_payload
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,7 @@ class OutputPaths:
     verified_path: Path
     unverified_path: Path
     lock_path: Path
+    delivery_status: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -113,13 +114,20 @@ def _reject_unsafe_existing_file(path: Path) -> None:
         raise EditableError("source_path_unsafe", "output file is unsafe")
 
 
-def build_output_paths(run_dir: Path, deck_id: str) -> OutputPaths:
+def build_output_paths(
+    run_dir: Path,
+    deck_id: str,
+    delivery_status: Optional[str] = None,
+) -> OutputPaths:
     if not _deck_id_is_safe(deck_id):
         raise EditableError("deck_id_invalid", "deck_id is not path-safe")
+    if delivery_status not in (None, "complete", "partial"):
+        raise EditableError("promotion_conflict", "delivery status has no output namespace")
     run_dir = Path(run_dir).absolute()
     root = run_dir / "delivery" / "editable"
-    tmp_dir = root / ".tmp"
-    quarantine_dir = root / "quarantine"
+    partial = delivery_status == "partial"
+    tmp_dir = root / ".tmp" / "partial" if partial else root / ".tmp"
+    quarantine_dir = root / "quarantine" / "partial" if partial else root / "quarantine"
     for path in (root, tmp_dir, quarantine_dir):
         _ensure_safe_directory(path)
     return OutputPaths(
@@ -128,10 +136,21 @@ def build_output_paths(run_dir: Path, deck_id: str) -> OutputPaths:
         root=root,
         tmp_dir=tmp_dir,
         quarantine_dir=quarantine_dir,
-        manifest_path=root / "editable-result.json",
-        verified_path=root / "{}-editable.pptx".format(deck_id),
-        unverified_path=root / "{}-editable-unverified.pptx".format(deck_id),
-        lock_path=root / ".editable.lock",
+        manifest_path=root / (
+            "editable-result-partial.json" if partial else "editable-result.json"
+        ),
+        verified_path=root / (
+            "{}-editable-partial.pptx".format(deck_id)
+            if partial
+            else "{}-editable.pptx".format(deck_id)
+        ),
+        unverified_path=root / (
+            "{}-editable-partial-unverified.pptx".format(deck_id)
+            if partial
+            else "{}-editable-unverified.pptx".format(deck_id)
+        ),
+        lock_path=root / (".editable-partial.lock" if partial else ".editable.lock"),
+        delivery_status=delivery_status,
     )
 
 
@@ -338,6 +357,125 @@ _RESULT_BASE_KEYS = frozenset(
         "warnings",
     }
 )
+_RESULT_DELIVERY_KEYS = frozenset(
+    {
+        "delivery_status",
+        "delivery_policy",
+        "target_slide_ids",
+        "delivered_slide_ids",
+        "missing_slides",
+    }
+)
+_MISSING_SLIDE_KEYS = frozenset(
+    {
+        "slide_id",
+        "reason",
+        "failure_reason",
+        "generation_attempt",
+        "transaction_id",
+        "transaction_ref",
+        "transaction_sha256",
+    }
+)
+_SLIDE_ID_RE = re.compile(r"^S[0-9]{1,6}$")
+_PAGE_FAILURE_REASONS = frozenset(
+    {
+        "generator_refused",
+        "generator_timeout",
+        "generator_output_malformed",
+        "svg_contract_failed",
+        "fact_source_mismatch",
+        "visual_qa_failed",
+    }
+)
+
+
+def _string_sequence(value: object) -> Optional[Tuple[str, ...]]:
+    if not isinstance(value, (list, tuple)) or len(value) > 1000:
+        return None
+    items = tuple(value)
+    if any(
+        not isinstance(item, str) or _SLIDE_ID_RE.fullmatch(item) is None
+        for item in items
+    ):
+        return None
+    if len(set(items)) != len(items):
+        return None
+    return items
+
+
+def _delivery_inventory_is_valid(
+    value: Mapping[str, object],
+    paths: OutputPaths,
+) -> bool:
+    status = value.get("delivery_status")
+    policy = value.get("delivery_policy")
+    targets = _string_sequence(value.get("target_slide_ids"))
+    delivered = _string_sequence(value.get("delivered_slide_ids"))
+    raw_missing = value.get("missing_slides")
+    if (
+        status not in ("complete", "partial")
+        or policy not in ("strict", "best_effort")
+        or targets is None
+        or not targets
+        or delivered is None
+        or not isinstance(raw_missing, (list, tuple))
+        or (paths.delivery_status == "partial") != (status == "partial")
+    ):
+        return False
+
+    missing_ids = []
+    for item in raw_missing:
+        if not isinstance(item, dict) or set(item) != _MISSING_SLIDE_KEYS:
+            return False
+        slide_id = item.get("slide_id")
+        transaction_id = item.get("transaction_id")
+        if (
+            not isinstance(slide_id, str)
+            or _SLIDE_ID_RE.fullmatch(slide_id) is None
+            or item.get("reason") not in ("attempts_exhausted", "user_skipped")
+            or item.get("failure_reason") not in _PAGE_FAILURE_REASONS
+            or type(item.get("generation_attempt")) is not int
+            or not 0 <= int(item["generation_attempt"]) <= 10000
+            or (
+                item.get("reason") == "attempts_exhausted"
+                and int(item["generation_attempt"]) < 3
+            )
+            or not isinstance(transaction_id, str)
+            or _SHA256_RE.fullmatch(transaction_id) is None
+            or item.get("transaction_ref")
+            != ".ppt-pilot/visual-generation-transactions/{}-{}.json".format(
+                slide_id,
+                transaction_id[len("sha256:") :],
+            )
+            or not isinstance(item.get("transaction_sha256"), str)
+            or _SHA256_RE.fullmatch(str(item.get("transaction_sha256"))) is None
+        ):
+            return False
+        missing_ids.append(slide_id)
+
+    missing = tuple(missing_ids)
+    if len(set(missing)) != len(missing):
+        return False
+    slide_count = value.get("slide_count")
+    if type(slide_count) is not int or len(delivered) != slide_count:
+        return False
+
+    delivered_index = 0
+    missing_index = 0
+    for slide_id in targets:
+        if delivered_index < len(delivered) and delivered[delivered_index] == slide_id:
+            delivered_index += 1
+        elif missing_index < len(missing) and missing[missing_index] == slide_id:
+            missing_index += 1
+        else:
+            return False
+    if delivered_index != len(delivered) or missing_index != len(missing):
+        return False
+
+    if status == "complete":
+        return bool(delivered and delivered == targets and not missing)
+    return bool(delivered and missing and policy == "best_effort")
 
 
 def _valid_authoritative_verified(
@@ -365,7 +503,19 @@ def _result_manifest_is_valid(
     if not isinstance(value, dict):
         return False
     keys = set(value)
-    if keys not in (_RESULT_BASE_KEYS, _RESULT_BASE_KEYS | {"authoritative_verified"}):
+    base_keys = _RESULT_BASE_KEYS
+    delivery_keys = _RESULT_BASE_KEYS | _RESULT_DELIVERY_KEYS
+    if keys not in (
+        base_keys,
+        base_keys | {"authoritative_verified"},
+        delivery_keys,
+        delivery_keys | {"authoritative_verified"},
+    ):
+        return False
+    has_delivery = _RESULT_DELIVERY_KEYS <= keys
+    if paths.delivery_status == "partial" and not has_delivery:
+        return False
+    if has_delivery and not _delivery_inventory_is_valid(value, paths):
         return False
     if (
         type(value.get("schema_version")) is not int
@@ -447,7 +597,7 @@ def _result_manifest(
         output_path=output_relative,
         output_sha256=output_hash,
     )
-    value = asdict(committed)
+    value = editable_result_payload(committed)
     value["schema_version"] = 1
     value["kind"] = "ppt_editable_result"
     if transaction.target_kind == "unverified":

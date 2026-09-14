@@ -2944,9 +2944,9 @@
         ],
         "dispatch_epoch": 0,
         "promotion_cursor": 0,
-        "blocker_cursor": 1,
-        "active_blocker_ref": ".ppt-pilot/visual-generation-transactions/S04-df7644965081897b6e4567f1c64f1d0ea08d96b6910543f65e87b2cab9c45092.json",
-        "state": "blocked",
+        "blocker_cursor": 4,
+        "active_blocker_ref": null,
+        "state": "active",
         "created_at": "2026-08-31T00:00:00Z",
         "updated_at": "2026-08-31T00:00:00Z",
         "telemetry_summary": {}
@@ -3094,7 +3094,7 @@
           "S03",
           "S05"
         ],
-        "visible_blocker": "S04",
+        "visible_blocker": null,
         "preserve_previous_finals": [
           "S04",
           "S06"

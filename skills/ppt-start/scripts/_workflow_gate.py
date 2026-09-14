@@ -9,10 +9,11 @@ import stat
 import zlib
 from _xml_safety import parse_xml
 from _artifact_firewall import audit_artifacts
+from _delivery_contract import validate_delivery, verify_delivery_evidence, validate_delivery_review_state
 
 STAGES = ('research', 'outline', 'storyboard', 'manuscript_review', 'theme',
           'anchor', 'production', 'qa', 'complete')
-WORKFLOW_STAGES = ('brief',) + STAGES
+WORKFLOW_STAGES = ('brief',) + STAGES + ('partial', 'failed')
 MANUSCRIPT_FILES = ('.ppt-pilot/简报.md', '.ppt-pilot/研究.md', '.ppt-pilot/来源.md',
                     '大纲.md', '.ppt-pilot/故事板.md')
 
@@ -169,6 +170,9 @@ class Gate:
         run = self.run
         require(run.get('stage') in WORKFLOW_STAGES, 'workflow_escape_state', 'theme',
                 'Restore a canonical PPT Pilot stage before continuing.')
+        policy = run.get('production_policy', 'strict')
+        require(isinstance(policy, str) and policy in ('strict', 'best_effort'),
+                'invalid_production_policy', 'production', 'Use strict or explicitly authorized best_effort production.')
         escape_fields = sorted(key for key in run if
                                key.startswith('native_') or key in {
                                    'anchor_plan', 'execution_hold', 'run_level_generator_blocker'})
@@ -188,6 +192,54 @@ class Gate:
             error = GateError(errors[0]['code'], errors[0]['reentry_stage'], errors[0]['next_action'])
             error.error.update(errors[0])
             raise error
+        self.delivery_record()
+
+    def delivery_record(self, targets=None):
+        value = self.run.get('delivery')
+        stage = self.run.get('stage')
+        if value is None:
+            require(stage not in ('partial', 'failed'), 'delivery_missing', 'production',
+                    'Finalize an explicit bound delivery outcome; a stage label alone is not delivery evidence.')
+            return None
+        try:
+            validate_delivery(value, targets, final=stage in ('complete', 'partial'))
+            validate_delivery_review_state(self.run)
+        except ValueError as exc:
+            if str(exc) == 'delivery_manuscript_not_approved':
+                raise GateError(str(exc), 'manuscript_review', 'Complete the content approval node before freezing delivery.') from exc
+            raise GateError(str(exc), 'production', 'Rebuild the delivery record from current accepted pages and preserved failure evidence.') from exc
+        require(self.run.get('production_policy', 'strict') == value['policy'],
+                'delivery_policy_mismatch', 'production', 'Record the authorized production policy before partial delivery.')
+        allowed = ('production', 'qa') if value['status'] == 'prepared' else (value['status'],)
+        require(stage in allowed, 'delivery_status_mismatch', 'production', 'Keep workflow stage and delivery outcome consistent.')
+        for field in ('active_visual_generation_batch', 'visual_generation_transaction'):
+            require(self.run.get(field) is None, field, 'production',
+                    'Finish active page work before freezing the delivery partition.')
+
+        def owner(names):
+            existing = [name for name in names if self.path(name).is_file()]
+            require(len(existing) <= 1, 'delivery_owner_ambiguous', 'production', 'Select one canonical delivery artifact owner.')
+            return existing[0] if existing else names[0]
+
+        def read_bytes(name):
+            self.file_hash(name)
+            return self.path(name).read_bytes()
+
+        try:
+            verify_delivery_evidence(value, read_bytes,
+                storyboard_path=owner(('.ppt-pilot/故事板.md', '.ppt-pilot/storyboard.md', '故事板.md', 'storyboard.md')),
+                theme_path=owner(('.ppt-pilot/theme.json', 'theme.json')),
+                quality_report_path=owner(('.ppt-pilot/质量检查报告.md', '.ppt-pilot/qa-report.md', '质量检查报告.md', 'qa-report.md')),
+                target_slide_ids=targets, final=stage in ('complete', 'partial'))
+        except GateError:
+            raise
+        except ValueError as exc:
+            raise GateError(str(exc), 'production', 'Delivery evidence changed; preserve the run and revalidate the affected outcome.') from exc
+        return value
+
+    def delivery_targets(self):
+        value = self.delivery_record(self.targets)
+        return list(value['delivered_slide_ids']) if value else self.targets
 
     def recovery(self, resume_active=False):
         run = self.run
@@ -357,13 +409,21 @@ def _check_run(run_dir, before, resume_active=False):
     result = {'status': 'BLOCKED', 'before': before, 'errors': []}
     gate = None
     try:
-        require(resume_active or before in STAGES, 'invalid_stage', 'brief', 'Choose a supported before stage.')
+        require(resume_active or before in STAGES + ('partial',), 'invalid_stage', 'brief', 'Choose a supported before stage.')
         gate = Gate(run_dir)
         run = gate.load_run()
         gate.conformance()
         if resume_active:
             before = run.get('stage')
             result['before'] = before
+        if before == 'partial':
+            require(run.get('delivery') is not None, 'delivery_missing', 'production',
+                    'Freeze an explicit partial delivery partition before final QA.')
+            require(run['delivery']['missing_slides'] and run['delivery']['delivered_slide_ids'],
+                    'delivery_status_mismatch', 'production', 'Partial delivery must identify both delivered and missing pages.')
+        if before == 'complete' and run.get('delivery') is not None:
+            require(not run['delivery']['missing_slides'], 'delivery_complete_required', 'production',
+                    'Use partial delivery for omissions; complete still requires every target page.')
         if 'source_deck' not in run:
             result['status'] = 'NOT_APPLICABLE'
             return result
@@ -376,8 +436,9 @@ def _check_run(run_dir, before, resume_active=False):
         require(run.get('deck_id') == gate.root.name, 'run_identity_mismatch', 'brief',
                 'Bind run.deck_id to the name of this run directory.')
         gate.import_binding()
+        gate.delivery_record(gate.targets)
         from _workflow_evidence import check_stages
-        check_stages(gate, STAGES.index(before))
+        check_stages(gate, STAGES.index('complete' if before == 'partial' else before))
         result['status'] = 'PASS'
     except GateError as error:
         result['errors'].append(error.error)

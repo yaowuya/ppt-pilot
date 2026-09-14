@@ -38,10 +38,10 @@
             <p id="stage-summary" class="overview-description">正在读取本地运行状态，稍后会自动更新。</p>
           </div>
           <div class="progress-summary">
-            <div class="progress-kicker">已产出正式页</div>
+            <div id="progress-kicker" class="progress-kicker">已产出正式页 / 原目标</div>
             <div id="progress-label" class="progress-number"><strong id="progress-done">0</strong><span>/ <span id="progress-total">—</span></span></div>
-            <div id="progress-track" class="progress-track" role="progressbar" aria-label="已产出非脏正式页" aria-valuemin="0" aria-valuenow="0"><div id="progress-fill"></div></div>
-            <div class="progress-footnote">不含待更新页 · 非耗时进度</div>
+            <div id="progress-track" class="progress-track" role="progressbar" aria-label="交付页面进度" aria-valuemin="0" aria-valuenow="0"><div id="progress-fill"></div></div>
+            <div class="progress-footnote">已处理 <strong id="progress-processed">0</strong> 页 · 含明确跳过或失败</div>
           </div>
         </section>
 

@@ -10,7 +10,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run-dir', required=True)
     action = parser.add_mutually_exclusive_group(required=True)
-    action.add_argument('--before', choices=STAGES)
+    action.add_argument('--before', choices=STAGES + ('partial',))
     action.add_argument('--snapshot', action='store_true', help='Current hashes only; never approves or writes evidence.')
     action.add_argument('--resume-active-batch', action='store_true', help='Revalidate import inputs before active-batch recovery side effects.')
     action.add_argument('--audit-run', action='store_true', help='Read-only check for unsafe/runtime artifacts, workflow branches and PPTX side effects.')

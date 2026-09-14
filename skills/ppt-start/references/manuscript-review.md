@@ -18,6 +18,29 @@
 
 这些文件稳定后，创作上下文才可以移交文稿审查。
 
+## 新快照的双重指纹
+
+新创建的 pending／completed review snapshot 必须来自固定只读命令，不由 coordinator 手算、补字段或编辑：
+
+```text
+python <skill-dir>/scripts/ppt_review_snapshot.py --run-dir RUN
+```
+
+成功输出 `status: SNAPSHOT`，其中 `reviewed_file_snapshot` **恰好**包含四个字段：
+
+- `snapshot_id`；
+- `files`：该运行实际使用的五个文件名；
+- `file_hashes`：上述五文件完整原始 bytes 的 exact SHA-256 map；
+- `semantic_file_hashes`：同一五文件的内容语义 SHA-256 map。
+
+`snapshot_id` 的固定 digest domain 同时绑定文件名、exact map 与 semantic map；domain 内部的 `schema_version`／`kind` 不是 persisted snapshot 字段。模型原样复制／冻结脚本返回的四字段对象。review report 的 semantic snapshot machine block 必须与最新 `run.json.manuscript_review.review_history` 记录中的对象 byte-for-byte／field-for-field 一致。
+
+语义规范化是闭合 allowlist，不是通用“忽略元数据”规则。只有结构化故事板中脚本明确认识的视觉表达／运行元数据字段可以从 semantic content fingerprint 排除；所有自由 prose，以及事实、数字、单位、期间、主张、限定词、来源映射、content block 内容、阅读顺序和叙事关系仍须绑定。未知字段、格式无法安全解析、任意文本改写或 allowlist 外变化 fail closed，不得声称 semantic-equivalent。
+
+新格式批准保留 exact audit trail，同时允许 runtime 在 semantic map 不变且变化被证明只落入上述视觉／元数据 allowlist 时继续沿用内容批准。style-only 变化写入 `theme.json` 或 `projection: runtime_visual`，而不是改写 content owner。allowlisted visual／metadata-only 变化不要求伪造或重写 source-gate `evidence.files`；后者继续绑定原内容证据。任何语义 hash 变化都使批准失效并进入正式重审。
+
+旧 snapshot／批准若没有 `semantic_file_hashes`，继续逐文件 exact-byte strict；不得读取当前文件后给旧记录补 semantic map、改 snapshot ID、增加字段或 retroactively 扩大批准。安装、恢复和风格修订均不能原地升级既有批准证据。
+
 外部旧 PPT 重设计必须把源稿事实／限定、未解析对象缺口、源页去向与内容保留规则纳入这五文件，让独立审稿人能检查；不能只保存在导入 JSON 或创作对话。按[旧稿导入契约](source-deck-redesign.md)在审查时冻结文件 hash，真实 PASS 后绑定报告与 review_snapshot_id，禁止事后给旧审查补新版本证据。
 
 ## 硬质量门位置
@@ -139,7 +162,7 @@ material_gap 的严重度规则：缺口削弱核心结论可信度时至少 `HI
 - `reviewer_context`
 - `review_mode`：`subagent` 或 `inline_fallback`；旧记录缺少且含 delegation evidence 时按 `subagent`；
 - `delegation_evidence` 或 `fallback_evidence`，按模式互斥；
-- `reviewed_file_snapshot`，包含该运行实际使用的五个文件名和稳定的 `snapshot_id`；
+- `reviewed_file_snapshot`：新记录原样保存脚本返回的 exact 四字段 `{snapshot_id, files, file_hashes, semantic_file_hashes}`；legacy 记录保持原有 exact snapshot；
 - 完整 `findings` 列表
 - 再审前的作者修订说明
 

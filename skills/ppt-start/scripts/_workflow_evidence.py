@@ -35,9 +35,17 @@ def approval(gate, stage, filename=None, anchor=None):
 
 def manuscript(gate):
     value = section(gate, 'manuscript', 'manuscript_review')
-    files = gate.files(value.get('files'), 'manuscript_stale')
-    require(set(files) == set(MANUSCRIPT_FILES), 'manuscript_files_invalid', 'manuscript_review',
-            'Freeze exactly the current brief, research, sources, root outline and storyboard.')
+    review_candidate = gate.run.get('manuscript_review')
+    history_candidate = review_candidate.get('review_history') if isinstance(review_candidate, dict) else None
+    latest_candidate = history_candidate[-1] if isinstance(history_candidate, list) and history_candidate else None
+    frozen_candidate = latest_candidate.get('reviewed_file_snapshot') if isinstance(latest_candidate, dict) else None
+    semantic_candidate = isinstance(frozen_candidate, dict) and 'semantic_file_hashes' in frozen_candidate
+    files = (object_value(value.get('files'), gate.stage) if semantic_candidate else
+             gate.files(value.get('files'), 'manuscript_stale'))
+    from _review_snapshot import MANUSCRIPT_FILE_SETS
+    require(any(set(files) == set(expected) for expected in MANUSCRIPT_FILE_SETS),
+            'manuscript_files_invalid', 'manuscript_review',
+            'Freeze exactly one supported five-file manuscript layout without mixing owners.')
     report = object_value(value.get('report'), gate.stage)
     gate.bound(report.get('path'), report.get('sha256'), 'review_report_stale')
     review = object_value(gate.run.get('manuscript_review'), gate.stage)
@@ -92,8 +100,26 @@ def manuscript(gate):
     frozen = object_value(latest.get('reviewed_file_snapshot'), gate.stage)
     frozen_files = frozen.get('files')
     require(string_list(frozen_files) and len(frozen_files) == 5 and set(frozen_files) == set(files) and
-            isinstance(frozen.get('file_hashes'), dict) and frozen['file_hashes'] == files,
+            isinstance(frozen.get('file_hashes'), dict) and set(frozen['file_hashes']) == set(files),
             'review_snapshot_mismatch', gate.stage, 'Use the exact five files frozen for the latest review.')
+    semantic_snapshot = 'semantic_file_hashes' in frozen
+    if semantic_snapshot:
+        current_files = {name: gate.file_hash(name) for name in frozen_files}
+        from _review_snapshot import ReviewSnapshotError, validate_review_snapshot
+        try:
+            validate_review_snapshot(frozen, current_files, lambda name: gate.path(name).read_bytes())
+        except ReviewSnapshotError as error:
+            code = str(error)
+            if code not in ('manuscript_stale', 'review_snapshot_mismatch'):
+                code = 'review_snapshot_mismatch'
+            require(False, code, gate.stage,
+                    'Use the computed semantic snapshot actually frozen for the latest formal review.')
+        require(files == frozen['file_hashes'] or files == current_files,
+                'review_snapshot_mismatch', gate.stage,
+                'Bind manuscript evidence to the approved exact snapshot or the current semantically equivalent files.')
+    else:
+        require(frozen['file_hashes'] == files, 'review_snapshot_mismatch', gate.stage,
+                'Use the exact five files frozen for the latest review.')
     require(string(value.get('review_snapshot_id')) and value['review_snapshot_id'] == frozen.get('snapshot_id'),
             'review_snapshot_mismatch', gate.stage, 'Use the existing review snapshot ID, never retrofit a new snapshot to old review.')
     latest_report = review.get('latest_report')
@@ -102,6 +128,14 @@ def manuscript(gate):
         latest_report = '.ppt-pilot/' + latest_report
     require(report['path'] == latest_report, 'review_report_mismatch', gate.stage,
             'Bind the current formal review report, not a different report file.')
+    if semantic_snapshot:
+        from _runtime_owners import markdown_owner
+        try:
+            approved_review = markdown_owner(gate.path(report['path']).read_bytes())
+        except (UnicodeDecodeError, ValueError):
+            approved_review = None
+        require(approved_review == latest, 'review_report_mismatch', gate.stage,
+                'Bind the computed semantic snapshot to the approved latest formal review report.')
     gate.review_snapshot_id = value['review_snapshot_id']
 
 
@@ -164,10 +198,14 @@ def qa(gate):
         require(render['path'] != svg['path'] and not render['path'].endswith('.svg') and
                 string(item.get('renderer')) and item.get('visual_review') == 'PASS',
                 'qa_visual_review_missing', gate.stage, 'Render the SVG and record completed visual review PASS with renderer identity.')
-    require(len(seen) == len(set(seen)) and set(seen) == set(gate.targets),
-            'qa_coverage', gate.stage, 'Review every target SVG and current render exactly once.')
-    require(gate.run.get('dirty_slides') == [], 'dirty_slides', 'production',
-            'Regenerate or repair dirty slides and repeat their final QA before completion.')
+    targets = gate.delivery_targets()
+    require(len(seen) == len(set(seen)) and set(seen) == set(targets),
+            'qa_coverage', gate.stage, 'Review every delivered SVG and current render exactly once.')
+    dirty = gate.run.get('dirty_slides')
+    require(isinstance(dirty, list) and all(isinstance(sid, str) for sid in dirty) and
+            len(dirty) == len(set(dirty)) and set(dirty) <= set(gate.targets) and not set(dirty) & set(targets) and
+            (gate.run.get('delivery') is not None or dirty == []), 'dirty_slides', 'production',
+            'Regenerate or repair dirty delivered pages and repeat their final QA before completion.')
 
 
 def check_stages(gate, index):
@@ -205,7 +243,7 @@ def check_stages(gate, index):
         anchor(gate)
     if index >= 7:
         gate.stage = 'production'
-        for slide_id in gate.targets:
+        for slide_id in gate.delivery_targets():
             gate.svg('slides/' + slide_id + '.svg')
     if index >= 8:
         qa(gate)

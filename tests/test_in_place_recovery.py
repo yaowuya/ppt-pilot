@@ -163,7 +163,7 @@ class InPlaceRecoveryTests(unittest.TestCase):
         self.assertEqual(body['writes'], [])
         result, body = self.case.invoke('resume')
         self.assertEqual(result.returncode, 0, body)
-        self.assertEqual(body['result']['next_command'], 'revise-visual')
+        self.assertEqual(body['result']['next_command'], 'dispatch-plan')
         self.assertEqual(body['result']['recoveries'][0]['required_input'], 'visual_revision')
         self.assertIsNone(body['result']['recoveries'][0]['mode'])
         self.assertEqual(candidate.read_bytes(), before)

@@ -42,11 +42,30 @@ functions.pwsh({
 
 ## 让用户看见实际执行过程
 
-新建／恢复运行时启动；真正进入阶段之前原子更新 run.json.stage，完成阶段或批次后更新原有产物。现有 pending_interaction、pending_round、active batch 和 per-slide transaction 都按原本协议落盘，不能为“看起来有进度”提前写入完成状态或跳过 pointer-last。页面展示当前阶段任务、待回答问题、生成／验证／失败页和最新文件更新时间；用户仍回到宿主对话回答批准问题。
+新建／恢复运行时启动；真正进入阶段之前原子更新 `run.json.stage`，完成阶段或 batch settlement 后更新既有 owner。现有 `pending_interaction`、`pending_round`、active batch 和 per-slide transaction 都按原协议落盘；面板只读取它们，不为“看起来有进度”提前写完成、补 PASS、改失败 bytes 或跳过 pointer-last。
 
-页面的十个步骤均保留工作说明和已观测成果，包括已完成、当前及尚未开始的步骤；窄屏也可横向浏览完整说明。详情从既有白名单产物和运行状态投影，展示文档记录、故事板实际解析页数、审查轮次／阻断数量、样张和正式页状态；缺少产物时明确标注，不用统一的进度占位文案代替步骤信息。当前步骤同时呈现待确认问题或阻断原因。文档存在不代表审查通过，面板不展开原始正文，也不要求工作流另写一份展示状态。
+步骤视图保留已完成、当前和尚未开始的工作说明与观测成果；窄屏可横向浏览。详情从既有白名单产物投影：文档记录、故事板原始 target 数、审查轮次／阻断数、anchor、正式页、QA 和 delivery。缺少产物时明确标注；文档存在不等于审查通过，源码存在不等于页面验证通过，dashboard 状态也不是 QA evidence。当前步骤同时呈现一个 pending 用户问题或一个真实 global blocker。
 
-已经存在但被标为 dirty 的 SVG 显示为旧版本；生成中的临时候选不是已提交页面。只有 candidate_written／validated 且持久 hash 匹配的候选可显示。预览只使用 img，不执行 SVG 脚本，也不改变质量检查结论。无产物更新时只能说明没有新磁盘事件，不能证明模型存活或停止。面板断线后自动重试，重启服务若更换端口需打开新的实际 URL。
+生产视图以 original ordered target set 为分母，分别显示：
+
+- **processed**：runtime 已有明确当前结果的 target，不与 delivered 混称；
+- **validated/promoted**：通过当前 formal SVG digest 对应检查的页面；
+- **delivered**：来自已验证的 final `run.delivery.delivered_slide_ids`，保持原顺序；prepared 页面仅标为已产出、待质检，不计为已交付；
+- **missing**：来自 `run.delivery.missing_slides`，展示失败／跳过原因；冻结尝试次数与完整证据引用保留在对应持久记录中；
+- **pending**：尚未 settled 的 original targets。
+
+视图展示能够从持久产物验证的状态、失败原因、dirty 与文件更新时间。尝试次数保留在 transaction／missing 记录中，剩余预算和下一项可执行操作以固定运行时响应为准，面板不自行推断或授予重试。页面失败是 page-local 行状态；independent sibling 可继续且面板不能把它渲染成 deck-wide 停止。shared integrity、snapshot、CAS、permission 或 adapter blocker 单独显示为 global。预算 exhausted 后显示 exhausted／missing candidate，不显示 retry、fallback 或“恢复准备中”。历史 replacement transaction 保留审计链，但不能让 count 回退或隐藏第四次 dispatch。
+
+`run.delivery.status` 必须与 `run.stage` 的合法组合原样显示：
+
+- `prepared` 只配 `stage: qa`，标注“QA 阶段、不可导出”；
+- `complete` 只配 `stage: complete`，要求 missing 为 0；
+- `partial` 只配 `stage: partial`，同时展示 delivered 和按 original order 的 missing 清单，并明确 artifact 为 partial；
+- `failed` 只配 `stage: failed`，显示 delivered 为 0 且无 PPTX。
+
+其他 stage／delivery 组合显示为 owner conflict，不猜测或美化终态。完整度、QA verification 与 Office verification 使用独立标签。`partial` 不能显示为 complete，`GENERATED_UNVERIFIED` 不能显示为 verified；没有 Office 实测时明确标记未验证。
+
+已经存在但 dirty 的 SVG 显示为旧版本；omitted／user-skipped 页面即使文件仍在也保持 dirty。生成中的临时候选不是已提交页面。只有 `candidate_written`／`validated` 且持久 digest 匹配的候选可预览；preview 只使用 `img`，不执行 SVG script，也不改变质量结论。无产物更新只说明没有新磁盘事件，不能证明 worker 存活或停止。面板断线后自动重试，重启服务若更换端口需打开新的实际 URL。
 
 ## 存储与兼容
 

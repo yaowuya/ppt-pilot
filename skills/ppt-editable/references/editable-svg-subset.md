@@ -24,7 +24,7 @@ Every SVG `g` maps recursively to one `p:grpSp`; the root SVG is not a group. Em
 
 ## Text
 
-Every visible text line becomes one editable text box. Nested spans and tails are traversed recursively. Scalar `x` or line-changing `dy` starts a line; coordinate lists, `dx`, child `y`, mixed anchors, invalid whitespace modes, and non-finite values fail.
+Every visible text line becomes one editable text box. Nested spans and tails are traversed recursively. Scalar `x` or line-changing `dy` starts a line. Runtime-generated single-line text may carry `data-role="title|body|footnote"` and one non-nested `tspan` repeating its parent's exact absolute `x` and `y`; this metadata does not alter wording or geometry. Other child `y` positioning, combined `y`/`dy`, coordinate lists, `dx`, mixed anchors, invalid whitespace modes, and non-finite values fail.
 
 Default whitespace collapses XML spaces while retaining meaningful separators. `xml:space="preserve"` scopes recursively until an explicit default reset. Font, weight, fill, spacing, anchor, and source metadata inherit explicitly.
 
@@ -38,4 +38,4 @@ A visible internal source ID fails as `svg_text_invalid` and blocks the complete
 
 Unsupported content produces a closed reason such as `svg_xml_invalid`, `svg_canvas_invalid`, `svg_element_unsupported`, `svg_attribute_unsupported`, `svg_external_reference`, `svg_path_invalid`, `svg_arc_rotation_unsupported`, `svg_group_empty`, `svg_coordinate_invalid`, or `svg_text_invalid`.
 
-Any slide failure blocks candidate generation for the whole deck. There is no image fallback.
+Any failure in the selected delivered subset blocks that conversion attempt. The converter never silently excludes another page; any changed delivery partition must be settled by the runtime and disclosed before retrying export. There is no image fallback.

@@ -4,7 +4,7 @@
 
 本协议把需要用户决定的事项变成可执行、可暂停并可恢复的交互。它适用于新建、恢复和修订入口，并保持宿主中立：只描述检查、提问、等待、记录和继续，不依赖任何特定交互工具或调用语法。
 
-核心规则是：**先检查已有信息，只询问仍然重要的未决事项；一次只提出一个实质性问题；推荐不是确认；提出问题后立即停止本轮。**
+核心规则是：**先检查已有信息，只询问仍然重要的未决事项；同一节点紧密相关的字段集中收集；推荐不是确认；提出阻塞问题后等待明确回答。**
 
 ## 入口与模式规范化
 
@@ -14,6 +14,9 @@
 - `run.json.mode` 只保存执行策略，值只能是 `guided` 或 `auto`。只有显式指定 `auto` 才进入自动策略；它跳过可选问题和可选批准，但不能因为请求看起来完整就自行推断为 `auto`。
 - `resume`／`revise` 是入口动作，不是持久模式。它们先读取目标运行的 `run.json`，保留既有 `run.json.mode`，再恢复或按失效规则修订；只有用户明确要求切换执行策略时才更新该字段。
 - `new` 表示创建入口，不是写入 `run.json.mode` 的新值。
+- `production_policy` 与 `mode` 正交：新运行写入 `strict|best_effort`，默认 `best_effort`；legacy 运行缺少该字段时按 `strict` 读取，不能补写成更宽松策略。
+- 对既有运行，只有显式执行 `advance --allow-partial` 才把 `production_policy` 持久化为 `best_effort`。`auto`、页面失败、字段缺省、用户沉默或继续 siblings 都不构成策略升级。
+- `--skip-slide SID` 只表达用户明确授权的本次页面 omission：runtime 记录原始 target 位置、授权与 unchanged transaction evidence。不能因失败、预算耗尽或 best-effort 自动猜测 skip，也不能用 skip 绕过 global blocker。
 - 运行目标无法唯一确定时，使用产物契约定义的工作区级路由状态 `ppt-output/run-selection.json`；不得猜测、覆盖或把选择问题写入任何候选运行。
 
 首次问题也必须可恢复：不存在不持久化的阻塞问题例外。明确新建但信息不足以生成语义化 `deck_id` 时，选定一次稳定中性 ID，交给固定入口独占创建新建且不冲突的运行目录；重入复用同一 ID，不覆盖目录或自动追加后缀。最小 `run.json` 通过审计后，先持久化问题，再提出演示意图问题。默认恢复找不到目标时报告 `run_not_found`，不擅自转为新建；不能创建安全运行目录时停止并报告原因，不得先提出无法恢复的问题。
@@ -59,9 +62,9 @@ python <skill-dir>/scripts/ppt_entry.py --workspace <工作区> --action new --r
 - 文件缺失时静默跳过；格式错误、不可解码或 `schema_version` 非 1 时披露原因并忽略该文件继续运行，不停止、不写入任何候选运行目录；
 - 偏好档案是咨询性输入，不是控制状态：不出现在任何恢复链中，不替代 guided 批准点，也不得覆盖硬质量门。
 
-## 单问题回合
+## 聚焦确认回合
 
-一次只提出一个实质性问题。一个问题可以要求用户用一句完整意图描述同时补全紧密相关的字段，但不得把互不依赖的多个决策塞进同一轮。
+围绕当前节点提出一个清晰的确认请求，可集中列出紧密相关的未决字段及回答格式，避免把同一决策拆成多轮机械问答。不同授权节点分别绑定各自已展示的产物版本；不能将一个回答扩展到未展示内容或未回答的事项。权限、事实冲突和没有安全默认值的关键决定仍必须得到明确回答。
 
 有限选择使用 2–4 个互斥选项：
 
@@ -131,19 +134,23 @@ python <skill-dir>/scripts/ppt_entry.py --workspace <工作区> --action new --r
 
 ## 直接视觉修订与优先级
 
-用户在任何视觉阶段直接提出可执行的品牌、主题、构图或页面修订时，即使该指令不来自 guided 批准问题，也必须先分类并持久化，再修改 brief 或 SVG。若当前 failed 页只需改 `layout_family`／`visual_intent`，宿主只写[固定 `revise-visual`](runtime-canonical-owners.md#failed-page-visual-revision)的闭合输入，由运行时创建历史和内存 overlay，不改五份已审文稿；以下镜像规则用于其余既有 materialized 修订。按[产物契约](artifact-contract.md)创建下一单调 `visual-revision-<N>`，记录 `kind: visual_revision`、原始 `answer`、`normalized_changes`、`affected_scope`、`supersedes`、`status: applied` 和 `artifact_owner`。整套决定镜像到 `theme.json.user_revision_notes`，锚点与页面决定只镜像到对应故事板／theme owner 与 revision provenance；不得直接改写已选 style pack 的 prompt/tokens 或生成运行时第八条 Step-2 行，需要改变风格时必须选择或重建一个通过完整验证的 style pack。所有镜像都能从权威历史重建。
+用户在任何视觉阶段直接提出可执行的品牌、主题、构图或页面修订时，即使该指令不来自 guided 批准问题，也必须先分类并持久化，再修改视觉 owner。新 style-only 变化写入 `theme.json` 或受控 `projection: runtime_visual`；它不改写简报、研究、来源、大纲、故事板的内容字段，也不直接编辑 previous final SVG。
+
+若当前 failed 页只需改 `layout_family`／`visual_intent`，宿主把闭合输入交给[固定 `revise-visual`](runtime-canonical-owners.md#failed-page-visual-revision)，由 runtime 创建 `visual-revision-<N>` 历史和内存 overlay。记录包含原始 `answer`、`normalized_changes`、`affected_scope`、`supersedes`、`status: applied`、`artifact_owner` 和 `projection: runtime_visual`。这条路径保持五份已审文稿、review evidence、theme、sibling 与 previous final 原字节，并继承该页当前三次 dispatch lifetime；它不建立新的内容批准或 attempt budget。
+
+整套风格决定归入 theme owner；页面视觉决定只归入该页受控 projection。历史 materialized revision／故事板镜像保持 replay-readable，但不得复制为新 style-only 修订模式。需要改变 style pack 时，选择或重建一个通过完整验证的 style pack；不直接改所选 pack 的 prompt/tokens。
 
 当前有效视觉契约按以下固定优先级归并：
 
 ```text
-不可覆盖内容／证据／兼容性规则 > seed defaults > latest deck theme/brand decision > latest scoped slide decision > local patch defect
+不可覆盖内容／证据／兼容性规则 > seed defaults > latest deck theme/brand decision > latest scoped slide decision > validated local repair defect
 ```
 
-后来的同作用域决定只有在明确替换同一字段，并通过 `supersedes` 指向旧 `<history-id>:<field>` 时，才能使旧规则失效。废弃规则继续保留在 `run.json.interaction_history`，但必须从 active contract 和生成 brief 中排除。页面决定不得影响其他页面，local patch defect 不得改变焦点、层级、主题或内容边界。
+后来的同作用域决定只有在明确替换同一字段，并通过 `supersedes` 指向旧 `<history-id>:<field>` 时，才能使旧规则失效。废弃规则继续保留在 `run.json.interaction_history`，但从 active visual contract 排除。页面决定不得影响其他页面；local repair 只解决已验证 defect，不改变焦点、层级、主题或内容边界。
 
-若用户指令同时涉及多个层级，先拆成规范化字段并逐项判断作用域与替换关系，再在一次权威历史更新中保存。无法判断规则应共存还是替换、字段作用域不明确、`supersedes` 目标不存在，或历史与 `theme.json.user_revision_notes`／页面 brief 镜像冲突时，先持久化一个直接澄清问题并停止；不得依赖对话顺序猜测，也不得把互斥规则同时送入生成。
+若用户指令同时涉及多个层级，先拆成规范化字段并逐项判断作用域与替换关系，再在一次权威历史更新中保存。无法判断规则应共存还是替换、字段作用域不明确、`supersedes` 目标不存在，或历史与视觉 owner 冲突时，先持久化一个直接澄清问题并停止；不依赖对话顺序猜测，也不把互斥规则同时送入生成。
 
-事实、来源、主张、大纲或故事板变化不写成视觉修订；它们继续按失效重入表使文稿批准失效。视觉指令的 `patch`／`recompose` 分类和准确输入遵循[生产 QA、恢复与修订契约](qa-and-revision.md)。
+事实、来源、主张、限定、content blocks、大纲或叙事变化属于 content re-entry：按失效重入表使文稿批准失效并正式重审。视觉指令的 local repair／recompose 分类和准确输入遵循[生产 QA、页面局部恢复与交付](qa-and-revision.md)。
 
 ## guided 强制批准点
 
@@ -165,7 +172,7 @@ python <skill-dir>/scripts/ppt_entry.py --workspace <工作区> --action new --r
 - **故事板冲突**：页数、密度、必需内容、来源支持或叙事取舍没有安全默认值时询问。
 - **审稿业务决策**：唯一的证据保持型修复可以直接执行；修订会改变核心立场、建议或受众行动时询问。用户选择不能让未解决的 `BLOCKER`／`HIGH` 通过。
 - **品牌与主题**：优先保留明确请求、已批准选择和工作区偏好；均未指定风格时默认 `jiawei-product`（嘉为产品），选择／移除风格与品牌定制遵循[设计系统](design-system.md)。guided 批准点不变；品牌冲突、权限不清或无安全默认值时，guided／auto 均须询问。
-- **生产阻断**：两次修复和确定性布局回退都失败，且继续需要删除已批准内容或改变交付取舍时询问；无效 SVG 硬失败不能由用户豁免。
+- **生产阻断与结果**：ordinary page-local failure、重试与 exhausted omission 由 runtime 按当前 policy 结算，不创建重复问题；independent pages 继续。只有需要用户改变内容／业务取舍、从 strict 显式切换到 best-effort、明确 skip 某页，或 global blocker 没有安全默认时询问；无效 SVG、安全、事实来源或 user hard constraint 不能由回答豁免。
 - **恢复与修订**：文件集合、运行目标、审查证据或修改类别无法唯一判断时询问。
 
 ## 停止提问
@@ -175,7 +182,7 @@ python <skill-dir>/scripts/ppt_entry.py --workspace <工作区> --action new --r
 - 会实质改变当前输出的决策已经解决；
 - 需要用户权限的行为已经获得明确授权，或已选择不披露的安全路径；
 - 当前 guided 批准点已经明确通过；
-- 没有需要用户承担业务判断的审稿或生产阻断；
+- 没有需要用户承担业务判断或授权的 global blocker／交付策略决定；
 - 剩余未知项都具有安全、可逆的默认值且已经记录。
 
 用户明确要求“其余由你决定”时，可以把剩余非权限型偏好按安全默认处理；该授权不能解释为允许外传机密信息。用户明确切换为 `auto` 时更新运行模式，但仍保留权限和无安全默认值的阻塞问题。

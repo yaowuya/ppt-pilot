@@ -126,7 +126,7 @@ class InteractionProtocolTests(unittest.TestCase):
         for token in (
             "先检查",
             "不得再次询问",
-            "一次只提出一个实质性问题",
+            "同一节点紧密相关的字段集中收集",
             "2–4 个互斥选项",
             "推荐不是确认",
             "明确回答",
@@ -206,7 +206,7 @@ class InteractionProtocolTests(unittest.TestCase):
         self.assertIn(expected, workflow)
         self.assertNotRegex(workflow, r"brief\s*->\s*(?:paused|awaiting_user)")
         self.assertIn("等待期间", workflow)
-        self.assertIn("保持当前阶段", workflow)
+        self.assertIn("保持当前位置", workflow)
 
     def test_stage_references_link_the_protocol_and_own_local_triggers(self):
         stage_paths = (
@@ -246,13 +246,10 @@ class InteractionProtocolTests(unittest.TestCase):
             self.assertIn(token.lower(), design, f"design-system.md 缺少 {token}")
 
         qa = read_text(self.qa_path).lower()
-        for token in (
-            "pending_interaction",
-            "status: answered",
-            "生产阻断",
-            "修改类别无法唯一判断",
-        ):
+        for token in ('页面局部', '全局', 'best_effort', 'advance', '修订分类', 'content re-entry'):
             self.assertIn(token.lower(), qa, f"qa-and-revision.md 缺少 {token}")
+        for token in ('pending_interaction', 'status: answered'):
+            self.assertIn(token, read_text(self.artifact_path).lower())
 
     def test_topic_only_safe_defaults_make_brief_approval_the_first_question(self):
         brief = read_text(self.brief_path).lower()
@@ -520,26 +517,16 @@ class InteractionProtocolTests(unittest.TestCase):
                     self.assertFalse(case["stop"])
                     self.assertEqual(case["expected_calls"], {"resolver": 0, "generator": 0, "stage_scan": 1})
 
-        workflow_rows = [
-            row
-            for row in self._markdown_table_rows(read_text(self.workflow_path).lower())
-            if row and row[0] in RESUME_ORDER
-        ]
-        self.assertEqual([row[0] for row in workflow_rows], list(RESUME_ORDER))
+        workflow_rows = [row for row in self._markdown_table_rows(read_text(self.workflow_path).lower())
+                         if len(row) >= 3 and row[0].isdigit()]
         self.assertEqual(len(workflow_rows), len(RESUME_ORDER))
-
+        for row, expected in zip(workflow_rows, RESUME_ORDER):
+            self.assertIn(expected, row[1])
         workflow_text = read_text(self.workflow_path)
-        resume_line = next(line for line in workflow_text.splitlines() if line.startswith("- `resume`"))
-        revise_line = next(line for line in workflow_text.splitlines() if line.startswith("- `revise`"))
-        for line in (resume_line, revise_line):
-            self.assertIn("全局恢复顺序", line)
-            self.assertIn("pending_interaction", line)
-            self.assertIn("manuscript_review.pending_round", line)
-            self.assertIn("visual_generation_blocker", line)
-            self.assertIn("visual_generation_transaction", line)
-            self.assertIn("active_visual_generation_batch", line)
-        self.assertIn("前五项均不存在后才能扫描", resume_line)
-        self.assertIn("五类 durable control state", revise_line)
+        self.assertIn('不意味着一个普通页面失败停止其他页面', workflow_text)
+        protocol = self._protocol()
+        self.assertIn('`resume`／`revise`', protocol)
+        self.assertIn('保留既有 `run.json.mode`', protocol)
 
     def test_visual_generation_transaction_fixture_obeys_global_recovery_priority(self):
         fixture_path = self.fixture_root / "visual-generation-transaction-cases.json"

@@ -1,5 +1,7 @@
 # 页面首次生成与重新排版专用 Prompt 契约
 
+本文件是编译器与旧产物的兼容参考，不是模型逐页执行清单。当前生产、恢复、页面局部失败和完整／部分交付以[工作流](workflow.md)及[固定运行时接口](runtime-canonical-owners.md)为准。模型使用 `advance` 返回的可执行动作；下文历史 operation 标识不授予额外命令、重试次数或手写 owner 的权限。
+
 ## Active request and path names
 
 Active generation uses `user_page_request`, never the old active slot name. Initial generation derives it from the approved storyboard and theme; deterministic fallback uses its fixed fallback request. For `user_recompose`, the orchestrator selects the single applied `interaction:<id>` owner, sorts its `normalized_changes` keys canonically, and renders a deterministic concise natural-language summary of those normalized values without adding facts; the raw `answer` remains only in `interaction_history` and neither it nor history JSON enters the prompt. New prompts are written to `.ppt-pilot/generation-prompts/<slide-id>.md`. The transaction stores `generation-prompts/<slide-id>.md`; `prompt_path is relative to `.ppt-pilot/``. Old marker names are accepted only by explicit stale-reader classification and are inert.
@@ -10,7 +12,7 @@ Active generation uses `user_page_request`, never the old active slot name. Init
 
 - 每个页面首次生成必须使用；
 - 每个 `recompose` 必须使用，包括用户明确要求重新排版与系统主动重构；
-- `patch` 不使用本契约；本契约不得用于 patch，仍读取完整编译输入（故事板+theme）、当前 SVG 和一个精确 defect。
+- `local_patch` 只作为历史兼容标识；当前没有通用 patch CLI。模型不得据此手写补丁程序、改写失败记录或伪造 generator 输出，正常修复跟随 `advance` 和现有验证闭环。
 
 完成编译输入组装后，**不得由故事板或 theme 直接生成** SVG。必须先在内存完成规范编译与全部确定性 preflight，再在任何 prompt／transaction／candidate 写入前按[宿主适配器](host-isolation-adapters.md)协商已接受的 fresh-context 生成边界（DSH 是提示策略而非硬工具隔离）；无能力时只由固定运行时写 run-level blocker。能力通过后才按 pointer-last 协议准备 schema-v2 per-slide transactions、batch manifest 与 `run.json.active_visual_generation_batch`，并持久化 `.ppt-pilot/generation-prompts/<slide-id>.md`；批次激活后 fresh 独立上下文才能使用该 Prompt 生成。
 
@@ -24,7 +26,7 @@ Active generation uses `user_page_request`, never the old active slot name. Init
 - “换个排版”；
 - “这页效果不好，重新做”。
 
-局部碰撞、越界、对齐误差和错字仍按 `patch` 处理。用户要求改变事实、数字、限定条件、来源或受众行动时，不得进入本路径，必须返回文稿工作流。
+局部碰撞、越界和对齐问题先交给已有确定性规范化或运行时返回的有界视觉修订／重构动作；没有合法修复入口时按页面失败与交付策略处理，不因此停止其他独立页。错字修正仍须保持事实和含义；改变事实、数字、限定条件、来源或受众行动时必须返回内容工作流。
 
 ## 持久产物与权威关系
 
@@ -44,7 +46,7 @@ schema-v1 `visual_generation_transaction` 只能按 [artifact-contract.md](artif
 
 四个 schema-v1 identity 字段（`selected_style_id`、`selected_style_display_name`、`style_kind`、`style_manifest_version`）由 `theme.json` 持有；权威定义见[产物契约 Task 6](artifact-contract.md)。四字段不提升 schema 版本；`style_manifest_version` 对 `legacy_seed` 固定为 `none`，对 `style_pack` 固定为当前 manifest version。missing fields 只能从已验证 registry／manifest 或已持久 operation owner 派生后重建；registry 缺失时 identity-recovery table 只恢复旧运行身份，不授权编译或生成，任何生成请求仍返回 `registry_missing`。不得从 SVG、目录、请求文案或用户措辞推断。
 
-`generation_intent` 与 `generation_trigger_id` 是 generation prompt 的 operation owner。四个合法 operation rows 固定如下：
+`generation_intent` 与 `generation_trigger_id` 是 generation prompt 的 operation owner。下表保留当前编译 identity 与历史记录格式，不是额外的操作授权。`local_patch` 没有对应的通用执行命令；历史 fallback 只能由固定运行时根据真实证据、剩余预算及重放条件解释，不能由模型自行拼接 trigger 发起，也不能产生第四次 dispatch。
 
 | generation_intent | mode | generation_trigger_id | fixed reason / sentinel |
 |---|---|---|---|
@@ -154,7 +156,7 @@ identity recovery 只在 no-follow／`lstat` 确认 `assets/styles/registry.json
 确定性 preflight 失败必须产生零 transaction 写入、零 prompt 写入、零 generator 调用和零 SVG 写入。缺陷分类为 outline／storyboard／theme defect 并返回对应权威 owner；只有规范模板、规范字节或无法唯一解释的 snapshot/provenance 自身失败才写 canonical `visual_generation_blocker`。preflight 包括但不限于以下关系门禁：
 
 - **事实底线与叙事相等**：素材中的数字、单位、期间、限定词、因果、来源映射与故事板一致；canonical narrative bullets 与 outline 的叙事要点一致；不得靠改写规避差异。
-- **风格基线闭合**：palette 是最终颜色值；type/spacing/shape/output 无 token 名或待选项；通用 SVG API 默认标题下限为 40 px，默认所选风格 `jiawei-product` 为 36 px，已验证固定品牌风格使用声明的主标题字号且不得低于 34 px；正文 ≥20 px、脚注 ≥14 px；所有 region 位于 64 px safe area 并遵循 24 px rhythm。
+- **风格基线闭合**：palette 是最终颜色值；type/spacing/shape/output 无 token 名或待选项；通用 SVG API 默认标题下限为 40 px，默认所选风格 `jiawei-product` 为 40 px，已验证固定品牌风格使用声明的主标题字号且不得低于 34 px；正文 ≥20 px、脚注 ≥14 px；所有 region 位于 64 px safe area 并遵循 24 px rhythm。
 - **规范编译**：resolved template 源路径唯一；单一 narrative replacement bytes 经过来源注解／Setext／路径／外部输入防护；compiled bytes 只由该模板与唯一 whole-line `{{NARRATIVE}}` 注入派生，`prompt_baseline` 不进入正文。
 
 ### `visual_generation_blocker` 生命周期
@@ -163,7 +165,7 @@ identity recovery 只在 no-follow／`lstat` 确认 `assets/styles/registry.json
 
 `resource` 只允许保存已经通过 containment 和 no-follow 检查的 Skill 相对路径：风格资产与已声明模板状态使用 `assets/styles/...`。路径安全前失败、绝对路径、Windows 盘符、UNC、URL、`.`／`..` 越界、link／junction／reparse 或任何工作区／机密路径，都写 `none`；repository authoring seed 不属于运行时 resource。
 
-恢复时的全局顺序固定为 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > schema-v1 visual_generation_transaction migration > active_visual_generation_batch > stage scan`。前五类 durable control state 均不存在或已完成前不得扫描普通阶段。schema-v1 `visual_generation_transaction` 必须先进入 Task 3 的零模型调用迁移，不得直接 dispatch；blocker 存续期间保持该 v1 owner 原样不变，blocker 修复后先原子移除 blocker，再重新进入全局顺序完成 pointer-last 迁移，不能跨过 v1 直接创建新 transaction。只要前序 owner 存在，就不得解析新页面、编译 generation prompt 或启动 generator。已有 blocker 与当前目标为同一 slide 时，style/prompt state 重新验证同一资源与快照，`generator_unavailable` state 在显式 resume 时复核快照并重新协商 adapter；仍失败则幂等刷新。另一 slide 已有 active blocker 时必须先处理原 blocker。仍失败时 transaction writes、prompt writes、generator calls 与 SVG writes 都保持 0。
+恢复时的全局顺序固定为 `pending_interaction > manuscript_review.pending_round > visual_generation_blocker > schema-v1 visual_generation_transaction migration > active_visual_generation_batch > stage scan`。前五类 durable control state 均不存在或已完成前不得扫描普通阶段。schema-v1 `visual_generation_transaction` 必须先进入 Task 3 的零模型调用迁移，不得直接 dispatch；blocker 存续期间保持该 v1 owner 原样不变，blocker 修复后先原子移除 blocker，再重新进入全局顺序完成 pointer-last 迁移，不能跨过 v1 直接创建新 transaction。前序共享权限、审查或完整性 owner 未解决时停止下游写入；活跃 batch 中普通页面的 `failed` 不属于共享阻断，可以按运行时动作继续独立页面，并在合法结算该批后处理后续页面。已有 blocker 与当前目标为同一 slide 时，style/prompt state 重新验证同一资源与快照，`generator_unavailable` state 在显式 resume 时复核快照并重新协商 adapter；仍失败则幂等刷新。另一 slide 已有 active blocker 时必须先处理原 blocker。仍失败时 transaction writes、prompt writes、generator calls 与 SVG writes 都保持 0。
 
 canonical blocker 必须在 preflight 已失败，或 preflight 成功而 adapter 协商失败，且没有为本次尝试创建 transaction、prompt 或 manifest 后独立写入；blocker 与同一尝试的 `compiling` transaction 不得共存。历史 crash 若留下旧协议的 prompt／`compiling`／blocker 组合，只能把 prompt 当作不可信派生产物：保留 previous final，清理或隔离 orphan candidate，重新从步骤 1 执行无副作用 preflight；不得用旧 prompt 直接补提交 `compiled`。
 
@@ -173,7 +175,7 @@ canonical blocker 必须在 preflight 已失败，或 preflight 成功而 adapte
 
 所有 per-slide transactions 都关闭、复读并通过 schema/path/batch 校验后，写入 `.ppt-pilot/visual-generation-batches/<batch-id>.json`。manifest 的 `transaction_refs` 与 `ordered_slide_ids` 一一对齐，不复制 transaction state；`promotion_cursor`／`blocker_cursor` 只作提示。manifest 复读成功后才原子写 `run.json.active_visual_generation_batch`，完成 pointer-last 激活。pointer 早于 files 以 `visual_generation_state_conflict` fail closed；files 早于 pointer 则字节复用并只补 pointer。
 
-`candidate_sha256` 只在候选写入、关闭并复读后随 `candidate_written` 提交；`generating` crash 留下的 orphan candidate 必须 delete/isolate，never adopted。`validated` final CAS 只接受 candidate 已是 final、prior final 仍在或第三 hash conflict；任何失败保留 previous final。transport retry、并发 dispatch、validation 与 serial promotion 的后续状态变化分别由 Tasks 4–5 扩展，但 durable owner 始终是该页 transaction 文件，不是 manifest 或 callback。
+`candidate_sha256` 只在候选写入、关闭并复读后随 `candidate_written` 提交；`generating` crash 留下的 orphan candidate 为 never adopted；只按固定运行时返回的合法动作处理，模型不手工 delete/isolate。`validated` final CAS 只接受 candidate 已是 final、prior final 仍在或第三 hash conflict；任何失败保留 previous final。transport retry、并发 dispatch、validation 与 serial promotion 的后续状态变化分别由 Tasks 4–5 扩展，但 durable owner 始终是该页 transaction 文件，不是 manifest 或 callback。
 
 schema-v1 顶层 `visual_generation_transaction` 只按 [artifact-contract.md](artifact-contract.md) 的 v1 迁移章节解释；新批次绝不创建它。No arbitrary delete/cancel。
 
@@ -204,9 +206,9 @@ spawn_isolated_text_task(
 get_isolated_text_task_result(attribution_id | task_id)
 ```
 
-宿主能力协商与具体宿主映射统一遵循[页面生成宿主隔离适配器](host-isolation-adapters.md)。支持并发且有 durable lookup 时按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，不询问用户选择；coordinator 在每次 dispatch／补位前调用只读规划器，并按实际 worker capacity、活动批次上限和已在途任务限流。缺少并发或 durable lookup 但仍有完整安全接口时安全降级为 width 1，容量未知也保守为 1；容量为 0 则等待。工作区是否为 Git 不参与能力判断，非 Git 工作区不降级。缺少 prompt-by-value、fresh history、text-only result、attribution 或不符合已接受的宿主工具边界时，在任何 prompt／transaction／candidate 写入前以 `generator_unavailable` fail closed；结构性不可用不得作为容量等待轮询。Claude／Codex 的 `filesystem=none`、`data_tools=none` 要求不变；DSH 使用已明确接受的 fresh-context 提示策略边界，不伪造无工具证明。当前固定运行时新批次上限为 5，不能由规划器目标推断扩容。
+宿主能力协商与具体宿主映射统一遵循[页面生成宿主隔离适配器](host-isolation-adapters.md)。支持并发且有 durable lookup 时按[自动并发策略](adaptive-concurrency.md)从目标 5 自动提升至最多 10，不询问用户选择；coordinator 在每次 dispatch／补位前调用只读规划器，并按实际 worker capacity、活动批次上限和已在途任务限流。缺少并发或 durable lookup 但仍有完整安全接口时安全降级为 width 1，容量未知也保守为 1；容量为 0 则等待。工作区是否为 Git 不是内容要求；实际执行仍遵循当前宿主适配器。SDK 强制本地 worktree 时必须已有用户授权与可解析 HEAD，不得由 coordinator 擅自创建 Git 状态解锁生成。缺少 prompt-by-value、fresh history、text-only result、attribution 或不符合已接受的宿主工具边界时，在任何 prompt／transaction／candidate 写入前以 `generator_unavailable` fail closed；结构性不可用不得作为容量等待轮询。Claude／Codex 的 `filesystem=none`、`data_tools=none` 要求不变；DSH 使用已明确接受的 fresh-context 提示策略边界，不伪造无工具证明。当前固定运行时新批次上限为 5，不能由规划器目标推断扩容。
 
-每个 `(transaction_id, dispatch_epoch)` 最多调用一次 spawn；同 epoch 已有 `host_attribution_id`／`host_task_id` 时只能恢复原任务，不得重复派发。DSH 的 lookup 是[普通 subagent 协议](deepseek-harness.md)规定的真实日志关联、child 完成通知与同 child 原答案取回，不是 `job_output` 或对 `list_agents` 的轮询；launch 丢失且归因不明时保留 reservation 并停止。可归因的 `refused`、`timeout` 按原失败 consumer 处理；unknown durable result 不证明原任务已终结，DSH 必须保留 reservation 并停止，不能据此释放槽位或再派。coordinator 始终保留 transaction 与 previous final。禁止嵌套调用 Claude、Codex 或 DeepSeek CLI；不得探测凭据或 profile；不得使用 coordinator 当前上下文作为 generator fallback；不得要求 Git 或 worktree。
+每个 `(transaction_id, dispatch_epoch)` 最多调用一次 spawn；同 epoch 已有 `host_attribution_id`／`host_task_id` 时只能恢复原任务，不得重复派发。DSH 的 lookup 是[普通 subagent 协议](deepseek-harness.md)规定的真实日志关联、child 完成通知与同 child 原答案取回，不是 `job_output` 或对 `list_agents` 的轮询；launch 丢失且归因不明时保留 reservation 并停止。可归因的 `refused`、`timeout` 按原失败 consumer 处理；unknown durable result 不证明原任务已终结，DSH 必须保留 reservation 并停止，不能据此释放槽位或再派。coordinator 始终保留 transaction 与 previous final。禁止嵌套调用 Claude、Codex 或 DeepSeek CLI；不得探测凭据或 profile；不得使用 coordinator 当前上下文作为 generator fallback；不为解锁生成擅自创建 Git 提交或 worktree，宿主的隔离要求以已授权适配器为准。
 
 隔离任务只返回 text；coordinator 单独提取恰好一个 `xml` 围栏并解析裸 SVG，先验证每个 `block_id` 仅临时出现一次于规范 `<g data-block-id>` 精确属性值，且不出现在 text／tail／其他属性名值，再与冻结故事板块一一对应；随后按 `block_id -> ordered source_ids` 确定性关联机器来源、移除临时 block 属性并规范化序列化。未知／遗漏／重复／泄漏 block 或非法来源以 `fact_source_mismatch` 在 candidate write 前失败。只有 enrichment 成功后才以 temp+rename 写 candidate，关闭、复读、hash 后提交 `candidate_written`。generator、隔离任务或 completion callback 都不能写 prompt、transaction、candidate、final 或 `run.json`。per-slide validation 可与 sibling generation 重叠，但只有 coordinator 能按 `ordered_slide_ids` 串行提交 final promotion、visible blocker 与 pointer 变化。
 
@@ -215,6 +217,6 @@ get_isolated_text_task_result(attribution_id | task_id)
 ## 候选与 QA
 
 - 候选文件进入输出验收前先运行 SVG 结构／Office-safe 子集和非 Office 渲染的视觉检查；Office 实测遵循 [QA 阶段边界](qa-and-revision.md#svg-渲染与-office-边界)，不在逐页候选验收中启动应用。
-- 额外文字、多个代码围栏、缺失围栏、提取失败、解析失败都属于硬失败。
-- 额外失败（shape 不一致、快照过期、权限不足）返回阻断，不得悄悄降级。
+- 额外文字、多个代码围栏、缺失围栏、提取失败和 SVG 解析失败属于页面级硬失败；不能写入无效候选，也不因此阻断其他独立页。
+- 共享 owner shape 不一致、快照过期、权限不足等完整性失败仍为全局阻断，不得悄悄降级。
 - 仅当 `generation-prompts/<slide-id>.md` 验收通过后，才进入正式候选与后续回归。

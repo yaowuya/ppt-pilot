@@ -1,111 +1,150 @@
 # PPT Pilot 工作流参考
 
-## 阶段顺序
+## 阶段、交付与验证
 
-`brief -> research -> outline -> storyboard -> manuscript_review -> theme -> anchor -> production -> qa -> complete`
-
-任何入口都先读取[用户交互与确认协议](interaction-protocol.md)。它定义模式默认值、决策队列、单问题回合、明确确认和可恢复等待；本文件只规定这些交互位于哪个阶段。
-
-## 入口动作与执行策略
-
-先按[固定工作区入口](interaction-protocol.md#固定工作区入口)调用 `ppt_entry.py`；默认恢复，多个／不确定候选先持久化选择并停止。`READY` 只代表唯一目标，既有与新建最小运行都先审计，只有 audit PASS 后才可按[实时进度面板](live-dashboard.md)启动或复用 dashboard 并提供实际 URL。每次真正进入某阶段前原子持久化其 `stage`，随后执行阶段工作。待回答状态仍保留原阶段。面板读取磁盘产物，不拥有批准、恢复或生成权限，也不改变下述全局恢复顺序。
-
-最小 `run.json` 存在后先执行 `scripts/ppt_workflow_gate.py --run-dir <运行目录绝对路径> --audit-run`；任何入口、恢复或修订都不能跳过。该只读审计先于全局恢复顺序，专门拒绝宿主自创的平行 stage/control、`complete` 前的非源稿 PPTX，以及不在 `delivery/editable/` 的完成后 PPTX。它不消费或改变合法 durable state；审计 PASS 后才按下述全局恢复顺序处理。外部旧稿的每个 `--before` 与 `--resume-active-batch` 已自动包含同一审计，不能因上游证据 PASS 而忽略运行目录副作用。
-
-已有运行先审计；发现 `repair_state.ps1`、`node_modules/` 或其他 artifact-firewall 缺陷必然 `BLOCKED`。此时停止所有写入：不启动或重启 dashboard，不暂存 generator 响应，不调用 `ingest-result`，不得手写 owner，也不为继续运行而移动、删除或解释污染文件。固定 `ppt_runtime.py` 不存在或校验失败同样停止；维护插件必须发生在演示运行之外，不能自制 helper 或把 runtime／依赖复制进 run。
-
-- `new`：仅明确新建时交给 `ppt_entry.py --action new --run-id <稳定ID>`；同源既有运行默认采用，独立副本须有明确授权并传 `--allow-duplicate`。它是入口动作，不是写入 `run.json.mode` 的值。新运行未显式指定策略时使用 `guided`。
-- 外部旧 PPT／PPTX 首次明确创建属于 `new + source-driven`；已有导入运行原位恢复，尚未批准不等于不存在。先按[旧稿导入](source-deck-redesign.md)建立源清单、源页映射和 source_deck 绑定，不能因“只改风格”直接进入 revise／production。十阶段顺序不变；导入运行在进入阶段及生成／交付前调用该文档的只读 gate，失败时停止。
-- `guided`：持久执行策略；在简报、大纲和锚点批准节点提出一个直接问题，并等待明确批准。
-- `auto`：持久执行策略且只有显式指定时才使用；采用默认值并跳过可选人工批准，但不能跳过用户权限、无安全默认值的决策或任何硬质量门。
-- `resume`：入口动作；重新打开已有运行，先读取 `run.json`，严格按“全局恢复顺序”依次处理 `pending_interaction`、`manuscript_review.pending_round`、`visual_generation_blocker`、schema-v1 `visual_generation_transaction` 迁移、`active_visual_generation_batch`；前五项均不存在后才能扫描第一个未完成或脏阶段。始终保留既有 `run.json.mode`。
-- `revise`：入口动作；保留既有 `run.json.mode`，同样必须先完成或停止于“全局恢复顺序”的 `pending_interaction`、`manuscript_review.pending_round`、`visual_generation_blocker`、schema-v1 `visual_generation_transaction` 迁移、`active_visual_generation_batch`。失败页的闭合 `revise-visual` 在第 5 项原 active batch owner 内完成；其它阶段修订只有五类 durable control state 均不存在后，才能依据失效规则标记受影响下游产物并重新生成。
-
-因此，`run.json.mode` 只能持久化 `guided` 或 `auto`；`new`、`resume`、`revise` 都不写入该字段。
-
-新运行的运行根目录只放用户可读的 `大纲.md`、最终页面 `slides/` 与内部目录 `.ppt-pilot/`。内部 `.ppt-pilot/` 存放 `run.json`、`简报.md`、`研究.md`、`来源.md`、`故事板.md`、`文稿审查.md`、`质量检查报告.md`、theme、generation prompts 与 samples；不得把新运行的 `大纲.md` 写入内部目录。旧英文或旧布局运行由 `resume`／`revise` 原位读取，保持一套连贯路径，不自动迁移。
-
-## 固定视觉运行时 CLI
-
-视觉生命周期只通过当前安装 Skill 的绝对路径调用 `scripts/ppt_runtime.py`。每次入口先执行只读 artifact audit；任一未知或未接受的宿主 adapter 都 fail closed。运行时不调用模型、Office 或宿主 CLI，也不读取、导入或执行运行目录中的代码。宿主只把声明式输入写到 `.ppt-pilot/runtime-inputs/`，并原样消费单个 JSON response envelope：
-
-DSH 在新建目录／阶段写入前先做安装只读预检，已有运行仍先通过 artifact audit。取宿主本次加载 Skill 给出的真实根目录，运行以下 `inspect-host`；安装身份不能靠猜路径或旧会话记忆。该命令无需运行目录、不改变全局恢复顺序、不创建 canonical blocker；详细操作见 [DSH 入口诊断](deepseek-harness.md#入口诊断与升级后恢复)。
+兼容工作顺序保持，终态分支显式化：
 
 ```text
-inspect-host --host HOST [--capability ABSOLUTE_LOCAL_JSON]
-prepare-batch --run-dir RUN --input INPUT.json --capability CAPABILITY.json
-dispatch-plan --run-dir RUN --batch-id B --capability CAPABILITY.json
-reserve-dispatch --run-dir RUN --batch-id B --slide-id S --transaction-id T --capability CAPABILITY.json
-bind-task --run-dir RUN --dispatch-id D --host-task-id HOST_TASK
-ingest-result --run-dir RUN --dispatch-id D --response RESPONSE.txt
-record-generator-failure --run-dir RUN --dispatch-id D --reason generator_refused|generator_timeout|generator_unavailable
-record-validation --run-dir RUN --slide-id S --transaction-id T --input QA.json
-prepare-recovery --run-dir RUN --slide-id S --transaction-id T --mode retry|recompose|fallback
-revise-visual --run-dir RUN --slide-id S --transaction-id T --input REVISION.json
-publish-anchors --run-dir RUN --batch-id B --expected-manifest-sha256 H
-promote --run-dir RUN --batch-id B --expected-manifest-sha256 H
-resume --run-dir RUN
-migrate-v1 --run-dir RUN
+brief -> research -> outline -> storyboard -> manuscript_review -> theme -> anchor -> production -> qa -> complete|partial|failed
 ```
 
-`resume` 永远只读；可新建批次时使用它返回的 `result.prepare_request`，不得自行重算 request ID。返回 `capability_refresh_required=true` 时，由 coordinator 使用当前 registry 身份与真实宿主观测重新构建 capability，在合法 staging 路径保存新输入，并用 `inspect-host --capability` 只读验证；安装更新、旧 receipt 或单独执行 resume 都不等于已完成重新协商。`reserve-dispatch` 必须显式重交 capability，并先持久化 attribution；`publish-anchors` 只发布 sample，返回的 `anchor_evidence`（含共享 `sha256:` identity）原样用于真实批准，旧 opaque ID 必须重新实际批准。schema-v1 只经显式 `migrate-v1` 迁移。`recompose`／`fallback` 只经运行时的固定 recovery journal 重放，不创建 run-local patch、依赖或手工编辑 owner。
+`stage` 表示当前工作流状态，并在结算后诚实记录终态；`run.delivery.status` 保存同名交付分区结果。两者的固定对应关系是：`prepared` 仅存在于 `stage: qa`，final `complete|partial|failed` 分别要求 `stage: complete|partial|failed`。`complete` 仍只表示无遗漏；验证结果另看 QA／editable 状态，不能由任一终态推断。
 
-`resume` 的 `recoveries` 指明失败页的 `failure_reason`、可用 `mode`／`remaining_attempts` 或 `required_input`；journal 重放项保留原 slide／transaction／mode，`in_flight` 保留已启动任务归属。`await-interaction`／`apply-interaction`、`await-review`／`manuscript-review`、`review-content`、`wait-for-generator` 等是 coordinator 动作，不是 CLI 命令。`same_run_required: true`、容量 WAIT 或未完成 child 均表示在原运行处理／等待，不创建替代目录。文稿未批准时，先完成原审查 owner，保留可能存在的 active batch，不重新扫描并初始化上游。
+任何入口先读[交互与确认协议](interaction-protocol.md)。该文件拥有模式、问题队列、批准和生产策略授权；本文件只规定它们发生在何处。
 
-失败页仅改变两项视觉字段时，按[闭合 `revise-visual` 输入](runtime-canonical-owners.md#failed-page-visual-revision)原位修复；零候选的契约／来源输出失败可按返回的 retry 复用原 Prompt，最多三次真实派发。文稿五文件、review hash、已验证 sibling 与 previous final 不变；事实变化仍须正式重审。
+## 固定入口
 
-`generator_unavailable` 只在完整安全 preflight 后由固定 `prepare-batch` 或当前状态对应的固定 runtime 命令持久化；不得手写 `generator_unavailable`、blocker 或 transaction。
+先用当前安装 Skill 的 `scripts/ppt_entry.py` 选择、新建或恢复唯一运行；默认 `resume`。同源既有运行原位恢复，只有明确授权才建独立副本。外部 PPT/PPTX 首次导入按[旧稿导入](source-deck-redesign.md)建立源清单和映射，之后仍按同一阶段顺序原位恢复。
 
-## 全局恢复顺序
+运行根目录只放用户可读的 `大纲.md`、最终 `slides/` 和 `.ppt-pilot/`。内部 owner 包括 `run.json`、简报、研究、来源、故事板、审查、主题、prompt、sample、QA 和 runtime evidence。运行目录不承载维护脚本、依赖或 runtime 副本。
 
-任何 `resume`、`revise` 或生产重入在扫描普通阶段前，必须按下面恰好五步处理 durable control state。前一项存在时必须先完成或停止，后一项不得预读、创建或覆盖。
+最小 `run.json` 一旦存在，入口、恢复和修订都先执行固定 audit。以下任一结果全局阻断并保持现场：
 
-| control | order | required action |
-|---|---:|---|
-| `pending_interaction` | 1 | 先验证或消费待回答／已回答交互；存在时不得处理其他 durable state。 |
-| `manuscript_review.pending_round` | 2 | 没有 pending interaction 时恢复同一 cycle／round／snapshot 的文稿审查；匹配的 durable 报告存在时幂等提交一次，不能重启或重复计数。 |
-| `visual_generation_blocker` | 3 | 只有没有更高优先级状态时处理；同页 blocker 幂等刷新，同一运行内另一页 active blocker 先被处理。 |
-| `visual_generation_transaction` | 4 | schema-v1 只读迁移输入；先执行零模型调用 v1→v2 migration，不能直接 dispatch 或 stage scan。 |
-| `active_visual_generation_batch` | 5 | 读取 pointer 指向的 manifest 和全部 per-slide transactions，从 transaction 重建 cursor 后继续，不做普通 stage scan。 |
-| stage scan | 6 | 只有前五类 durable control state 都不存在时，才寻找第一个未完成或脏阶段继续。 |
+- artifact firewall 污染；
+- owner schema、共享 snapshot 或路径身份损坏；
+- CAS／pointer 冲突；
+- 固定 runtime 缺失或完整性校验失败；
+- 未接受、不可安全调用或当前不可用的宿主 adapter；
+- 权限、旧稿绑定或其他共享完整性 gate 失败。
 
-`visual_generation_blocker` 不是用户问题，不写入 `pending_interaction`。它只能记录安全 Skill 相对 `resource` 或 `none`，不能持久化未验证绝对路径、URL、工作区路径或机密内容；写入或刷新 blocker 时保持 `stage`、`mode`、`interaction_history` 不变，并保持受影响 slide dirty。历史 crash 留下 durable prompt／`compiling` transaction／active blocker 旧协议组合时，prompt 必须视为不可信派生产物：保持受影响 slide dirty，保留 previous final，按需隔离旧 prompt 与 orphan candidate，并按 [artifact-contract.md](artifact-contract.md) 重新执行完整无副作用 preflight；不得采用旧 prompt，不得直接标记为 `compiled`，也不得直接移除 blocker。失败则按 canonical blocker 规则保留或幂等刷新 blocker。只有 style/prompt blocker 的完整 preflight 成功，或 `generator_unavailable` blocker 的快照复核与 adapter 重新协商都成功时，才能先以一次原子 `run.json` 替换移除 blocker；若 schema-v1 `visual_generation_transaction` 仍存在，必须原样保留并重新进入全局顺序，由下一步零模型调用 migration 按 pointer-last 发布 v2 owner，不能跨过迁移直接创建新的 `compiling` transaction。只有 v1 owner 不存在时，新操作才可创建新 transaction。阻断期间不得启动 generator、不得写 SVG、不得降级为 patch 或改用其他风格。
+audit `PASS` 只说明运行可继续，不是内容批准、生成授权、QA PASS 或 Office 验证。
 
-正式生产按[自动并发策略](adaptive-concurrency.md)由插件决定目标，不询问用户：规划器目标从 5 起，根据稳定通过检查的结果自动提高到最多 10；当前固定运行时新批次上限为 5，必须使用 runtime 返回的 prepare request，不能按目标值手改 `batch_width`。按 `ordered_slide_ids` 选择最多批次上限数量的页面，尾批可为 `1..batch_width` 页。旧 3／4 页活动批次原位恢复，v1 迁移默认值保持不变。确定性 preflight 先在内存完成，随后在任何 prompt／transaction／candidate durable write 前按[页面生成宿主隔离适配器](host-isolation-adapters.md)完成宿主能力协商；不符合已接受的宿主生成边界时只由固定运行时按[产物契约](artifact-contract.md#可选-visual_generation_blocker)原子写入闭合的 `generator_unavailable` blocker，且生产文件写入为 0。能力通过后才按 [artifact-contract.md](artifact-contract.md) 的 pointer-last 顺序写入每页 schema-v2 transaction、batch manifest，最后原子发布 `run.json.active_visual_generation_batch`。manifest 只拥有顺序、refs、批次快照与可重建 cursor 提示，不复制页面 state。
+## 模型面对的视觉接口
 
-`active_visual_generation_batch` 恢复保持同一全局 order：只有无 pending、无 blocker 时处理。pointer 在 files 前出现属于 `visual_generation_state_conflict`；files 完整而 pointer 缺失只做 pointer-only completion。恢复按 manifest 的 `ordered_slide_ids` 读取完整 transaction inventory，重建 `promotion_cursor`／`blocker_cursor`，并忽略 completion callback 或 manifest cursor 的授权含义。候选只有在 durable `candidate_written` 且 hash 匹配时可采用；`generating` 上的 orphan candidate 必须隔离。`validated` final CAS 只允许 candidate 已在 final、prior final 仍在、或第三 hash conflict 三种结果，且始终保留 previous final。
+视觉阶段优先使用两项高层操作：
 
-新批次在 durable 写入前按[宿主隔离适配器](host-isolation-adapters.md)协商 fresh-context text task 与该宿主工具边界；已激活批次在恢复／新 epoch 前重新协商。Claude Code 在普通目录、unborn `HEAD` 和已有提交的仓库都选择已注册 `ppt-svg-generator` 普通 fresh-context subagent 并省略 `isolation`，既不需要 Git 也不需要可解析的 `HEAD`；worktree 与 remote 都是禁止的 fallback。DSH 使用下段已接受的 native-subagent；其他受支持宿主按其适配器优先 native、其次 remote；并发+durable lookup 使用自动目标与实际 worker capacity 的较小值，缺少并发或 lookup 时降为 width 1，未知容量保守使用 1。`worker_capacity == 0` 时进入容量 `WAIT`，不误报 isolation 不可用。缺少或不安全 adapter 属于结构性不可用：新批次只以一次 `run.json` 原子替换写入 `state/reason: generator_unavailable`、`resource: none` 的 blocker，现有批次保留 transactions 并标记 blocked，且不得轮询；绝不调用嵌套 CLI、探测 credentials/profiles、要求 worktree，或使用当前上下文生成。
+```text
+python <skill-dir>/scripts/ppt_runtime.py advance --run-dir RUN [--allow-partial] [--skip-slide SID ...]
+python <skill-dir>/scripts/ppt_runtime.py finalize --run-dir RUN
+```
 
-DeepSeek Harness 生成、补位及恢复前必须读取[普通 subagent 协议](deepseek-harness.md)。已接受 `deepseek-harness / native-subagent / 1.0.0`：普通 `functions.subagent`，`run_in_background: true`，完整冻结 Prompt 按值传入，外加无页面内容的禁工具／禁委派／text-only wrapper。worker 继承工具，receipt 的 `filesystem_none=false`、`data_tools_none=false` 必须如实记录；fresh context 不是硬工具隔离。不使用 fork、专用 generator、workflow agent 或 CLI，不读取／修改 DSH 配置，也不要求重启或部署 DSH。
+### `advance`
 
-DSH 每页先 `reserve-dispatch`，仅在 `spawn_authorized: true` 时以含 `dispatch_id` 的无页面内容 `description` 启动；立即将真实返回的 durable `subagent_id` 用 `bind-task` 绑定为 `host_task_id`。完成通知的 child ID 必须匹配后才可 `ingest-result`；它不是供 `job_output` 使用的 `jobId`。`list_agents` 仅作发现，不轮询或读取结果；`send_message` 仅向同一 child 请求重发已完成原答案，不修订或重新生成。丢失 launch 无法唯一归因时保留 reservation 并停止，不能再次 spawn；具体重复／迟到通知、旧 epoch 和恢复证据按 DSH 协议处理。
+`advance` 校验当前 durable graph，并返回下一项声明式动作、输入和完成条件。coordinator 执行这一个动作后再次调用 `advance`。动作可能是等待批准、启动或关联一个已保留 dispatch、验证／修复一页、处理 active batch、写 QA，或报告全局 blocker。
 
-每个 eligible `compiled` transaction 在同一 `dispatch_epoch` 最多一次 spawn。每次调用只读 `ppt_concurrency.py` 规划 dispatch／补位前，重建在途任务并扣除已运行和已预留任务，包括未终结旧 epoch；等待或重复观测不得重复派发。多页可共享 epoch 并在实际容量内并发生成；coordinator 将完整 prompt bytes 按值交给任务，不传源稿或工作区内容；任务固定 `fresh_history=true`、text-only；Claude／Codex 保持 `filesystem=none`、`data_tools=none`，DSH 使用已接受的非内容禁工具 wrapper 而非硬工具隔离。各宿主工具与 ambient context 边界以[宿主隔离适配器](host-isolation-adapters.md)为准。coordinator 独占 candidate 写入、hash 与 transaction 提交。每页 validation 可在 sibling 生成期间并行，但 final promotion、visible blocker publication 和 `run.json` pointer 改变始终按 `ordered_slide_ids` 串行确定；visible blocker 只发布最低 ordered failed／undispatched slide，不能按 completion order 选择。
+- 新运行持久化 `production_policy`，默认 `best_effort`；显式 strict 请求写 `strict`。
+- 缺少字段的旧运行保持 strict。
+- `--allow-partial` 是把既有运行显式持久化为 `best_effort` 的授权；没有该参数就不能升级。
+- `--skip-slide SID` 只用于已经获得的显式用户跳过决定，可重复传多个 ID；runtime 保存审计证据并保持这些页 dirty。
+- 普通页面失败不会令独立页面不可推进。strict 只限制最终遗漏结算，不改变页面故障的局部性。
 
-上述并行 validation 使用 SVG 结构检查与非 Office 渲染，具体见 [SVG 渲染与 Office 边界](qa-and-revision.md#svg-渲染与-office-边界)。锚点／正式页面生成及预览不启动 PowerPoint／WPS；Office 实测不混入逐页任务，也不因提高并发而启动多个应用实例。
+### `finalize`
 
-外部旧稿运行在步骤 5 的既有 active batch owner 内、完成原 manifest／transaction 校验后，还须在 dispatch、candidate adoption、final promotion 前运行[导入恢复前置检查](source-deck-redesign.md#3-可执行阶段检查)的 `--resume-active-batch`。它不增加恢复步骤、不处理／清除高优先级状态；检查失败保留 owner 与 previous final，禁止让旧源稿候选先提升到 final。
+`finalize` 只消费当前 owner 和真实证据，不生成页面，也不推断缺失记录。任何 `prepared|complete|partial|failed` 显式结算都先要求 `run.json.manuscript_review.state == manuscript_approved` 且当前批准快照仍有效；否则保持原 owner 并拒绝交付，不给 delivery 增加字段。它验证原始 targets 的 ordered partition、storyboard/theme/QA hash、每个 delivered SVG 及其 render-bound QA，以及每个 omission 的 immutable failed transaction／显式 skip 和终态 manifest seal。
 
-## guided 检查点
+- 无遗漏产生 `delivery.status: complete` 并原子进入 `stage: complete`。
+- `best_effort` 且 delivered、missing 均非空时可产生 `delivery.status: partial` 并原子进入 `stage: partial`。
+- 零 delivered 产生 `delivery.status: failed` 并原子进入 `stage: failed`，且不生成 PPTX。
+- strict 且仍有未解决页面时不能结算 partial；可先处理运行时列出的独立可执行工作，但最终仍需合法解决失败页或由用户明确授权 `--allow-partial`。未获授权的缺页不生成 prepared／partial 交付分区。
 
-- `brief`：重要简报决策解决后，写入待回答问题并请求简报批准；批准前不得进入研究或大纲。
-- `outline`：展示核心论点和证明顺序后请求大纲批准；批准前不得创建故事板。
-- `anchor`：展示两页锚点和真实渲染证据后请求锚点批准；批准前不得设置 `stage: production`。
+低层 mutation／replay 命令仍是[固定运行时参考 API](runtime-canonical-owners.md#low-level-reference-apis)，供 runtime 开发、诊断和其高层响应引用，不是模型逐项执行清单。coordinator 不手写哈希、事务、attempt、manifest、pointer、CAS 或 delivery。
 
-等待期间，顶层 `stage` 保持当前阶段，不得新增暂停或等待阶段。`pending_interaction.status: pending` 时只等待明确回答；`answered` 时使用保存的规范化决定完成幂等写入，并以单次原子替换同时提交阶段转换和交互对象删除／替换，不得重新提问。推荐、叙述性暂停或没有反对都不是批准。
+## 四节点执行图
 
-## 文稿审查硬质量门
+### 1. 意图与内容基线
 
-五文件冻结后立即进入审查：每轮优先委派全新独立子 Agent；启动或结果归因失败时按契约执行 `inline_fallback`（当前上下文降级，报告必须声明隔离限制）；只有两种方式都不可用时才使用 `review_unavailable`。任何 `BLOCKER`／`HIGH` 问题不是 `RESOLVED` 就阻断——`OPEN` 与 `ACCEPTED_RISK` 仍然阻断；零问题也必须保存显式 `PASS` 报告。subagent 与 inline 共同计入每 cycle 最多三轮；三轮仍有阻断问题时进入 `manuscript_blocked`。
+1. `brief`：确认目标受众、行动、范围、语言、交付形式、权限、品牌硬规则和无安全默认值的决策。
+2. `research`：保存事实、数字、单位、期间、限定词和来源映射；明确未知项。
+3. `outline`：确定核心论点、证明顺序和页面角色。
+4. `storyboard`：为每页冻结叙事、显示素材、content blocks、block/source 映射和前后逻辑。
+5. `manuscript_review`：按[文稿审查](manuscript-review.md)审查五份内容 owner。`BLOCKER`／`HIGH` 必须成为 `RESOLVED`；零问题也持久化明确 PASS。
 
-findings 字段 schema、八项检查（含设计师视角材料充分性）、材料缺口协议、用户业务决策与多轮解决要求，以 [文稿审查](manuscript-review.md) 为单一权威。
+新审查快照同时拥有 exact 与 semantic fingerprints；semantic 只排除已知结构化视觉／元数据字段，事实、主张、限定、来源和叙事仍绑定。旧批准 exact-byte strict，不追补字段。
 
-### 批准检查点与视觉阶段转换
+**节点完成：** 当前 `manuscript_review.state == manuscript_approved`，五份 owner 与批准快照一致。
 
-审查通过时记录顶层 `manuscript_approved` 检查点，并把 `run.json.manuscript_review.state` 保持为 `manuscript_approved`：解析主题令牌前设置 `stage: theme`，制作锚点前设置 `stage: anchor`，生成正式页面前设置 `stage: production`。主题阶段解析当前有效主题后直接编译锚点页 prompt；锚点批准或 `auto` 内部验证完成后，在 `production` 中按页从故事板与 `theme.json` 直接编译其余页面 prompt。任何页面在对应 `generation-prompts/<slide-id>.md` 有效前都不能生成。页面生成 Prompt 不是新的顶层阶段；其编译与 fresh generator 输入隔离分别遵循[页面直接编译与生成](visual-brief-and-generation.md)与 [redesign-prompt](redesign-prompt.md)。
+### 2. 视觉基线
 
-### 生产护栏
+1. `theme`：从批准内容选择已注册风格，写入并验证 `theme.json`。
+2. `anchor`：由模型选择能覆盖主要版式与复杂内容的代表页，不固定页号；执行 SVG 合同、真实非 Office 渲染和逐页 QA。
+3. `guided` 等待真实锚点批准；`auto` 保存同等内部验证。
 
-- `manuscript_review.state = manuscript_approved` 持续有效前，不得创建 `theme.json`、样例或正式页面；
-- 即使零问题，也必须写入并保存 `PASS` 报告。
+风格、字体、色彩、品牌表达和构图方向只写 `theme.json` 或 `projection: runtime_visual` 的受控视觉修订。它们不改内容-owned brief/storyboard 来逃避审查。实际事实或叙事变化仍按正式失效和重审处理。
+
+**节点完成：** 当前 theme identity 有效，所选 sample 与真实 render evidence 绑定，锚点状态是 `approved` 或 `validated`。兼容协议要求多页稿至少两个 sample，单页稿一个；额外代表页由模型按覆盖需要选择。
+
+### 3. 页面局部生产
+
+在 `production` 反复调用 `advance`。页面从批准 storyboard + theme + 适用视觉 overlay 直接编译 frozen prompt；fresh-context generator 只接收完整 prompt bytes 并只返回一个 SVG。coordinator 拥有来源 enrichment、candidate write、验证、hash 和 promotion。
+
+每页整条生产链最多三次真实 dispatch，包括 initial、retry、recompose／runtime visual repair；本地修复也必须位于 runtime 返回的剩余预算内。新 request ID、新 transaction、fallback 名称或另建运行均不能重置／隐藏调用。
+
+失败分类：
+
+| scope | examples | effect |
+|---|---|---|
+| page-local | generator refused/timeout/malformed；SVG contract；fact/source mismatch；visual QA | 原失败 transaction 字节与 attempt 不变；该页 repair、exhaust 或 omit，独立页继续 |
+| global | shared owner/snapshot integrity；CAS/pointer；unsafe/unknown adapter；adapter unavailable；permission | 所有写入停止，保留 durable evidence，先修复同一共享问题 |
+
+页面局部失败不写成 deck-wide blocker。预算耗尽只终止该页当前生产路径；`best_effort` 可结算 omission，strict 可继续 sibling 但不能交付 partial。真正 global blocker 不能被 omission、skip 或 best-effort 绕过。
+
+候选只在 XML、安全、事实来源、真实 geometry 和页面 QA 通过后 promoted。`0.88` 估算宽仅触发人工／视觉核验；解析后的 safe-bound 越界、最小字号、unsafe SVG、来源事实错误和用户硬约束仍是该页 hard failure。
+
+**节点完成：** 每个原始 target 已 promoted，或有 immutable exhausted failure／explicit skip；missing 页仍 dirty，active batch 已以 terminal manifest 结算，且无 global blocker。
+
+### 4. 诚实交付
+
+`qa` 仅评估将被 delivered 的当前正式 SVG，并审计 original target/delivered/missing partition。每个 delivered 页必须有与当前 SVG digest 绑定的真实 render evidence；源码静态检查不能替代视觉 PASS。partial 的整套 QA 仍检查已交付序列的叙事连续性、事实、来源、节奏和风格，并明确遗漏如何影响阅读。
+
+调用 `finalize` 后：
+
+- `complete`：`stage` 与 `delivery.status` 均为 `complete`，所有 targets delivered，missing 为空；
+- `partial`：`stage` 与 `delivery.status` 均为 `partial`，仅 `best_effort`，delivered 与 missing 都非空，名称与 manifest 明确标为 partial；
+- `failed`：`stage` 与 `delivery.status` 均为 `failed`，delivered 为空，无 PPTX；
+- omitted pages 保持 dirty，失败原件和 counters 不变；
+- complete／partial 与 `PASS|GENERATED_UNVERIFIED|BLOCKED|FAILED_VERIFICATION` 等验证状态分别报告。
+
+用户明确需要 PPTX 或原生可编辑内容时，才把 final `complete|partial` delivery 交给 `ppt-editable`；prepared 不可导出，partial 使用独立 partial artifact 与 manifest，不能覆盖完整产物。SVG 生产和 QA 不自动启动 PowerPoint、WPS 或 Office。
+
+**节点完成：** delivery evidence 全部 hash-bound，报告列出 ordered delivered/missing、完整度、QA 能力与 Office 状态，没有把 partial 或未验证产物表述成完整 PASS。
+
+## Durable 恢复优先级
+
+audit 通过后，恢复按以下 owner precedence 执行。它保证重放确定性，不意味着一个普通页面失败停止其他页面：
+
+| order | durable owner | action |
+|---:|---|---|
+| 1 | `pending_interaction` | 验证／消费同一问题与已保存决定；pending 时等待 |
+| 2 | `manuscript_review.pending_round` | 恢复同一 cycle/round/snapshot；幂等提交已有匹配报告 |
+| 3 | global `visual_generation_blocker` | 处理共享阻断；页面局部失败不进入此 owner |
+| 4 | schema-v1 `visual_generation_transaction` | 执行零模型调用迁移；不跨过它新建 transaction |
+| 5 | `active_visual_generation_batch` | 从 manifest 与 per-slide transactions 重建 cursor，继续、settle partial/failed 或完成 promotion |
+| 6 | stage scan | 前五类均不存在后寻找首个未完成／dirty work |
+
+pointer-before-files、hash mismatch 或第三方 owner 变更 fail closed。files 完整而 pointer 缺失只做 pointer-last completion。orphan candidate 不等于有效结果；previous final 始终保留，直到同页 candidate 在 CAS 下成功提升。
+
+## Guided 检查点
+
+- `brief`：关键简报决定解决后请求批准；
+- `outline`：展示论点与证明顺序后请求批准；
+- `anchor`：展示所选代表页及真实 render evidence 后请求批准。
+
+等待期间顶层 stage 保持当前位置。`pending` 只接受明确回答；`answered` 使用保存的规范化决定幂等提交。推荐、沉默和叙述性暂停均不是批准。
+
+## 宿主与并发边界
+
+新批次或新 dispatch epoch 前按[宿主适配器](host-isolation-adapters.md)重新协商。Claude SDK／legacy 的选择、隔离与工具限制、task-binding 顺序、完整 receipt identity 和独立 adapter-upgrade 边界只以该 ceremony 为准。
+
+DeepSeek Harness 分支按[普通 subagent 与 managed dashboard 协议](deepseek-harness.md)执行；该文件拥有 fresh-context、继承工具的 prompt policy、durable child 绑定、发现接口和持久面板生命周期。
+
+并发宽度由 runtime 响应与真实 worker capacity 决定；capacity 0 是 WAIT。页面 validation 可与 sibling generation 并发，final promotion、visible global blocker、batch settlement 和 pointer mutation 按 original order 确定执行。无论并发数多少，锚点／正式页生成和 SVG QA 都不启动 Office。

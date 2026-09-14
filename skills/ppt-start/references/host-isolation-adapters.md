@@ -10,13 +10,20 @@ Prompt 是 coordinator 主动传入的唯一 PPT Pilot 内容载荷；DSH 允许
 
 ## Claude Code
 
-Claude Code 必须选择已安装的 `ppt-svg-generator`，以普通 fresh-context subagent 启动，并省略 `isolation`。不得把 fresh conversation context 映射为 worktree checkout。
+Claude support is additive. Keep both installed adapters available, and select by the current host capability:
 
-Claude Code 会自动加载 `CLAUDE.md` 与父会话的 Git status；本适配器明确接受并忽略这两类 ambient host context，**不提供 byte-pure prompt-only** 保证。该 agent 的允许工具只能是 `TodoWrite`；它没有 filesystem、shell、network、Skill、MCP 或 browser 数据能力，不能主动读取源稿或工作区。coordinator 只传完整 Prompt 文本，并只消费返回文本。若调用方要求连 ambient host context 都不存在的严格模式，则当前 Claude Code 普通 subagent 不满足能力，必须返回 `generator_unavailable`。
+- **Agent SDK 1.9.0 host:** use registered `ppt-svg-generator-sdk` as an ordinary fresh-context foreground subagent. Set `run_in_background: false` and `allowed_tools: ["ListAgents"]`; the control-only `ListAgents` capability does not grant filesystem or business-data access. Normally omit `isolation`. Use local `worktree` only when that SDK explicitly requires it and the user has authorized a local repository whose `HEAD` resolves; never use `remote`.
+- **Legacy Claude host:** retain registered `ppt-svg-generator` as an ordinary fresh-context subagent, omit `isolation`, and allow only `TodoWrite`. Do not silently downgrade an SDK-capable host to this path or remove this path from a legacy host.
 
-Git 状态不参与路由：普通目录、unborn `HEAD` 和已有提交的仓库都选择同一 agent。禁止运行 `git init`；禁止运行 `git add`；禁止运行 `git commit` 或创建空提交；禁止运行 `git push`；不得请求 `isolation: worktree`；不得请求 `isolation: remote`；不得切换到另一仓库作为基线。
+Both adapters receive only the complete Prompt by value and return text. Claude automatically loads `CLAUDE.md` and parent Git status; both adapters explicitly ignore this ambient host context and therefore do not claim byte-pure prompt-only execution. Neither adapter has filesystem, shell, network, Skill, MCP, browser, or business-data tools. If the caller requires absence of ambient host context, neither accepted Claude adapter satisfies that stricter capability and negotiation returns `generator_unavailable`.
 
-agent 未注册、普通 subagent 不可用、宿主强制 worktree/remote、agent 暴露数据工具、Prompt 不能按值传入、attribution 不可用，或调用方要求 byte-pure prompt-only 时，按结构性不可用返回 `generator_unavailable`。coordinator 只通过[固定运行时](runtime-canonical-owners.md)记录[产物契约](artifact-contract.md#可选-visual_generation_blocker)的闭合 run-level blocker，不手写 owner；该结果不是容量等待，不得轮询，只有安装/宿主配置实际变化后的显式 resume 才重新协商。
+For the SDK adapter, foreground completion must include completed text and a real task ID. The coordinator binds that task ID to the reserved dispatch before staging or ingesting the response. For either adapter, an accepted receipt binds the complete `host` + `adapter_id` + `version` + registered digest identity; a matching digest from another host, adapter, or version is insufficient. Runtime inspection, audit, `advance`, and resume validate the selected current identity but never invoke the standalone adapter-upgrade helper. Adapter upgrade is a separate, explicitly authorized maintenance action, not a page-recovery operation.
+
+Git state does not authorize repository mutation. Do not run `git init`, `git add`, `git commit`, `git push`, switch repositories, or create an isolation worktree for the legacy path. The SDK-only local-worktree exception above changes isolation mechanics, not Prompt contents, attribution, task-binding order, or the inherited three-dispatch page lifetime.
+
+Agent unregistered, ordinary subagent unavailable, selected adapter receipt mismatch, unexpected data tools, Prompt not passable by value, missing attribution/task ID, forced remote isolation, or an unsatisfied byte-pure requirement yields structural `generator_unavailable`. A forced local worktree is also unavailable unless it meets the narrow SDK condition above. The coordinator records the closed run-level blocker only through the [fixed runtime](runtime-canonical-owners.md) and [artifact contract](artifact-contract.md#可选-visual_generation_blocker); this is not capacity waiting and is reconsidered only after an actual host/install change plus explicit resume.
+
+结构性不可用不得轮询，也不能通过修改 Git 状态、切换到未注册生成器或重置次数来解锁。
 
 ## Codex
 

@@ -602,7 +602,8 @@ class ManuscriptReviewGateTests(unittest.TestCase):
             "设计师视角的材料充分性",
         ):
             with self.subTest(token=token):
-                self.assertIn(token, self.skill_text)
+                self.assertIn(token, self.review_text)
+        self.assertIn('references/manuscript-review.md', self.skill_text)
 
     def test_review_gate_has_strict_terminal_states(self):
         combined = "\n".join((self.skill_text, self.workflow_text, self.review_text))
@@ -625,15 +626,12 @@ class ManuscriptReviewGateTests(unittest.TestCase):
         self.assertIn("没有审稿人问题", self.review_text)
 
     def test_contract_blocks_every_unresolved_high_or_blocker(self):
-        for text, label in (
-            (self.skill_text, "SKILL.md"),
-            (self.workflow_text, "workflow.md"),
-            (self.review_text, "manuscript-review.md"),
-        ):
-            self.assertIn("accepted_risk", text, f"{label} must discuss ACCEPTED_RISK")
-            self.assertIn("不是 `resolved`", text, f"{label} 必须采用非 RESOLVED 阻断语义")
-        self.assertIn("仍然阻断", self.skill_text)
-        self.assertIn("仍然阻断", self.review_text)
+        self.assertIn('accepted_risk', self.review_text)
+        self.assertIn('不是 `resolved`', self.review_text)
+        self.assertIn('仍然阻断', self.review_text)
+        for text in (self.skill_text, self.workflow_text):
+            for token in ('blocker', 'high', 'resolved', 'manuscript-review.md'):
+                self.assertIn(token, text)
 
     def test_gate_truth_table(self):
         base = {

@@ -25,7 +25,7 @@ class CapabilityError(ValueError):
             'or edit canonical run owners. Installation/digest failures require a matching Skill update.')
 
 
-def _adapter(host):
+def _registry_entries():
     try:
         no_follow(REGISTRY)
         registry = parse_json(REGISTRY.read_bytes())
@@ -33,33 +33,102 @@ def _adapter(host):
         raise CapabilityError('registry_unreadable', 'registry_path')
     if (not isinstance(registry, dict) or type(registry.get('schema_version')) is not int or
         registry['schema_version'] != 1 or not isinstance(registry.get('adapters'), list) or
-        any(not isinstance(e, dict) or set(e) != set(IDENTITY) or
-            any(not isinstance(e[k], str) or not e[k] for k in IDENTITY) for e in registry['adapters'])):
+        any(not isinstance(entry, dict) or set(entry) != set(IDENTITY) or
+            any(not isinstance(entry[key], str) or not entry[key] for key in IDENTITY)
+            for entry in registry['adapters'])):
         raise CapabilityError('invalid_registry', 'registry_path')
-    entries = [entry for entry in registry['adapters'] if entry['host'] == host]
-    if len(entries) != 1 or host not in ('claude-code', 'deepseek-harness'):
-        raise CapabilityError('adapter_not_registered', 'host')
-    entry = entries[0]
-    # Fresh conversation context and tool isolation are separate capabilities.
-    isolated_tools = host == 'claude-code'
-    fixed = {'native_fresh_isolation': True, 'remote_fresh_isolation': False,
-             'prompt_by_value': True, 'fresh_history': True, 'filesystem_none': isolated_tools,
-             'data_tools_none': isolated_tools, 'attribution': True, 'nested_cli_required': False,
-             'credential_probe_required': False, 'current_context_only': False}
-    if host == 'claude-code':
+    identities = [tuple(entry[key] for key in IDENTITY) for entry in registry['adapters']]
+    if len(identities) != len(set(identities)):
+        raise CapabilityError('invalid_registry', 'registry_path')
+    return registry['adapters']
+
+
+def _claude_instruction_path(filename):
+    """Resolve only package-owned source or installed Claude Agent locations."""
+    package_root = ROOT.parent.parent
+    source_root = package_root / 'hosts/claude-code/agents'
+    if source_root.is_dir():
+        return source_root / filename
+    return package_root / 'agents' / filename
+
+
+def _adapter_spec(entry):
+    host, adapter_id = entry['host'], entry['adapter_id']
+    if host == 'claude-code' and adapter_id == 'ppt-svg-generator':
+        fixed = {'native_fresh_isolation': True, 'remote_fresh_isolation': False,
+                 'prompt_by_value': True, 'fresh_history': True, 'filesystem_none': True,
+                 'data_tools_none': True, 'attribution': True, 'nested_cli_required': False,
+                 'credential_probe_required': False, 'current_context_only': False}
         expected = {'agent_name': 'ppt-svg-generator', 'loaded_agent_sha256': entry['adapter_digest'],
             'spawn_primitive': 'fresh-context-subagent', 'allowed_tools': ['TodoWrite'],
             'ambient_context': ['CLAUDE.md', 'parent_git_status'], 'isolation': 'omitted',
             'result_type': 'text'}
-        instruction = ROOT.parent.parent / 'agents/ppt-svg-generator.md'
-    else:
+        instruction = _claude_instruction_path('ppt-svg-generator.md')
+    elif host == 'claude-code' and adapter_id == 'ppt-svg-generator-sdk':
+        fixed = {'native_fresh_isolation': True, 'remote_fresh_isolation': False,
+                 'prompt_by_value': True, 'fresh_history': True, 'filesystem_none': True,
+                 'data_tools_none': True, 'attribution': True, 'nested_cli_required': False,
+                 'credential_probe_required': False, 'current_context_only': False}
+        expected = {'agent_name': 'ppt-svg-generator-sdk',
+            'loaded_agent_sha256': entry['adapter_digest'],
+            'spawn_primitive': 'fresh-context-subagent', 'allowed_tools': ['ListAgents'],
+            'ambient_context': ['CLAUDE.md', 'parent_git_status'],
+            'isolation': ('omitted', 'worktree'), 'execution_mode': 'foreground',
+            'result_type': 'text'}
+        instruction = _claude_instruction_path('ppt-svg-generator-sdk.md')
+    elif host == 'deepseek-harness' and adapter_id == 'native-subagent':
+        fixed = {'native_fresh_isolation': True, 'remote_fresh_isolation': False,
+                 'prompt_by_value': True, 'fresh_history': True, 'filesystem_none': False,
+                 'data_tools_none': False, 'attribution': True, 'nested_cli_required': False,
+                 'credential_probe_required': False, 'current_context_only': False}
         expected = {'tool_name': 'subagent', 'instruction_sha256': entry['adapter_digest'],
             'spawn_primitive': 'fresh-context-subagent', 'tool_policy': 'inherited-not-isolated',
             'ambient_context': ['deployment_system_prompt', 'agent_preset', 'workspace_instructions'],
             'result_type': 'text', 'attribution_type': 'subagent_id'}
         # Plugin-owned instructions, never DSH configuration or a receipt-controlled path.
         instruction = ROOT / 'references/deepseek-harness.md'
+    else:
+        raise CapabilityError('adapter_not_registered', 'adapter_id')
     return entry, fixed, expected, instruction
+
+
+def _adapter_for_host(host):
+    entries = [entry for entry in _registry_entries() if entry['host'] == host]
+    if not entries or host not in ('claude-code', 'deepseek-harness'):
+        raise CapabilityError('adapter_not_registered', 'host')
+    if len(entries) > 1:
+        legacy = [entry for entry in entries if entry['adapter_id'] == 'ppt-svg-generator']
+        if host != 'claude-code' or len(legacy) != 1:
+            raise CapabilityError('adapter_not_registered', 'host')
+        entries = legacy + [entry for entry in entries if entry not in legacy]
+        for entry in entries:
+            try:
+                spec = _adapter_spec(entry)
+                _verify_instruction(spec[0], spec[3])
+            except CapabilityError:
+                continue
+            return spec
+    return _adapter_spec(entries[0])
+
+
+def _adapter_for_receipt(receipt):
+    host = receipt['host']
+    entries = [entry for entry in _registry_entries() if entry['host'] == host]
+    if not entries or host not in ('claude-code', 'deepseek-harness'):
+        raise CapabilityError('adapter_not_registered', 'host')
+    exact = [entry for entry in entries
+             if all(receipt[key] == entry[key] for key in IDENTITY)]
+    if len(exact) == 1:
+        return _adapter_spec(exact[0])
+    diagnostic = entries
+    by_adapter = [entry for entry in entries if entry['adapter_id'] == receipt['adapter_id']]
+    if len(by_adapter) == 1:
+        diagnostic = by_adapter
+    if len(diagnostic) == 1:
+        for key in IDENTITY:
+            if receipt[key] != diagnostic[0][key]:
+                raise CapabilityError('adapter_identity_mismatch', key, diagnostic[0][key])
+    raise CapabilityError('adapter_identity_mismatch', 'adapter_identity')
 
 
 def _verify_instruction(entry, instruction):
@@ -77,10 +146,7 @@ def validate_capability(receipt):
         type(receipt['schema_version']) is not int or receipt['schema_version'] != 1 or
         receipt['kind'] != 'host_capability'):
         raise CapabilityError('invalid_capability', 'capability')
-    entry, fixed, expected, instruction = _adapter(receipt['host'])
-    for key in IDENTITY:
-        if receipt[key] != entry[key]:
-            raise CapabilityError('adapter_identity_mismatch', key, entry[key])
+    entry, fixed, expected, instruction = _adapter_for_receipt(receipt)
     obs, evidence = receipt['observation'], receipt['evidence']
     if not isinstance(obs, dict) or set(obs) != OBSERVATIONS:
         raise CapabilityError('invalid_observation', 'observation', sorted(OBSERVATIONS))
@@ -96,7 +162,8 @@ def validate_capability(receipt):
     if not isinstance(evidence, dict) or set(evidence) != set(expected) | {'session_id'}:
         raise CapabilityError('invalid_evidence', 'evidence', sorted(set(expected) | {'session_id'}))
     for key, value in expected.items():
-        if evidence[key] != value:
+        matches = evidence[key] in value if isinstance(value, tuple) else evidence[key] == value
+        if not matches:
             raise CapabilityError('evidence_mismatch', 'evidence.' + key, value)
     if not isinstance(evidence['session_id'], str) or not evidence['session_id'].strip():
         raise CapabilityError('invalid_evidence', 'evidence.session_id', 'nonempty current host session ID')
@@ -107,7 +174,7 @@ def validate_capability(receipt):
 
 def inspect_host(host, capability_path=None):
     """No run/owner access or writes. An accepted declaration is not live attestation."""
-    entry, _, _, instruction = _adapter(host)
+    entry, _, _, instruction = _adapter_for_host(host)
     _verify_instruction(entry, instruction)
     result = {'skill_root': str(ROOT), 'registry_path': str(REGISTRY),
         'instruction_path': str(instruction), 'adapter': entry,
@@ -131,5 +198,7 @@ def inspect_host(host, capability_path=None):
         if isinstance(receipt, dict) and receipt.get('host') != host:
             raise CapabilityError('adapter_identity_mismatch', 'host', host)
         validated = validate_capability(receipt)
-        result.update(receipt_checked=True, selected_width=validated['selected_width'])
+        selected, _, _, selected_instruction = _adapter_for_receipt(receipt)
+        result.update(receipt_checked=True, selected_width=validated['selected_width'],
+                      adapter=selected, instruction_path=str(selected_instruction))
     return result

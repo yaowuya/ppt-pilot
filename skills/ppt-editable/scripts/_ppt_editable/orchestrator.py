@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 import importlib.util
 import os
 from pathlib import Path
@@ -26,16 +26,25 @@ from .atomic_io import (
 )
 from .config import load_verification_config
 from .contract import (
+    DeliverySelection,
     RunContext,
     SlideSource,
     locate_run,
     parse_storyboard,
     resolve_slide_sources,
-    validate_completed_run,
+    select_storyboard_slides,
+    validate_delivery_selection,
+    validate_final_run,
     validate_safe_regular_file,
 )
 from .errors import EditableError
-from .model import DeckPlan, EditableResult, Failure
+from .model import (
+    DeckPlan,
+    EditableResult,
+    Failure,
+    MissingSlide,
+    editable_result_payload,
+)
 from .office_protocol import (
     OfficeResult,
     RENDER_KEYS,
@@ -96,7 +105,9 @@ def _result(
     *,
     failures: Tuple[Failure, ...] = (),
     warnings: Tuple[str, ...] = (),
+    delivery: Optional[DeliverySelection] = None,
 ) -> EditableResult:
+    explicit = delivery is not None and delivery.explicit
     return EditableResult(
         status=status,
         deck_id=deck_id,
@@ -104,11 +115,16 @@ def _result(
         slide_count=slide_count,
         failures=failures,
         warnings=warnings,
+        delivery_status=delivery.status if explicit else None,
+        delivery_policy=delivery.policy if explicit else None,
+        target_slide_ids=delivery.target_slide_ids if explicit else (),
+        delivered_slide_ids=delivery.delivered_slide_ids if explicit else (),
+        missing_slides=delivery.missing_slides if explicit else (),
     )
 
 
 def editable_result_dict(result: EditableResult) -> Mapping[str, object]:
-    value = asdict(result)
+    value = editable_result_payload(result)
     value["schema_version"] = 1
     value["kind"] = "ppt_editable_invocation"
     return value
@@ -130,6 +146,7 @@ def _committed_result(paths, snapshot_id: str) -> Optional[EditableResult]:
         )
     if manifest.get("input_snapshot_id") != snapshot_id:
         return None
+    raw_missing = manifest.get("missing_slides", ())
     return EditableResult(
         status=str(manifest["status"]),
         deck_id=str(manifest["deck_id"]),
@@ -139,6 +156,19 @@ def _committed_result(paths, snapshot_id: str) -> Optional[EditableResult]:
         output_sha256=str(manifest["output_sha256"]),
         failures=(),
         warnings=tuple(manifest.get("warnings", ())),
+        delivery_status=(
+            str(manifest["delivery_status"])
+            if "delivery_status" in manifest
+            else None
+        ),
+        delivery_policy=(
+            str(manifest["delivery_policy"])
+            if "delivery_policy" in manifest
+            else None
+        ),
+        target_slide_ids=tuple(manifest.get("target_slide_ids", ())),
+        delivered_slide_ids=tuple(manifest.get("delivered_slide_ids", ())),
+        missing_slides=tuple(MissingSlide(**item) for item in raw_missing),
     )
 
 
@@ -423,14 +453,22 @@ def generate_editable(
     if not isinstance(capability, GenerationCapability):
         raise TypeError("capability must be GenerationCapability")
     context = None  # type: Optional[RunContext]
+    delivery = None  # type: Optional[DeliverySelection]
     snapshot_id = "sha256:" + "0" * 64
     storyboard = ()
     sources = ()
     try:
         selected = locate_run(Path(run_dir), Path.cwd(), None)
-        context = validate_completed_run(selected)
-        storyboard = parse_storyboard(context.storyboard_path)
-        sources = resolve_slide_sources(context, storyboard)
+        context = validate_final_run(selected)
+        complete_storyboard = parse_storyboard(context.storyboard_path)
+        delivery = validate_delivery_selection(context, complete_storyboard)
+        storyboard = select_storyboard_slides(complete_storyboard, delivery)
+        sources = resolve_slide_sources(
+            context,
+            complete_storyboard,
+            delivery.delivered_slide_ids,
+            require_production=delivery.explicit,
+        )
         config_path = Path(__file__).resolve().parents[2] / "assets" / "verification-config.json"
         config_bytes = config_path.read_bytes()
         config = load_verification_config(config_path)
@@ -441,6 +479,7 @@ def generate_editable(
             CONVERTER_VERSION,
             SUBSET_CONTRACT_VERSION,
             config_bytes,
+            delivery=delivery,
         )
         snapshot_id = compute_snapshot_id(snapshot_payload)
     except EditableError as error:
@@ -450,6 +489,7 @@ def generate_editable(
             snapshot_id,
             0,
             failures=(_error_failure(error),),
+            delivery=delivery,
         )
     except (OSError, ValueError) as error:
         return _result(
@@ -458,9 +498,14 @@ def generate_editable(
             snapshot_id,
             0,
             failures=(_failure("source_unreadable", str(error)),),
+            delivery=delivery,
         )
 
-    paths = build_output_paths(context.run_dir, context.deck_id)
+    paths = build_output_paths(
+        context.run_dir,
+        context.deck_id,
+        delivery.status if delivery.explicit else None,
+    )
     try:
         with OutputLock(paths.lock_path) as output_lock:
             recovery = recover_incomplete_transactions(
@@ -489,6 +534,7 @@ def generate_editable(
                             "; ".join(authoritative_recovery_failures),
                         ),
                     ),
+                    delivery=delivery,
                 )
             committed = _committed_result(paths, snapshot_id)
             ready_for_verified = capability.office_available and capability.pillow_available
@@ -515,6 +561,7 @@ def generate_editable(
                             "; ".join(cleanup_recovery_failures),
                         ),
                     ),
+                    delivery=delivery,
                 )
 
             dependency_failure = _core_dependency_failure()
@@ -525,6 +572,7 @@ def generate_editable(
                     snapshot_id,
                     len(storyboard),
                     failures=(dependency_failure,),
+                    delivery=delivery,
                 )
 
             try:
@@ -543,6 +591,7 @@ def generate_editable(
                     snapshot_id,
                     len(storyboard),
                     failures=tuple(error.failures),
+                    delivery=delivery,
                 )
             except EditableError as error:
                 return _result(
@@ -551,6 +600,7 @@ def generate_editable(
                     snapshot_id,
                     len(storyboard),
                     failures=(_error_failure(error),),
+                    delivery=delivery,
                 )
 
             work = _create_work_directory(paths)
@@ -571,6 +621,7 @@ def generate_editable(
                         len(deck_plan.slides),
                         failures=(_error_failure(error),),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                 except (OSError, ValueError) as error:
                     return _result(
@@ -585,6 +636,7 @@ def generate_editable(
                             ),
                         ),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                 try:
                     structural = _verify_candidate(candidate, deck_plan, config)
@@ -600,6 +652,7 @@ def generate_editable(
                         len(deck_plan.slides),
                         failures=tuple(structural.failures),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
 
                 if not ready_for_verified:
@@ -609,6 +662,7 @@ def generate_editable(
                         snapshot_id,
                         len(deck_plan.slides),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                     return _promote(
                         paths,
@@ -638,6 +692,7 @@ def generate_editable(
                         len(deck_plan.slides),
                         failures=(_error_failure(error),),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                 except (OSError, ValueError) as error:
                     return _result(
@@ -649,6 +704,7 @@ def generate_editable(
                             _failure("candidate_write_failed", str(error)),
                         ),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                 try:
                     geometry_failures = _verify_geometry_candidate(
@@ -667,6 +723,7 @@ def generate_editable(
                         len(deck_plan.slides),
                         failures=tuple(geometry_failures),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                 render_directories = {
                     key: str(work / "renders" / key)
@@ -723,6 +780,7 @@ def generate_editable(
                         len(deck_plan.slides),
                         failures=(office_binding_failure,),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                 if not office.capability:
                     unavailable = bool(
@@ -739,6 +797,7 @@ def generate_editable(
                             len(deck_plan.slides),
                             failures=(_office_failure(office),),
                             warnings=tuple(deck_plan.warnings),
+                            delivery=delivery,
                         )
                     unverified = _result(
                         "GENERATED_UNVERIFIED",
@@ -746,6 +805,7 @@ def generate_editable(
                         snapshot_id,
                         len(deck_plan.slides),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                     return _promote(
                         paths,
@@ -765,6 +825,7 @@ def generate_editable(
                         len(deck_plan.slides),
                         failures=(_office_failure(office),),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                 try:
                     normalized = validate_safe_regular_file(
@@ -784,6 +845,7 @@ def generate_editable(
                                 error.message,
                             ),
                         ),
+                        delivery=delivery,
                     )
                 try:
                     normalized_report = _verify_candidate(
@@ -804,6 +866,7 @@ def generate_editable(
                         len(deck_plan.slides),
                         failures=tuple(normalized_report.failures),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
 
                 try:
@@ -836,6 +899,7 @@ def generate_editable(
                         len(deck_plan.slides),
                         failures=tuple(visual.failures),
                         warnings=tuple(deck_plan.warnings),
+                        delivery=delivery,
                     )
                 passed = _result(
                     "PASS",
@@ -843,6 +907,7 @@ def generate_editable(
                     snapshot_id,
                     len(deck_plan.slides),
                     warnings=tuple(deck_plan.warnings),
+                    delivery=delivery,
                 )
                 return _promote(
                     paths,
@@ -866,4 +931,5 @@ def generate_editable(
             snapshot_id,
             len(storyboard),
             failures=(_error_failure(error),),
+            delivery=delivery,
         )

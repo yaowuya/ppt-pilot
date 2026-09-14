@@ -7,6 +7,8 @@ import hashlib
 import json
 import re
 
+from _delivery_contract import PAGE_FAILURE_REASONS
+
 V1_MIGRATION_STATES = (
     "compiling",
     "compiled",
@@ -98,6 +100,12 @@ V2_MANIFEST_FIELDS = {
 }
 
 
+V2_MANIFEST_OMISSION_FIELDS = {
+    "omitted_transaction_refs",
+    "omitted_transaction_sha256",
+}
+
+
 V2_TRANSACTION_STATES = {
     "compiling",
     "compiled",
@@ -109,7 +117,7 @@ V2_TRANSACTION_STATES = {
 }
 
 
-V2_MANIFEST_STATES = {"prepared", "active", "blocked", "completed"}
+V2_MANIFEST_STATES = {"prepared", "active", "blocked", "completed", "complete", "partial", "failed", "superseded"}
 
 
 V2_FAILURE_REASONS = {
@@ -303,7 +311,11 @@ def validate_v2_transaction(transaction: dict) -> None:
 
 
 def validate_v2_manifest(manifest: dict, transactions: dict[str, dict]) -> None:
-    if not isinstance(manifest, dict) or set(manifest) != V2_MANIFEST_FIELDS:
+    if not isinstance(manifest, dict):
+        raise ValueError("v2 manifest fields differ")
+    fields = set(manifest)
+    optional = fields & V2_MANIFEST_OMISSION_FIELDS
+    if fields - V2_MANIFEST_OMISSION_FIELDS != V2_MANIFEST_FIELDS or optional not in (set(), V2_MANIFEST_OMISSION_FIELDS):
         raise ValueError("v2 manifest fields differ")
     if manifest["schema_version"] != 2 or manifest["kind"] != "visual_generation_batch":
         raise ValueError("v2 manifest identity differs")
@@ -347,6 +359,24 @@ def validate_v2_manifest(manifest: dict, transactions: dict[str, dict]) -> None:
             or ref != _transaction_ref(transaction)
         ):
             raise ValueError("transaction ref alignment differs")
+    omitted = manifest.get("omitted_transaction_refs", [])
+    omitted_hashes = manifest.get("omitted_transaction_sha256", {})
+    if (not isinstance(omitted, list) or
+            any(not isinstance(ref, str) or ref not in refs for ref in omitted)):
+        raise ValueError("omitted transaction evidence is invalid")
+    omitted_set = set(omitted)
+    if (
+        len(omitted) != len(omitted_set)
+        or omitted != [ref for ref in refs if ref in omitted_set]
+        or not isinstance(omitted_hashes, dict)
+        or set(omitted_hashes) != omitted_set
+        or any(not isinstance(value, str) or _SHA256_ID_RE.fullmatch(value) is None
+               for value in omitted_hashes.values())
+    ):
+        raise ValueError("omitted transaction evidence is invalid")
+    if any(transactions[ref]["state"] != "failed" or
+           transactions[ref]["failure_reason"] not in PAGE_FAILURE_REASONS for ref in omitted):
+        raise ValueError("omitted transaction is not a page-local failure")
     if type(manifest["dispatch_epoch"]) is not int or manifest["dispatch_epoch"] < 0:
         raise ValueError("manifest dispatch epoch is invalid")
     for key in ("promotion_cursor", "blocker_cursor"):
@@ -370,8 +400,26 @@ def validate_v2_manifest(manifest: dict, transactions: dict[str, dict]) -> None:
     blocker_ref = manifest["active_blocker_ref"]
     if blocker_ref != expected_blocker_ref:
         raise ValueError("active blocker ref is invalid")
-    if (manifest["state"] == "blocked") != (expected_blocker_ref is not None):
+    state = manifest["state"]
+    promoted_refs = [ref for ref in refs if transactions[ref]["state"] == "promoted"]
+    terminal = set(promoted_refs) | set(omitted)
+    all_terminal = len(terminal) == len(refs)
+    if state != "superseded" and (state == "blocked") != (expected_blocker_ref is not None):
         raise ValueError("manifest state is invalid")
+    if state == "superseded":
+        if omitted:
+            raise ValueError("manifest state is invalid")
+    elif expected_blocker_ref is None:
+        if state == "partial" and not (all_terminal and promoted_refs and omitted):
+            raise ValueError("manifest state is invalid")
+        if state == "failed" and not (all_terminal and not promoted_refs and len(omitted) == len(refs)):
+            raise ValueError("manifest state is invalid")
+        if state in {"complete", "completed"} and not (all_terminal and not omitted):
+            raise ValueError("manifest state is invalid")
+        if all_terminal and state not in {"complete", "completed", "partial", "failed"}:
+            raise ValueError("manifest state is invalid")
+        if not all_terminal and state in {"complete", "completed", "partial", "failed"}:
+            raise ValueError("manifest state is invalid")
     for key in ("created_at", "updated_at"):
         if not isinstance(manifest[key], str) or not manifest[key]:
             raise ValueError("manifest timestamp is invalid")
@@ -383,14 +431,18 @@ def rebuild_batch_cursors(
     manifest: dict,
     transactions: dict[str, dict],
 ) -> tuple[int, int]:
+    refs = manifest["transaction_refs"]
+    omitted = set(manifest.get("omitted_transaction_refs", []))
     promotion_cursor = 0
-    for ref in manifest["transaction_refs"]:
-        if transactions[ref]["state"] != "promoted":
+    for ref in refs:
+        if transactions[ref]["state"] != "promoted" and ref not in omitted:
             break
         promotion_cursor += 1
-    blocker_cursor = len(manifest["transaction_refs"])
-    for index, ref in enumerate(manifest["transaction_refs"]):
-        if transactions[ref]["state"] == "failed":
+    blocker_cursor = len(refs)
+    for index, ref in enumerate(refs):
+        transaction = transactions[ref]
+        if (transaction["state"] == "failed" and ref not in omitted and
+                transaction.get("failure_reason") not in PAGE_FAILURE_REASONS):
             blocker_cursor = index
             break
     return promotion_cursor, blocker_cursor
@@ -608,6 +660,7 @@ def migrate_v1_run_to_v2(run: dict, corpus_case: dict) -> dict:
     transaction_ref = _transaction_ref(transaction)
     promoted = 1 if transaction["state"] == "promoted" else 0
     failed = transaction["state"] == "failed"
+    global_failure = failed and transaction["failure_reason"] not in PAGE_FAILURE_REASONS
     manifest = {
         "schema_version": 2,
         "kind": "visual_generation_batch",
@@ -624,9 +677,9 @@ def migrate_v1_run_to_v2(run: dict, corpus_case: dict) -> dict:
         "transaction_refs": [transaction_ref],
         "dispatch_epoch": 0,
         "promotion_cursor": promoted,
-        "blocker_cursor": 0 if failed else 1,
-        "active_blocker_ref": transaction_ref if failed else None,
-        "state": "completed" if promoted else ("blocked" if failed else "active"),
+        "blocker_cursor": 0 if global_failure else 1,
+        "active_blocker_ref": transaction_ref if global_failure else None,
+        "state": "completed" if promoted else ("blocked" if global_failure else "active"),
         "created_at": "1970-01-01T00:00:00Z",
         "updated_at": "1970-01-01T00:00:00Z",
         "telemetry_summary": {"migration": "v1"},
@@ -814,6 +867,8 @@ def lowest_eligible_blocker(
                 manifest["transaction_refs"],
             )
             if transactions[ref]["state"] == "failed"
+            and ref not in set(manifest.get("omitted_transaction_refs", []))
+            and transactions[ref]["failure_reason"] not in PAGE_FAILURE_REASONS
         ),
         None,
     )

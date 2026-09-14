@@ -135,7 +135,9 @@ def discover(workspace, source):
 
 def ready(item, created=False):
     return {'status': 'READY', 'run_dir': str(item['root']), 'run_id': item['run']['deck_id'],
-            'mode': item['run']['mode'], 'created': created, 'reused': not created,
+            'mode': item['run']['mode'],
+            'production_policy': item['run'].get('production_policy', 'strict'),
+            'created': created, 'reused': not created,
             'next_command': 'audit-run', 'writes': [],
             'audit_command': [sys.executable, '-B', str(Path(__file__).with_name('ppt_workflow_gate.py')),
                               '--run-dir', str(item['root']), '--audit-run']}
@@ -237,6 +239,7 @@ def create_run(workspace, args, source, payload, effects):
     effects.update(run_dir=str(root), partial_creation=True)
     store = RunStore(root)
     run = {'schema_version': 1, 'deck_id': args.run_id, 'mode': args.mode or 'guided',
+           'production_policy': args.production_policy or 'best_effort',
            'stage': 'brief', 'dirty_slides': [], 'manuscript_review': {
                'required': True, 'cycle': 1, 'round': 0, 'mode': 'pending', 'state': 'pending',
                'status': 'PENDING', 'latest_report': '文稿审查.md',
@@ -263,6 +266,7 @@ def enter(args, effects):
     require(args.request is None or text(args.request), 'request_required')
     require(not args.allow_duplicate or args.action == 'new', 'new_action_required')
     require(args.mode is None or args.action == 'new', 'new_action_required')
+    require(args.production_policy is None or args.action == 'new', 'new_action_required')
     require(args.action != 'new' or args.run_id is not None, 'new_run_id_required')
     workspace = RunStore(local_path(args.workspace, Path.cwd()))
     effects['writes'] = workspace.writes
@@ -340,6 +344,8 @@ def main(argv=None):
     parser.add_argument('--answer')
     parser.add_argument('--allow-duplicate', action='store_true')
     parser.add_argument('--mode', choices=('guided', 'auto'))
+    parser.add_argument('--production-policy', choices=('strict', 'best_effort'),
+                        help='New runs default to best_effort; choose strict to forbid page omission.')
     args = parser.parse_args(argv)
     effects = {'created': False, 'writes': [], 'directories_created': []}
     try:

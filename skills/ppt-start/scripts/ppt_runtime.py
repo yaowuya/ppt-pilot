@@ -21,11 +21,14 @@ def parser():
         'reserve-dispatch': ('batch-id', 'slide-id', 'transaction-id', 'capability'),
         'bind-task': ('dispatch-id', 'host-task-id'), 'ingest-result': ('dispatch-id', 'response'),
         'record-generator-failure': ('dispatch-id', 'reason'),
+        'submit-result': ('dispatch-id', 'host-task-id', 'response'),
         'record-validation': ('slide-id', 'transaction-id', 'input'),
         'prepare-recovery': ('slide-id', 'transaction-id', 'mode'),
         'revise-visual': ('slide-id', 'transaction-id', 'input'),
         'promote': ('batch-id', 'expected-manifest-sha256'),
-        'publish-anchors': ('batch-id', 'expected-manifest-sha256'), 'resume': (), 'migrate-v1': ()}
+        'publish-anchors': ('batch-id', 'expected-manifest-sha256'),
+        'retire-batch': ('batch-id', 'expected-manifest-sha256', 'input'), 'resume': (),
+        'finalize': (), 'migrate-v1': ()}
     for name, fields in definitions.items():
         command = commands.add_parser(name)
         command.add_argument('--run-dir', required=True)
@@ -33,6 +36,10 @@ def parser():
             choices = {'reason': ('generator_refused', 'generator_timeout', 'generator_unavailable'),
                        'mode': ('retry', 'recompose', 'fallback')}.get(field)
             command.add_argument('--' + field, required=True, **({'choices': choices} if choices else {}))
+    advance = commands.add_parser('advance')
+    advance.add_argument('--run-dir', required=True)
+    advance.add_argument('--allow-partial', action='store_true')
+    advance.add_argument('--skip-slide', action='append', default=[])
     return value
 
 
@@ -62,7 +69,12 @@ def main(argv=None):
             'recovery_not_allowed': 'Run resume in the same run and follow its eligible recovery or required visual-revision input; never reset counters or create a replacement run.',
             'recovery_scope_conflict': 'Preserve the same run and passed siblings; use revise-visual for a failed page without modifying frozen manuscript files.',
             'visual_revision_pending': 'Replay the pending visual decision or its recompose recovery in the same run; do not retry its old source transaction.',
-            'generation_attempts_exhausted': 'Keep the same run and resolve its existing production blocker; do not reset attempts or create another run.',
+            'generation_attempts_exhausted': 'Keep the same run and use advance --allow-partial to authorize omission, or revise the approved input without resetting attempts.',
+            'partial_delivery_not_authorized': 'Repeat advance with --allow-partial; use --skip-slide only for a named failed page-local transaction.',
+            'skip_slide_not_failed': 'Name only a currently failed page-local slide, or omit --skip-slide and continue healthy work.',
+            'visual_qa_required': 'Render and visually inspect the exact candidate, then record validation with visual=passed only if it actually passes.',
+            'final_qa_required': 'Record meaningful final QA for every delivered page and repeat finalize without changing the delivery partition.',
+            'batch_superseded': 'Finish or replay the existing retire-batch operation; do not dispatch or promote its superseded pages.',
             'manuscript_stale': 'Reviewed facts or file bytes changed. Preserve the same run/history and complete the required review; pure visual corrections use revise-visual instead of rewriting the storyboard.',
             'pending_review_round': 'Validate and resume the existing pending review round in the same run; do not create another round or run.',
         }

@@ -60,7 +60,7 @@
 
 文字保持为文字（text remains text）；标题、标签、正文和来源都不能转换为路径轮廓。
 
-- 通用 SVG API 默认标题下限为 40 px；默认所选风格 `jiawei-product` 的主标题为 36 px。经完整验证且 `strict_brand_rules: true` 的固定品牌风格使用声明的主标题字号（`page_title`，否则 `slide_title`），不得低于 34 px。下限仅由 runtime 从已验证 tokens 推导，SVG／请求字段不能自行降低；
+- 通用 SVG API 默认标题下限为 40 px；默认所选风格 `jiawei-product` 的主标题为 40 px。经完整验证且 `strict_brand_rules: true` 的固定品牌风格使用声明的主标题字号（`page_title`，否则 `slide_title`），不得低于 34 px。下限仅由 runtime 从已验证 tokens 推导，SVG／请求字段不能自行降低；
 - 正文和数据标签至少 20 px；
 - 脚注和来源至少 14 px；
 - 使用 `theme.json` 中的系统字体栈；
@@ -69,9 +69,9 @@
 
 每个可见行都使用 `<tspan>` 显式换行。每行的 `<tspan>` 与父 `<text>` 使用相同的绝对 `x`／`y`；禁止 `dy` 相对位移（与页面生成 Prompt 步骤 3 一致）。SVG／Office 没有可信的自动段落换行。文字无法放下时，应拆分内容或使用更简单布局，不能把字号缩到下限以下。
 
-### 行宽估算（无渲染时的溢出判定）
+### 保守文字 metrics warning
 
-宿主无法实际渲染时，生成前自查和 QA 几何检查必须使用同一公式逐行复核潜在溢出：
+生成前用同一估算帮助定位需要真实视觉核验的行；它是 warning heuristic，不是 SVG 几何或 clipping 的证明：
 
 | 字符类别 | 估算宽度 |
 |---|---|
@@ -80,10 +80,12 @@
 | 小写字母 | `0.52 × font-size` |
 | 半角标点与空格 | `0.35 × font-size` |
 
-- 行估算宽 = Σ(字符系数 × font-size)，必须 ≤ 该行所在可用区域宽 × 0.88（即至少 12% 余量）；
-- 行距（基线到基线）至少 `1.4 × font-size`；多行文本块的总高不得超过所在区域高的 88%；
-- 同一页所有文本行都要复核；估算超限属于硬失败风险，应先压缩文案、拆行或拆页，不得靠缩小字号通过；
-- 实际渲染可用时，渲染检查结果优先于本估算；但估算仍应在写入候选前执行一次，以减少无效候选。
+- 行估算宽 = Σ(字符系数 × font-size)；超过可用区域宽 × `0.88` 时发出 warning，并检查真实 render、实际字体 metrics、换行和容器；
+- `0.88` 是保守 margin。超限本身不能证明文字已裁切，也不能单独产生 geometry hard failure；估算通过同样不能覆盖真实裁切；
+- 基线间距小于 `1.4 × font-size` 或估算文本块高度超过区域高的 88% 时，也标记为高优先级视觉 warning；
+- 每个可见文本行都执行估算。warning 后优先压缩文案、显式拆行、扩大容器或 recompose，不通过把字号降到 minimum 以下消除；
+- actual parsed safe-bound overflow、minimum font violation 或 render-confirmed clipping／overlap 始终是 hard failure；
+- 缺少可用 renderer 时记录 `not_rendered`，不能把估算描述为视觉 PASS，也不能让该页进入最终 delivered partition。
 
 ## 数据与来源映射
 

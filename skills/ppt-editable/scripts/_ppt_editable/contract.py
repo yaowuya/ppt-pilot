@@ -6,13 +6,14 @@ from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import stat
 from types import MappingProxyType
 from typing import Any, Mapping, Optional, Sequence, Tuple
 
 from .errors import EditableError
+from .model import MissingSlide
 
 
 _SLIDE_ID_RE = re.compile(r"^S([0-9]+)$")
@@ -53,6 +54,18 @@ class RunContext:
     quality_report_path: Path
     slides_dir: Path
     samples_dir: Path
+    theme_path: Optional[Path] = None
+
+
+@dataclass(frozen=True)
+class DeliverySelection:
+    explicit: bool
+    status: str
+    policy: str
+    target_slide_ids: Tuple[str, ...]
+    delivered_slide_ids: Tuple[str, ...]
+    missing_slides: Tuple[MissingSlide, ...]
+    record: Optional[Mapping[str, Any]] = None
 
 
 @dataclass(frozen=True)
@@ -146,8 +159,11 @@ def _has_run_control(path: Path) -> bool:
 
 def _is_completed_candidate(path: Path) -> bool:
     try:
-        return validate_completed_run(path).run_data.get("stage") == "complete"
-    except EditableError:
+        context = validate_final_run(path)
+        storyboard = parse_storyboard(context.storyboard_path)
+        delivery = validate_delivery_selection(context, storyboard)
+        return context.run_data.get("stage") == delivery.status
+    except (EditableError, OSError, ValueError):
         return False
 
 
@@ -244,7 +260,7 @@ def _deck_id_is_safe(value: object) -> bool:
     return device_stem not in _WINDOWS_RESERVED
 
 
-def validate_completed_run(run_dir: Path) -> RunContext:
+def _validate_run(run_dir: Path, allowed_stages: Sequence[str]) -> RunContext:
     run_dir = Path(run_dir).absolute()
     if not run_dir.is_dir():
         raise _error("run_not_found", "run directory does not exist")
@@ -269,12 +285,19 @@ def validate_completed_run(run_dir: Path) -> RunContext:
         failure = failures[0]
         raise _error(failure["code"], "Run artifact preflight failed: " +
                      ", ".join(failure["artifacts"][:10]), failure["next_action"])
-    if run_data.get("stage") != "complete":
-        raise _error("run_not_complete", "run.json.stage must equal complete")
+    if run_data.get("stage") not in tuple(allowed_stages):
+        expected = " or ".join(allowed_stages)
+        raise _error("run_not_complete", "run.json.stage must equal {}".format(expected))
     deck_id = run_data.get("deck_id")
     if not _deck_id_is_safe(deck_id):
         raise _error("deck_id_invalid", "deck_id is not path-safe")
     storyboard_path = _select_storyboard(control_dir)
+    theme_candidate = control_dir / "theme.json"
+    theme_path = (
+        validate_safe_regular_file(theme_candidate, (control_dir,))
+        if os.path.lexists(str(theme_candidate))
+        else None
+    )
     quality_path = control_dir / "质量检查报告.md"
     if not quality_path.exists():
         raise _error("quality_report_missing", "quality report is missing")
@@ -284,10 +307,53 @@ def validate_completed_run(run_dir: Path) -> RunContext:
         deck_id=deck_id,
         run_data=run_data,
         storyboard_path=storyboard_path,
+        theme_path=theme_path,
         quality_report_path=quality_path,
         slides_dir=run_dir / "slides",
         samples_dir=run_dir / "samples",
     )
+
+
+def validate_completed_run(run_dir: Path) -> RunContext:
+    return _validate_run(run_dir, ("complete",))
+
+
+def validate_final_run(run_dir: Path) -> RunContext:
+    return _validate_run(run_dir, ("complete", "partial"))
+
+
+def _structured_storyboard(text: str) -> Tuple[StoryboardSlide, ...]:
+    fences = re.findall(r'(?ms)^```ppt-pilot-json\r?\n(.*?)\r?\n```[ \t]*$', text)
+    if text.count('```ppt-pilot-json') != 1 or len(fences) != 1:
+        raise _error('storyboard_ambiguous', 'storyboard must have one closed machine owner')
+    try:
+        value = json.loads(fences[0], object_pairs_hook=_unique_json_object,
+                           parse_constant=_reject_json_constant)
+    except (ValueError, RecursionError) as exc:
+        raise _error('storyboard_ambiguous', 'structured storyboard is malformed') from exc
+    if not isinstance(value, dict) or ('schema_version' in value and
+            (type(value['schema_version']) is not int or value['schema_version'] != 1)):
+        raise _error('slide_set_invalid', 'structured storyboard schema is invalid')
+    rows = value.get('slides')
+    if not isinstance(rows, list) or not rows or len(rows) > 1000:
+        raise _error('slide_set_invalid', 'structured storyboard page set is invalid')
+    slides = []
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get('slide_id'), str):
+            raise _error('slide_set_invalid', 'structured storyboard slide identity is invalid')
+        sid = validate_slide_id(row['slide_id'])
+        for name in ('assertion_title', 'audience_takeaway', 'next_link'):
+            if row.get(name) is not None and not isinstance(row[name], str):
+                raise _error('storyboard_ambiguous', 'structured storyboard notes must be text')
+        slides.append(StoryboardSlide(sid, row.get('assertion_title'), row.get('audience_takeaway'), row.get('next_link')))
+    ids = [slide.slide_id for slide in slides]
+    numbers = [_slide_number(sid) for sid in ids]
+    if numbers != sorted(numbers) or len(numbers) != len(set(numbers)):
+        raise _error('slide_set_invalid', 'structured storyboard slides are not uniquely ordered')
+    prose_ids = [match.group(1) for match in _STORYBOARD_SECTION_RE.finditer(text)]
+    if prose_ids and prose_ids != ids:
+        raise _error('storyboard_ambiguous', 'prose and structured storyboard page inventories differ')
+    return tuple(slides)
 
 
 def parse_storyboard(path: Path) -> Tuple[StoryboardSlide, ...]:
@@ -295,6 +361,8 @@ def parse_storyboard(path: Path) -> Tuple[StoryboardSlide, ...]:
         text = Path(path).read_text(encoding="utf-8-sig")
     except (OSError, UnicodeError) as exc:
         raise _error("storyboard_missing", "storyboard cannot be read") from exc
+    if '```ppt-pilot-json' in text:
+        return _structured_storyboard(text)
     matches = tuple(_STORYBOARD_SECTION_RE.finditer(text))
     if not matches:
         raise _error("slide_set_invalid", "storyboard has no slide sections")
@@ -338,6 +406,147 @@ def parse_storyboard(path: Path) -> Tuple[StoryboardSlide, ...]:
     if numbers != sorted(numbers) or len(numbers) != len(set(numbers)):
         raise _error("slide_set_invalid", "storyboard slides are not uniquely ordered")
     return tuple(slides)
+
+
+def _load_shared_delivery_contract():
+    # Resolve only the sibling installed skill: never import code from the run.
+    import importlib.util
+
+    module_path = Path(__file__).resolve().parents[3] / "ppt-start/scripts/_delivery_contract.py"
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "_ppt_editable_delivery_contract",
+            module_path,
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except (OSError, ImportError, AttributeError, TypeError, SyntaxError, ValueError) as exc:
+        raise _error(
+            "artifact_firewall_unavailable",
+            "Shared delivery contract dependency is unavailable",
+            "Restore the sibling installed ppt-start skill before delivery.",
+        ) from exc
+    return module
+
+
+def _read_run_relative_bytes(context: RunContext, relative_path: str) -> bytes:
+    if (
+        not isinstance(relative_path, str)
+        or not relative_path
+        or "\\" in relative_path
+        or ":" in relative_path
+    ):
+        raise ValueError("delivery_evidence_path_invalid")
+    path = PurePosixPath(relative_path)
+    if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+        raise ValueError("delivery_evidence_path_invalid")
+    candidate = context.run_dir.joinpath(*path.parts)
+    validated = validate_safe_regular_file(candidate, (context.run_dir,))
+    try:
+        if validated.relative_to(context.run_dir.resolve(strict=True)).as_posix() != relative_path:
+            raise ValueError("delivery_evidence_path_invalid")
+        return validated.read_bytes()
+    except OSError as exc:
+        raise ValueError("delivery_evidence_unreadable") from exc
+
+
+def validate_delivery_selection(
+    context: RunContext,
+    storyboard: Sequence[StoryboardSlide],
+) -> DeliverySelection:
+    target_slide_ids = tuple(slide.slide_id for slide in storyboard)
+    if not target_slide_ids or len(target_slide_ids) != len(set(target_slide_ids)):
+        raise _error("slide_set_invalid", "storyboard page set is invalid")
+    if any(context.run_data.get(field) is not None for field in
+           ("active_visual_generation_batch", "visual_generation_transaction")):
+        raise _error(
+            "run_not_complete",
+            "final delivery cannot retain an active visual generation control",
+        )
+
+    production_policy = context.run_data.get("production_policy", "strict")
+    if production_policy not in ("strict", "best_effort"):
+        raise ValueError("delivery_policy_invalid")
+
+    value = context.run_data.get("delivery")
+    if value is None:
+        if context.run_data.get("stage") != "complete":
+            raise _error(
+                "run_not_complete",
+                "partial delivery requires an explicit final delivery record",
+            )
+        return DeliverySelection(
+            explicit=False,
+            status="complete",
+            policy="strict",
+            target_slide_ids=target_slide_ids,
+            delivered_slide_ids=target_slide_ids,
+            missing_slides=(),
+        )
+    if not isinstance(value, Mapping):
+        raise ValueError("delivery_invalid")
+    if value.get("status") != context.run_data.get("stage"):
+        raise ValueError("delivery_status_mismatch")
+    if value.get("policy") != production_policy:
+        raise ValueError("delivery_policy_mismatch")
+    if context.theme_path is None:
+        raise ValueError("delivery_theme_missing")
+
+    storyboard_relative = context.storyboard_path.relative_to(context.run_dir).as_posix()
+    theme_relative = context.theme_path.relative_to(context.run_dir).as_posix()
+    quality_relative = context.quality_report_path.relative_to(context.run_dir).as_posix()
+    shared = _load_shared_delivery_contract()
+    shared.validate_delivery_review_state(context.run_data)
+    shared.verify_delivery_evidence(
+        value,
+        lambda path: _read_run_relative_bytes(context, path),
+        storyboard_path=storyboard_relative,
+        theme_path=theme_relative,
+        quality_report_path=quality_relative,
+        target_slide_ids=target_slide_ids,
+        final=True,
+    )
+
+    delivered_slide_ids = tuple(value["delivered_slide_ids"])
+    dirty = context.run_data.get("dirty_slides", ())
+    if (
+        not isinstance(dirty, (list, tuple))
+        or any(not isinstance(slide_id, str) for slide_id in dirty)
+        or len(dirty) != len(set(dirty))
+        or not set(dirty).issubset(set(target_slide_ids))
+        or set(dirty).intersection(delivered_slide_ids)
+    ):
+        raise ValueError("delivery_dirty_slides_invalid")
+
+    missing_slides = tuple(
+        MissingSlide(
+            slide_id=item["slide_id"],
+            reason=item["reason"],
+            failure_reason=item["failure_reason"],
+            generation_attempt=item["generation_attempt"],
+            transaction_id=item["transaction_id"],
+            transaction_ref=item["transaction_ref"],
+            transaction_sha256=item["transaction_sha256"],
+        )
+        for item in value["missing_slides"]
+    )
+    return DeliverySelection(
+        explicit=True,
+        status=value["status"],
+        policy=value["policy"],
+        target_slide_ids=target_slide_ids,
+        delivered_slide_ids=delivered_slide_ids,
+        missing_slides=missing_slides,
+        record=value,
+    )
+
+
+def select_storyboard_slides(
+    storyboard: Sequence[StoryboardSlide],
+    selection: DeliverySelection,
+) -> Tuple[StoryboardSlide, ...]:
+    selected = set(selection.delivered_slide_ids)
+    return tuple(slide for slide in storyboard if slide.slide_id in selected)
 
 
 def _svg_files(directory: Path, *, allow_candidates: bool = False) -> Mapping[str, Path]:
@@ -427,10 +636,20 @@ def _approved_anchor_paths(run_data: Mapping[str, Any]) -> Mapping[str, str]:
 def resolve_slide_sources(
     context: RunContext,
     storyboard: Sequence[StoryboardSlide],
+    selected_slide_ids: Optional[Sequence[str]] = None,
+    *,
+    require_production: bool = False,
 ) -> Tuple[SlideSource, ...]:
     expected = tuple(slide.slide_id for slide in storyboard)
     if len(expected) != len(set(expected)) or not expected:
         raise _error("slide_set_invalid", "storyboard page set is invalid")
+    selected_ids = expected if selected_slide_ids is None else tuple(selected_slide_ids)
+    if (
+        not selected_ids
+        or len(selected_ids) != len(set(selected_ids))
+        or selected_ids != tuple(slide_id for slide_id in expected if slide_id in selected_ids)
+    ):
+        raise _error("slide_set_invalid", "selected page set is invalid")
     production = _svg_files(context.slides_dir, allow_candidates=True)
     samples = _svg_files(context.samples_dir)
     if (set(production) | set(samples)) - set(expected):
@@ -440,12 +659,16 @@ def resolve_slide_sources(
         raise _error("slide_set_invalid", "sample is not an approved anchor")
 
     selected = []
-    for slide_id in expected:
+    for slide_id in selected_ids:
         if slide_id in production:
             path = validate_safe_regular_file(production[slide_id], (context.slides_dir,))
             relative_path = "slides/{}.svg".format(slide_id)
             owner = "production"
-        elif slide_id in samples and approved.get(slide_id) == "samples/{}.svg".format(slide_id):
+        elif (
+            not require_production
+            and slide_id in samples
+            and approved.get(slide_id) == "samples/{}.svg".format(slide_id)
+        ):
             path = validate_safe_regular_file(samples[slide_id], (context.samples_dir,))
             relative_path = "samples/{}.svg".format(slide_id)
             owner = "approved_anchor"

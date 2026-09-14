@@ -115,11 +115,22 @@ class Owners:
         chinese = ['.ppt-pilot/简报.md', '.ppt-pilot/研究.md', '.ppt-pilot/来源.md', '大纲.md', '.ppt-pilot/故事板.md']
         english = ['.ppt-pilot/brief.md', '.ppt-pilot/research.md', '.ppt-pilot/sources.md', 'outline.md', '.ppt-pilot/storyboard.md']
         if (not isinstance(files, list) or len(files) != 5 or set(files) not in (set(chinese), set(english))
-                or set(hashes) != set(files) or not nonempty(frozen.get('snapshot_id'))):
+                or not isinstance(hashes, dict) or set(hashes) != set(files)
+                or not nonempty(frozen.get('snapshot_id'))):
             raise ValueError('review_snapshot_mismatch')
+        current_hashes = {}
         for name in files:
-            if store.hash(name).removeprefix('sha256:') != hashes[name]:
+            current_hashes[name] = store.hash(name).removeprefix('sha256:')
+            if current_hashes[name] == 'none':
                 raise ValueError('manuscript_stale')
+        from _review_snapshot import ReviewSnapshotError, validate_review_snapshot
+        try:
+            validate_review_snapshot(frozen, current_hashes, store.read_bytes)
+        except ReviewSnapshotError as error:
+            code = str(error)
+            if code not in ('manuscript_stale', 'review_snapshot_mismatch'):
+                code = 'review_snapshot_mismatch'
+            raise ValueError(code) from None
         names = chinese if set(files) == set(chinese) else english
         self.outline = markdown_owner(store.read_bytes(names[3]))
         self.storyboard = markdown_owner(store.read_bytes(names[4]))
@@ -135,7 +146,7 @@ class Owners:
         from _workflow_evidence import manuscript
         gate = Gate(store.root)
         gate.run = run
-        gate.evidence = {'manuscript': {'files': hashes, 'report': {'path': report_name,
+        gate.evidence = {'manuscript': {'files': current_hashes, 'report': {'path': report_name,
             'sha256': store.hash(report_name).removeprefix('sha256:')}, 'review_snapshot_id': frozen['snapshot_id']}}
         manuscript(gate)
         if not NARRATIVE <= set(self.outline) or any(not nonempty(self.outline[k]) for k in NARRATIVE):

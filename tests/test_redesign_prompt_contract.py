@@ -311,8 +311,10 @@ class TemplateCreativeReformTest(unittest.TestCase):
     def test_skill_workflow_step5_direct_compile(self):
         skill = read_text(skill_root() / "SKILL.md")
         self.assertNotIn("组装并验证对应", skill)
-        self.assertIn("生成任何视觉页面前", skill)
-        self.assertIn("generation-prompts/<slide-id>.md", skill)
+        self.assertIn('按值传入的完整冻结 Prompt', skill)
+        self.assertIn('generation-prompt-byte-grammar.md', skill)
+        visual = read_text(skill_root() / 'references/visual-brief-and-generation.md')
+        self.assertIn('generation-prompts/<slide-id>.md', visual)
 
     def test_layout_catalog_is_soft_reference(self):
         lc = read_text(skill_root() / "references" / "layout-catalog.md")
@@ -2311,11 +2313,12 @@ class RedesignPromptContractTests(unittest.TestCase):
             "旧 `.ppt-pilot/redesign-prompts/` 永远只读且 inert",
             "所有新生成统一写入 `.ppt-pilot/generation-prompts/`",
             "`.ppt-pilot/generation-prompts/<slide-id>.md`",
-            "所选风格必须声明的完整 `files.prompt_template`",
+            "所选风格声明的 `files.prompt_template`",
             "prompt_snapshot_conflict",
             "Transaction 创建前的无副作用 preflight",
             "确定性 preflight 失败必须产生零 transaction／prompt／manifest／candidate 写入、零 generator 调用和零 SVG 写入",
-            "capability 失败除一次原子 run-level blocker 写入外保持同样的零生产副作用",
+            "独立写一次原子 run-level blocker",
+            "这不授权任何生产副作用",
         ):
             with self.subTest(reference="artifact", token=token):
                 self.assertIn(token, artifact)
@@ -2331,11 +2334,14 @@ class RedesignPromptContractTests(unittest.TestCase):
                 with self.subTest(reference=reference_name, forbidden=token):
                     self.assertNotIn(token, body)
 
-    def test_dedicated_redesign_reference_exists_and_is_linked(self):
+    def test_compiler_reference_is_not_the_model_production_checklist(self):
         self.assertTrue(self.reference.exists())
         skill = read_text(self.skill)
-        self.assertIn("redesign-prompt.md", skill)
-        self.assertLess(skill.index("redesign-prompt.md"), skill.index("SVG 契约"))
+        self.assertIn('generation-prompt-byte-grammar.md', skill)
+        self.assertIn('runtime-canonical-owners.md', skill)
+        reference = read_text(self.reference)
+        self.assertIn('兼容参考，不是模型逐页执行清单', reference)
+        self.assertIn('workflow.md', reference)
 
     def test_narrative_requires_unique_storyboard_block_ids_in_order(self):
         template = _canonical_template_bytes()
@@ -2372,7 +2378,7 @@ class RedesignPromptContractTests(unittest.TestCase):
         for trigger in ("重新排版", "重做版式", "重新设计页面", "换个排版"):
             self.assertIn(trigger, text)
         self.assertIn("recompose", text)
-        self.assertIn("不得用于 patch", text)
+        self.assertIn("当前没有通用 patch CLI", text)
 
     def test_historical_style_prompts_are_inert_assets(self):
         for prompt_path in HISTORICAL_STYLE_PROMPTS:
@@ -2565,7 +2571,7 @@ class RedesignPromptContractTests(unittest.TestCase):
             "已批准故事板",
             "theme.json",
             "generation-prompts/<slide-id>.md",
-            "只授予编译后的 Prompt",
+            "完整冻结 Prompt",
             "fresh",
             "独立",
         ):
@@ -2611,7 +2617,7 @@ class RedesignPromptContractTests(unittest.TestCase):
     def test_generation_prompt_is_required_visual_artifact(self):
         text = read_text(self.artifact)
         self.assertIn("- `generation-prompts/`", text)
-        self.assertIn("每个首次生成", text)
+        self.assertIn("每次首次生成", text)
 
     def test_synthetic_prompt_fixture_declares_expected_artifacts(self):
         self.assertTrue(self.prompt_fixture.exists())

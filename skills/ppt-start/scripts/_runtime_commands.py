@@ -9,9 +9,10 @@ from _generation_concurrency import plan_dispatch
 from _generation_runtime import (V2_VALIDATION_CHECKS, validate_v2_manifest, validate_v2_transaction,
     rebuild_batch_cursors, _transaction_ref, _validate_prompt_by_value, validated_final_outcome,
     migrate_v1_run_to_v2)
-from _svg_runtime import extract_svg, validate_candidate
+from _svg_runtime import extract_svg, validate_candidate, validate_svg
 from _prompt_runtime import AssetFailure
 from _runtime_blockers import preflight_blocker
+from _delivery_contract import PAGE_FAILURE_REASONS
 
 STAMP = '1970-01-01T00:00:00Z'  # deterministic owner timestamp, never host telemetry
 DISPATCH_FIELDS = {'schema_version', 'kind', 'batch_id', 'slide_id', 'transaction_id',
@@ -21,6 +22,8 @@ REQUEST_FIELDS = {'schema_version', 'kind', 'request_id', 'expected_run_sha256',
                   'expected_snapshots', 'ordered_slide_ids', 'generation_operations'}
 QA_FIELDS = {'schema_version', 'kind', 'slide_id', 'transaction_id', 'candidate_sha256',
              'checks', 'defect_id', 'failure_reason'}
+RETIRE_FIELDS = {'schema_version', 'kind', 'request_id', 'expected_run_sha256',
+                 'reason', 'selected_style_id', 'answer'}
 RETRY = {'generator_unavailable', 'generator_refused', 'generator_timeout',
          'generator_output_malformed', 'candidate_write_failed', 'candidate_hash_mismatch'}
 
@@ -34,6 +37,35 @@ def can_retry(tx):
     return (tx['failure_reason'] in RETRY | {'prompt_write_failed'} or
             (tx['candidate_sha256'] is None and tx['failure_reason'] in
              ('svg_contract_failed', 'fact_source_mismatch')))
+
+
+def adapter_upgrade_retry_eligible(tx, dispatch, current):
+    """Allow one exhausted retry only after a real same-host adapter upgrade."""
+    def version(value):
+        if not isinstance(value, str) or not re.fullmatch(
+            r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', value
+        ):
+            return None
+        return tuple(int(part) for part in value.split('.'))
+
+    old_version = version(dispatch.get('adapter_version')) if isinstance(dispatch, dict) else None
+    new_version = version(current.get('adapter_version')) if isinstance(current, dict) else None
+    return (tx.get('failure_reason') in
+            ('generator_unavailable', 'svg_contract_failed', 'fact_source_mismatch') and
+            tx.get('generation_attempt') == 3 and tx.get('candidate_sha256') is None and
+            isinstance(dispatch, dict) and isinstance(current, dict) and
+            dispatch.get('host') == current.get('host') and old_version is not None and
+            new_version is not None and new_version > old_version and
+            (dispatch.get('adapter_id'), old_version) !=
+            (current.get('adapter_id'), new_version))
+
+
+def can_retire_theme_batch(transactions):
+    """A superseded theme batch may retire only after every worker is terminal."""
+    return (isinstance(transactions, dict) and bool(transactions) and
+            all(isinstance(tx, dict) and
+                tx.get('state') in ('validated', 'promoted', 'failed')
+                for tx in transactions.values()))
 
 
 def manifest_path(batch_id):
@@ -118,6 +150,8 @@ class Runtime:
         # leave stale hints, which read-only resume projects without rewriting.
         self.refresh(manifest, txs)
         validate_v2_manifest(manifest, txs)
+        for ref, expected in manifest.get('omitted_transaction_sha256', {}).items():
+            ensure(self.store.observed.get(ref) == expected, 'omitted_transaction_hash_mismatch')
         for tx in txs.values():
             if verify_candidates and tx['candidate_sha256'] is not None:
                 ensure(self.store.hash(tx['candidate_path']) == tx['candidate_sha256'], 'candidate_hash_mismatch')
@@ -127,9 +161,21 @@ class Runtime:
 
     def refresh(self, manifest, txs):
         pc, bc = rebuild_batch_cursors(manifest, txs)
+        refs = manifest['transaction_refs']
+        omitted = set(manifest.get('omitted_transaction_refs', []))
+        promoted = {ref for ref in refs if txs[ref]['state'] == 'promoted'}
+        terminal = promoted | omitted
+        prior_state = manifest.get('state')
+        if prior_state == 'superseded':
+            state = 'superseded'
+        elif bc < len(refs):
+            state = 'blocked'
+        elif len(terminal) == len(refs):
+            state = 'failed' if not promoted else 'partial' if omitted else 'completed'
+        else:
+            state = 'active'
         manifest.update(promotion_cursor=pc, blocker_cursor=bc,
-            active_blocker_ref=manifest['transaction_refs'][bc] if bc < len(txs) else None,
-            state='blocked' if bc < len(txs) else 'completed' if pc == len(txs) else 'active')
+            active_blocker_ref=refs[bc] if bc < len(refs) else None, state=state)
 
     def persist_graph(self, manifest, txs, changed):
         for ref in changed:
@@ -212,7 +258,8 @@ class Runtime:
             ensure(manifest['ordered_slide_ids'] == slides)
             self.canonical(manifest, txs)
             ensure([txs[ref]['transaction_id'] for ref in manifest['transaction_refs']] == [c[0] for c in compiled])
-            if not self.run.get('active_visual_generation_batch') and manifest['state'] != 'completed':
+            if (not self.run.get('active_visual_generation_batch') and
+                    manifest['state'] in ('prepared', 'active', 'blocked')):
                 validate_capability(receipt)
                 self.run.pop('visual_generation_blocker', None)
                 self.run['active_visual_generation_batch'] = {'schema_version': 2, 'batch_id': batch_id, 'manifest_path': path}
@@ -337,6 +384,7 @@ class Runtime:
         receipt = self.input(args.capability)
         self.priority()
         manifest, txs = self.graph(args.batch_id)
+        ensure(manifest['state'] != 'superseded', 'batch_superseded')
         self.canonical(manifest, txs)
         return self.plan(manifest, txs, validate_capability(receipt))
 
@@ -344,6 +392,7 @@ class Runtime:
         receipt = self.input(args.capability)
         self.priority()
         manifest, txs = self.graph(args.batch_id)
+        ensure(manifest['state'] != 'superseded', 'batch_superseded')
         self.canonical(manifest, txs)
         try:
             capability = validate_capability(receipt)
@@ -374,6 +423,7 @@ class Runtime:
     def find_dispatch(self, identity):
         self.priority()
         manifest, txs = self.graph()
+        ensure(manifest['state'] != 'superseded', 'batch_superseded')
         self.canonical(manifest, txs)
         found = [(ref, name, dispatch) for ref, (name, dispatch) in self.reservations(manifest, txs).items()
                  if dispatch['dispatch_id'] == identity]
@@ -415,10 +465,11 @@ class Runtime:
         ensure(tx['state'] in ('generating', 'candidate_written', 'validated', 'promoted'))
         owners = self.canonical(manifest, txs)
         blocks = owners.slides[tx['slide_id']]['content_blocks']
+        warnings = []
         try:
             data = validate_candidate(extract_svg(response), [b['block_id'] for b in blocks],
                                       {b['block_id']: b['source_ids'] for b in blocks},
-                                      title_min_size=owners.title_min_size)
+                                      title_min_size=owners.title_min_size, warnings=warnings)
         except ValueError as error:
             ensure(tx['state'] == 'generating')
             reason = str(error) if str(error) in ('generator_output_malformed', 'fact_source_mismatch', 'svg_contract_failed') else 'svg_contract_failed'
@@ -428,7 +479,7 @@ class Runtime:
             raise ValueError(reason)
         if tx['state'] != 'generating':
             ensure(tx['candidate_sha256'] == sha(data))
-            return {'candidate_sha256': tx['candidate_sha256'], 'replay': True}
+            return {'candidate_sha256': tx['candidate_sha256'], 'warnings': warnings, 'replay': True}
         # A crash orphan is never adopted, even if its bytes happen to match.
         ensure(self.store.hash(tx['candidate_path']) == 'none', 'orphan_candidate')
         try:
@@ -438,7 +489,15 @@ class Runtime:
             raise ValueError('candidate_write_failed')
         tx.update(state='candidate_written', candidate_sha256=candidate_hash)
         self.persist_graph(manifest, txs, [ref])
-        return {'candidate_sha256': candidate_hash}
+        return {'candidate_sha256': candidate_hash, 'warnings': warnings}
+
+    def submit_result(self, args):
+        bound = self.bind_task(args)
+        ingested = self.ingest_result(args)
+        result = dict(ingested)
+        result['dispatch'] = bound['dispatch']
+        result['replay'] = bool(bound.get('replay') and ingested.get('replay'))
+        return result
 
     def record_generator_failure(self, args):
         manifest, txs, ref, _, dispatch = self.find_dispatch(args.dispatch_id)
@@ -455,15 +514,36 @@ class Runtime:
         if self.store.hash(name) == 'none':
             return name, {'schema_version': 1, 'kind': 'runtime_qa', 'records': []}
         owner = markdown_owner(self.store.read_bytes(name))
-        ensure(set(owner) == {'schema_version', 'kind', 'records'} and owner['schema_version'] == 1 and
+        ensure(set(owner) in ({'schema_version', 'kind', 'records'}, {'schema_version', 'kind', 'records', 'final_review'}) and owner['schema_version'] == 1 and
                owner['kind'] == 'runtime_qa' and isinstance(owner['records'], list), 'qa_owner_conflict')
         return name, owner
+
+    def validation_evidence(self, tx, title_min_size=None):
+        _, owner = self.qa_owner()
+        records = [record for record in owner['records'] if isinstance(record, dict) and
+                   record.get('transaction_id') == tx['transaction_id'] and
+                   record.get('candidate_sha256') == tx['candidate_sha256']]
+        ensure(len(records) == 1, 'validation_evidence_missing')
+        record = records[0]
+        ensure(set(record) == QA_FIELDS and record.get('schema_version') == 1 and
+               record.get('kind') == 'visual_generation_qa' and
+               record.get('slide_id') == tx['slide_id'] and
+               record.get('checks') == tx['validation']['checks'] and
+               record.get('defect_id') is None and record.get('failure_reason') is None,
+               'validation_evidence_missing')
+        if title_min_size is not None:
+            warnings = []
+            validate_svg(self.store.read_bytes(tx['candidate_path']).decode('utf-8'), enriched=True,
+                         title_min_size=title_min_size, warnings=warnings)
+            ensure(not warnings or record['checks']['visual'] == 'passed', 'visual_qa_required')
+        return record
 
     def record_validation(self, args):
         qa = self.input(args.input)
         self.priority()
         manifest, txs = self.graph(verify_candidates=False)
-        self.canonical(manifest, txs)
+        ensure(manifest['state'] != 'superseded', 'batch_superseded')
+        owners = self.canonical(manifest, txs)
         ref = transaction_path(args.slide_id, args.transaction_id)
         ensure(ref in txs)
         tx = txs[ref]
@@ -475,9 +555,13 @@ class Runtime:
             ensure(tx['state'] == 'candidate_written')
             self.fail(manifest, txs, ref, 'candidate_hash_mismatch')
             raise ValueError('candidate_hash_mismatch')
+        warnings = []
+        validate_svg(self.store.read_bytes(tx['candidate_path']).decode('utf-8'), enriched=True,
+                     title_min_size=owners.title_min_size, warnings=warnings)
         checks = qa['checks']
         ensure(isinstance(checks, dict) and set(checks) == V2_VALIDATION_CHECKS and
             all(value in ('passed', 'failed') or (key == 'visual' and value == 'not_rendered') for key, value in checks.items()), 'invalid_runtime_input')
+        ensure(not warnings or checks['visual'] == 'passed', 'visual_qa_required')
         passed = 'failed' not in checks.values()
         reason = qa['failure_reason']
         expected_reason = ('svg_contract_failed' if any(checks[k] == 'failed' for k in ('xml', 'office', 'geometry_text')) else
@@ -527,44 +611,98 @@ class Runtime:
                        record.get('decision') == 'approve' and record.get('status') == 'applied' and
                        isinstance(anchor.get('artifact_snapshot_id'), str) and
                        record.get('artifact_snapshot_id') == anchor['artifact_snapshot_id'] == evidence_id, 'approval_missing')
-        if manifest['state'] == 'completed' and not self.run.get('active_visual_generation_batch'):
+        if manifest['state'] in ('completed', 'complete', 'partial', 'failed') and not self.run.get('active_visual_generation_batch'):
             return {'replay': True}
+        ensure(manifest['state'] != 'superseded', 'batch_superseded')
         ensure(self.run.get('active_visual_generation_batch', {}).get('batch_id') == args.batch_id)
         ensure(self.store.observed[path] == args.expected_manifest_sha256)
-        ensure(all(tx['state'] in ('validated', 'promoted') for tx in txs.values()), 'validation_required')
-        # Preflight every final before writing the first, so third-party bytes
-        # cannot cause an avoidable partial promotion.
+        omitted = set(manifest.get('omitted_transaction_refs', []))
+        ensure(not any(tx['state'] == 'failed' and ref not in omitted and
+                       tx['failure_reason'] not in PAGE_FAILURE_REASONS for ref, tx in txs.items()),
+               'global_generation_failure')
         outcomes = {}
         for ref, tx in txs.items():
             if tx['state'] == 'validated':
+                self.validation_evidence(tx, owners.title_min_size)
                 observed = self.store.hash(tx['final_path'])
                 outcome = validated_final_outcome(tx, observed)
                 ensure(outcome != 'final_promotion_conflict', outcome)
                 outcomes[ref] = (outcome, observed)
+        promoted = []
         for ref in manifest['transaction_refs']:
             tx = txs[ref]
             if ref not in outcomes:
                 continue
             outcome, observed = outcomes[ref]
-            self.write_barrier()  # fresh conformance without accepting changed run bytes
+            self.write_barrier()
             if outcome == 'retry_atomic_promotion':
                 data = self.store.read_bytes(tx['candidate_path'])
                 ensure(sha(data) == tx['candidate_sha256'], 'candidate_hash_mismatch')
                 self.store.write_bytes(tx['final_path'], data, observed)
             tx['state'] = 'promoted'
             self.persist_graph(manifest, txs, [ref])
-        self.run.pop('active_visual_generation_batch', None)
-        # Per-page checks passed; retain dirty flags until deck-level final QA.
+            promoted.append(tx['slide_id'])
+        if manifest['state'] in ('completed', 'complete', 'partial', 'failed'):
+            self.persist_graph(manifest, txs, [])
+            self.run.pop('active_visual_generation_batch', None)
+            self.write_run()
+        return {'batch_id': args.batch_id, 'promoted_slide_ids': promoted}
+
+    def retire_batch(self, args):
+        request = self.input(args.input)
+        self.priority()
+        ensure(self.run.get('stage') in ('anchor', 'production'))
+        manifest, txs = self.graph(args.batch_id, verify_candidates=False)
+        owners = self.canonical(manifest, txs)
+        path = manifest_path(args.batch_id)
+        ensure(self.run.get('active_visual_generation_batch', {}).get('batch_id') == args.batch_id)
+        ensure(self.store.observed[path] == args.expected_manifest_sha256)
+        ensure(isinstance(request, dict) and set(request) == RETIRE_FIELDS and
+               request['schema_version'] == 1 and request['kind'] == 'visual_generation_batch_retirement')
+        ensure(request['expected_run_sha256'] == self.store.observed[self.run_name] and
+               request['reason'] == 'theme_change' and
+               isinstance(request['request_id'], str) and
+               re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}', request['request_id']) and
+               isinstance(request['answer'], str) and request['answer'].strip() and
+               isinstance(request['selected_style_id'], str) and
+               re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', request['selected_style_id']) and
+               request['selected_style_id'] != owners.theme.get('selected_style_id'),
+               'invalid_runtime_input')
+        ensure(can_retire_theme_batch(txs), 'batch_retirement_in_flight')
+        history = self.run.setdefault('interaction_history', {})
+        ensure(isinstance(history, dict))
+        numbers = [int(match.group(1)) for key in history
+                   if (match := re.fullmatch(r'visual-revision-([1-9][0-9]*)', key))]
+        revision_id = 'visual-revision-' + str(max(numbers, default=0) + 1)
+        ensure(revision_id not in history)
+        history[revision_id] = {
+            'id': revision_id, 'request_id': request['request_id'], 'stage': self.run['stage'],
+            'kind': 'visual_revision', 'answer': request['answer'],
+            'normalized_changes': {'selected_style_id': request['selected_style_id']},
+            'affected_scope': 'deck', 'supersedes': [], 'status': 'applied',
+            'artifact_owner': '.ppt-pilot/theme.json',
+        }
+        manifest.update(state='superseded', active_blocker_ref=None, updated_at=STAMP)
+        self.refresh(manifest, txs)
+        validate_v2_manifest(manifest, txs)
+        self.store.write_json(path, manifest, self.store.observed[path])
+        self.run.pop('active_visual_generation_batch')
+        self.run['stage'] = 'theme'
+        self.run['dirty_slides'] = list(owners.slides)
         self.write_run()
-        return {'batch_id': args.batch_id, 'promoted_slide_ids': manifest['ordered_slide_ids']}
+        return {'batch_id': args.batch_id, 'state': 'superseded',
+                'revision_id': revision_id, 'next_command': 'stage_scan'}
 
     def publish_anchors(self, args):
         self.priority()
         ensure(self.run.get('stage') == 'anchor', 'anchor_stage_required')
         manifest, txs = self.graph(args.batch_id)
+        ensure(manifest['state'] != 'superseded', 'batch_superseded')
         owners = self.canonical(manifest, txs)
         ensure(self.store.observed[manifest_path(args.batch_id)] == args.expected_manifest_sha256)
         ensure(all(tx['state'] == 'validated' for tx in txs.values()), 'validation_required')
+        for tx in txs.values():
+            self.validation_evidence(tx, owners.title_min_size)
         # Existing canonical evidence proves which previous sample bytes we own.
         # It does not authorize changed bytes or approve the replacement digest.
         prior_anchor = (self.store.read_json('.ppt-pilot/' + self.run['source_deck']['evidence']).get('anchor', {})
@@ -602,6 +740,7 @@ class Runtime:
         if self.store.hash(journal_name) != 'none':
             return replay(self, journal_name, self.store.read_json(journal_name), args.transaction_id, args.mode)
         manifest, txs = self.graph(verify_candidates=args.mode != 'retry')
+        ensure(manifest['state'] != 'superseded', 'batch_superseded')
         owners = Owners(self.store, self.run) if args.mode == 'recompose' else self.canonical(manifest, txs)
         ensure(ref in txs and txs[ref]['state'] == 'failed')
         tx = txs[ref]
@@ -641,9 +780,8 @@ class Runtime:
             ensure(len(txs) == 1 or all(manifest[k] == owners.snapshots[k] for k in SNAPSHOTS), 'recovery_scope_conflict')
             operation = dict(slide_id=tx['slide_id'], generation_intent='user_recompose',
                              generation_trigger_id='interaction:' + revision)
-        native_visual = operation['generation_trigger_id'].removeprefix('interaction:') in owners.visual_revisions
-        attempts = tx['generation_attempt'] if native_visual else 0
-        ensure(not native_visual or attempts < 3, 'generation_attempts_exhausted')
+        attempts = tx['generation_attempt']
+        ensure(attempts < 3, 'generation_attempts_exhausted')
         identity, body_hash, envelope = owners.compile(operation)
         ensure(identity != tx['transaction_id'], 'recovery_not_allowed')
         replacement = dict(tx, transaction_id=identity, prompt_snapshot_id=identity,
@@ -696,6 +834,11 @@ class Runtime:
             item = {'slide_id': tx['slide_id'], 'transaction_id': tx['transaction_id'],
                     'failure_reason': tx['failure_reason'], 'mode': None,
                     'remaining_attempts': max(0, 3 - tx['generation_attempt'])}
+            if tx['failure_reason'] == 'fact_source_mismatch' and tx['candidate_sha256'] is not None:
+                item.update(next_command='review-content',
+                            required_input='classify_output_or_content_defect')
+                result.append(item)
+                continue
             pending_visual = any(record['source_transaction_id'] == tx['transaction_id'] and
                                  record['affected_scope'] == [tx['slide_id']]
                                  for record in owners.visual_revisions.values())
@@ -755,6 +898,13 @@ class Runtime:
             blocker.get('state') == blocker.get('reason') == 'generator_unavailable' and
             blocker.get('resource') == 'none' and blocker.get('status') == 'active')
         self.priority(allow_blocker=retrying_generator, allow_legacy=True)
+        delivery = self.run.get('delivery')
+        if delivery is not None:
+            status = delivery.get('status') if isinstance(delivery, dict) else None
+            ensure(status in ('prepared', 'complete', 'partial', 'failed'), 'delivery_status_mismatch')
+            return {'next_command': ('finalize' if status == 'prepared' else
+                                    'delivery-failed' if status == 'failed' else 'stage_scan'),
+                    'delivery': delivery, 'same_run_required': True}
         from _runtime_recovery import pending
         recoveries = pending(self)
         if recoveries:
@@ -766,15 +916,22 @@ class Runtime:
             # Prepared-but-unpublished batches require explicit same-request replay.
             directory = self.store.path('.ppt-pilot/visual-generation-batches')
             completed = {}
+            omitted_slides = set()
             if directory.exists():
                 for path in sorted(directory.iterdir()):
                     if path.suffix == '.json':
                         manifest, txs = self.graph(path.stem, active=False, verify_finals=False)
-                        if manifest['state'] != 'completed':
+                        if manifest['state'] == 'superseded':
+                            continue
+                        if manifest['state'] not in ('completed', 'complete', 'partial', 'failed'):
                             self.canonical(manifest, txs)
                             return {'next_command': 'prepare-batch', 'batch_id': manifest['batch_id'], 'pointer_missing': True}
-                        for tx in txs.values():
-                            completed.setdefault(tx['slide_id'], []).append(tx)
+                        omitted = set(manifest.get('omitted_transaction_refs', []))
+                        for ref, tx in txs.items():
+                            if tx['state'] == 'promoted' or ref in omitted:
+                                completed.setdefault(tx['slide_id'], []).append(tx)
+                            if ref in omitted:
+                                omitted_slides.add(tx['slide_id'])
             current = {}
             for sid, versions in completed.items():
                 text = self.store.read_bytes('.ppt-pilot/generation-prompts/' + sid + '.md').decode('utf-8')
@@ -787,7 +944,10 @@ class Runtime:
                         pass
                 ensure(len({tx['transaction_id'] for tx in matching}) == 1, 'prompt_snapshot_conflict')
                 current[sid] = matching[0]
-                ensure(self.store.hash(current[sid]['final_path']) == current[sid]['candidate_sha256'], 'final_promotion_conflict')
+                if current[sid]['state'] == 'promoted':
+                    ensure(self.store.hash(current[sid]['final_path']) == current[sid]['candidate_sha256'], 'final_promotion_conflict')
+                else:
+                    ensure(sid in omitted_slides and current[sid]['state'] == 'failed')
             if self.run.get('stage') in ('anchor', 'production'):
                 owners = Owners(self.store, self.run)
                 if retrying_generator:
@@ -821,28 +981,37 @@ class Runtime:
                     request['request_id'] = sha(canonical(request).rstrip(b'\n'))
                     request['expected_run_sha256'] = self.store.observed[self.run_name]
                     return {'next_command': 'prepare-batch', 'prepare_request': request}
-            return {'next_command': 'stage_scan'}
+            return {'next_command': 'advance' if omitted_slides else 'stage_scan',
+                    'delivery_ready': bool(omitted_slides)}
         manifest, txs = self.graph()
-        owners = self.canonical(manifest, txs)
-        reservations = self.reservations(manifest, txs)
-        recoveries = self.failed_recoveries(manifest, txs, owners)
-        in_flight = [{'slide_id': tx['slide_id'], 'transaction_id': tx['transaction_id'],
-                      'host_task_id': tx['host_task_id']} for tx in txs.values() if tx['state'] == 'generating']
+        self.canonical(manifest, txs)
         orphans = [tx['candidate_path'] for tx in txs.values() if tx['state'] == 'generating' and self.store.hash(tx['candidate_path']) != 'none']
         ensure(not orphans, 'orphan_candidate')
+        from _runtime_delivery import Delivery
+        result = Delivery(self).action_plan(manifest, txs)
+        result.update(transactions=[{'slide_id': tx['slide_id'], 'transaction_id': tx['transaction_id'],
+                    'state': tx['state'], 'failure_reason': tx['failure_reason']} for tx in txs.values()],
+                      promotion_cursor=manifest['promotion_cursor'])
         ready = all(tx['state'] in ('validated', 'promoted') for tx in txs.values())
-        promotion_command = 'promote'
         if ready and self.run.get('stage') == 'anchor':
             published = all(self.store.hash('.ppt-pilot/samples/' + tx['slide_id'] + '.svg') == tx['candidate_sha256'] for tx in txs.values())
-            promotion_command = 'anchor_review' if published else 'publish-anchors'
-        return {'batch_id': manifest['batch_id'], 'transactions': [{'slide_id': tx['slide_id'], 'transaction_id': tx['transaction_id'],
-                    'state': tx['state'], 'failure_reason': tx['failure_reason']} for tx in txs.values()],
-            'reservations': [d for _, d in reservations.values()], 'promotion_cursor': manifest['promotion_cursor'],
-            'recoveries': recoveries, 'in_flight': in_flight, 'same_run_required': True,
-            'next_command': 'durable_lookup' if any(d['state'] == 'reserved' for _, d in reservations.values()) else
-                            'bind-task' if any(txs[ref]['state'] == 'compiled' for ref in reservations) else
-                            recoveries[0]['next_command'] if recoveries else promotion_command if ready else
-                            'wait-for-generator' if in_flight and not any(tx['state'] == 'compiled' for tx in txs.values()) else 'dispatch-plan'}
+            result['next_command'] = 'anchor_review' if published else 'publish-anchors'
+        return result
+
+    def advance(self, args):
+        review = self.run.get('manuscript_review', {})
+        waiting = self.run.get('pending_interaction') is not None or (
+            isinstance(review, dict) and review.get('pending_round') is not None)
+        early_stage = self.run.get('stage') not in ('production', 'qa', 'complete', 'partial', 'failed')
+        if waiting or early_stage:
+            ensure(not args.allow_partial and not args.skip_slide, 'production_policy_pending_node')
+            return self.resume(args)
+        from _runtime_delivery import Delivery
+        return Delivery(self).advance(args)
+
+    def finalize(self, args):
+        from _runtime_delivery import Delivery
+        return Delivery(self).finalize(args)
 
     def migrate_v1(self, args):
         self.priority(allow_legacy=True)
@@ -873,7 +1042,7 @@ class Runtime:
     def execute(self, args):
         self.audit()
         command = getattr(self, args.command.replace('-', '_'))
-        if args.command not in ('prepare-recovery', 'revise-visual', 'resume'):
+        if args.command not in ('prepare-recovery', 'revise-visual', 'resume', 'advance'):
             from _runtime_recovery import pending
             ensure(not pending(self), 'recovery_pending')
         if args.command in ('resume', 'dispatch-plan'):
@@ -883,7 +1052,7 @@ class Runtime:
             return result
         with self.store.lock():
             self.audit()
-            if args.command not in ('prepare-recovery', 'revise-visual'):
+            if args.command not in ('prepare-recovery', 'revise-visual', 'advance'):
                 from _runtime_recovery import pending
                 ensure(not pending(self), 'recovery_pending')
             self.store.before_write = self.write_barrier

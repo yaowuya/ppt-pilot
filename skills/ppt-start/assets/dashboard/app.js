@@ -15,11 +15,23 @@
     manuscript_blocked: "manuscript_review", review_unavailable: "manuscript_review",
     theme_approved: "theme", anchor_approved: "anchor", qa_approved: "qa"
   };
+  const TERMINAL_STAGE_IDS = { partial: "complete", failed: "production" };
   const STATUS_NAMES = {
     waiting: "等待确认", pending: "尚未开始", running: "进行中", generating: "生成中",
+    prepared: "待质量检查", partial: "部分交付", omitted: "已跳过", delivered: "已交付",
     blocked: "已阻断", failed: "生成失败", complete: "已完成", completed: "已完成",
     ready: "已产出", unknown: "状态未知", dirty: "待更新", candidate_written: "候选已产出",
     validated: "候选已校验", accepted: "已接受", sample: "样张已产出"
+  };
+  const OUTCOME_TITLES = {
+    prepared: "交付范围已准备，等待质量检查",
+    partial: "演示文稿已部分交付",
+    failed: "演示文稿交付失败"
+  };
+  const NOTICE_TITLES = {
+    prepared_delivery: "交付范围已准备，等待质量检查",
+    partial_delivery: "本轮已结束，部分页面未交付",
+    failed_delivery: "交付失败，尚无成功交付页面"
   };
   const KIND_NAMES = { final: "正式页", sample: "样张 · 非正式页", candidate: "候选 · 非正式页" };
   const element = (id) => document.getElementById(id);
@@ -39,14 +51,23 @@
   }
 
   function styleStatus(status) {
-    if (["complete", "completed", "ready", "accepted"].includes(status)) return "complete";
-    if (["running", "generating", "candidate_written", "validated"].includes(status)) return "running";
-    if (["failed", "blocked"].includes(status)) return "blocked";
-    return ["waiting", "pending", "dirty"].includes(status) ? status : "unknown";
+    if (["complete", "completed", "ready", "accepted", "delivered"].includes(status)) return "complete";
+    if (["running", "generating", "candidate_written", "validated", "prepared"].includes(status)) return "running";
+    if (status === "failed") return "failed";
+    if (status === "blocked") return "blocked";
+    return ["waiting", "pending", "dirty", "partial", "omitted"].includes(status) ? status : "unknown";
   }
 
-  function currentStageId(stage) {
-    return Object.hasOwn(STAGE_ALIASES, stage) ? STAGE_ALIASES[stage] : stage;
+  function currentStageId(state) {
+    const actionable = state.tasks.find((task) =>
+      ["running", "waiting", "blocked", "failed", "partial"].includes(task.status)
+    );
+    if (actionable && typeof actionable.id === "string") return actionable.id;
+    const { stage, status } = state;
+    if (Object.hasOwn(STAGE_ALIASES, stage)) return STAGE_ALIASES[stage];
+    return status === stage && Object.hasOwn(TERMINAL_STAGE_IDS, stage)
+      ? TERMINAL_STAGE_IDS[stage]
+      : stage;
   }
 
   function checkpointLabel(stage) {
@@ -56,11 +77,14 @@
   }
 
   function oldFinalPreview(slide) {
-    return slide.dirty && slide.preview_kind === "final";
+    return (slide.dirty || slide.stale_preview === true) && slide.preview_kind === "final";
   }
 
   function slideStatus(slide) {
     const status = text(slide.status, "unknown");
+    if (status === "delivered") return { key: "complete", label: "已交付" };
+    if (status === "omitted") return { key: "omitted", label: "已跳过" + (oldFinalPreview(slide) ? " · 旧版预览（未交付）" : "") };
+    if (status === "failed") return { key: "failed", label: "生成失败" + (slide.terminal_omission === true ? " · 本轮跳过" : "") + (oldFinalPreview(slide) ? " · 旧版预览（未交付）" : "") };
     if (slide.dirty) {
       const current = status === "running" || status === "generating" ? "重新生成中" : status === "blocked" || status === "failed" ? "重新生成受阻" : status === "waiting" ? "更新等待确认" : "待重新生成";
       const previewLabel = oldFinalPreview(slide) ? "旧版预览" : slide.preview_kind === "candidate" ? "候选预览" : slide.preview_kind === "sample" ? "样张预览" : "";
@@ -107,7 +131,7 @@
   function renderStages(state) {
     const list = element("stage-list");
     const byId = new Map(state.tasks.map((task) => [task.id, task]));
-    const currentId = currentStageId(state.stage);
+    const currentId = currentStageId(state);
     const fragment = document.createDocumentFragment();
     for (const [index, [id, label]] of STAGES.entries()) {
       const task = byId.get(id);
@@ -138,10 +162,10 @@
     const status = text(state.status, "unknown");
     const mode = { guided: "引导模式", auto: "自动模式" }[state.mode];
     setText("deck-id", text(state.deck_id, "等待运行初始化") || "等待运行初始化");
-    setText("page-title", status === "complete" ? "演示文稿已完成" : status === "blocked" ? "制作流程需要处理" : status === "waiting" ? "等待你的确认" : status === "running" ? "演示文稿制作中" : "演示文稿工作台");
+    setText("page-title", OUTCOME_TITLES[status] || (status === "complete" ? "演示文稿已完成" : status === "blocked" ? "制作流程需要处理" : status === "waiting" ? "等待你的确认" : status === "running" ? "演示文稿制作中" : "演示文稿工作台"));
     setText("run-status", STATUS_NAMES[status] || "状态未知");
     element("run-status").dataset.status = styleStatus(status);
-    const currentId = currentStageId(state.stage);
+    const currentId = currentStageId(state);
     const currentTask = state.tasks.find((task) => task.id === currentId);
     const stageLabel = currentTask ? text(currentTask.label) : (STAGES.find(([id]) => id === currentId) || [null, "等待运行初始化"])[1];
     const stageDetail = currentTask ? text(currentTask.detail) : "";
@@ -149,14 +173,21 @@
     setText("stage-summary", description || "运行目录已连接，等待生成流程写入状态。");
     const progress = state.progress && typeof state.progress === "object" ? state.progress : {};
     const total = Number.isInteger(progress.total) && progress.total >= 0 ? progress.total : 0;
-    const done = Number.isInteger(progress.done) && progress.done >= 0 ? Math.min(progress.done, total) : 0;
-    setText("progress-done", String(done));
+    const legacyDone = Number.isInteger(progress.done) && progress.done >= 0 ? Math.min(progress.done, total) : 0;
+    const delivered = Number.isInteger(progress.delivered) && progress.delivered >= 0 ? Math.min(progress.delivered, total) : legacyDone;
+    const processed = Number.isInteger(progress.processed) && progress.processed >= 0 ? Math.min(progress.processed, total) : legacyDone;
+    const finalDelivery = ["complete", "partial"].includes(status);
+    const shownCount = finalDelivery ? delivered : legacyDone;
+    setText("progress-kicker", finalDelivery ? "已交付 / 原目标" : "已产出正式页 / 原目标");
+    setText("progress-done", String(shownCount));
+    setText("progress-processed", String(processed));
     setText("progress-total", total ? String(total) : "—");
-    element("progress-fill").style.width = (total ? Math.min(100, done / total * 100) : 0) + "%";
+    element("progress-fill").style.width = (total ? Math.min(100, shownCount / total * 100) : 0) + "%";
     const track = element("progress-track");
-    track.setAttribute("aria-valuenow", String(done));
+    track.setAttribute("aria-label", finalDelivery ? "已交付页面进度" : "已产出正式页进度");
+    track.setAttribute("aria-valuenow", String(shownCount));
     track.setAttribute("aria-valuemax", String(total || 1));
-    track.setAttribute("aria-valuetext", total ? `已产出 ${done} / ${total} 张非脏正式页，不代表耗时进度` : "等待页面任务");
+    track.setAttribute("aria-valuetext", total ? (finalDelivery ? `已交付 ${delivered}，已处理 ${processed}，原目标 ${total}` : `已产出正式页 ${legacyDone}，已处理 ${processed}，原目标 ${total}，不代表质量检查通过`) : "等待页面任务");
     setText("slide-count", state.slides.length ? `${state.slides.length} 个页面任务` : "等待页面");
     setText("page-task-count", String(state.slides.length));
     setText("updated-at", state.updated_at ? "产物更新时间 " + formatTime(state.updated_at) : "尚未读取到产物");
@@ -172,7 +203,7 @@
       const kind = text(notice.kind, "warning");
       const waiting = state.status === "waiting" || /waiting|pending|confirmation|interaction/.test(kind);
       panel.dataset.kind = kind;
-      setText("notice-title", waiting ? "有一个节点等待你确认" : state.status === "blocked" || kind === "blocked" ? "流程已暂停，需要处理" : kind === "error" ? "运行状态暂时无法读取" : "需要关注");
+      setText("notice-title", NOTICE_TITLES[kind] || (waiting ? "有一个节点等待你确认" : state.status === "blocked" || kind === "blocked" ? "流程已暂停，需要处理" : kind === "error" ? "运行状态暂时无法读取" : "需要关注"));
       setText("notice-message", message);
       element("notice-help").hidden = !waiting;
     }
@@ -264,8 +295,12 @@
     image.hidden = !url;
     element("preview-kind").hidden = !url;
     setText("preview-kind", url ? KIND_NAMES[slide.preview_kind] : "");
-    element("preview-dirty").hidden = !(url && slide.dirty);
-    if (url && slide.dirty) setText("preview-dirty", oldFinalPreview(slide) ? "旧版预览 · 等待重新生成" : slide.preview_kind === "candidate" ? "新候选预览 · 正式页仍待更新" : "样张预览 · 正式页仍待更新");
+    element("preview-dirty").hidden = !(url && (slide.dirty || slide.stale_preview === true));
+    if (url && oldFinalPreview(slide)) {
+      setText("preview-dirty", slide.stale_preview === true ? "旧版预览 · 未计入交付" : "旧版预览 · 等待重新生成");
+    } else if (url && slide.dirty) {
+      setText("preview-dirty", slide.preview_kind === "candidate" ? "新候选预览 · 正式页仍待更新" : "样张预览 · 正式页仍待更新");
+    }
     if (url !== ui.previewUrl) {
       ui.previewUrl = url;
       ui.failedPreviewUrl = null;
@@ -274,8 +309,13 @@
     }
     if (ui.failedPreviewUrl === url && url) showPreviewFailure(url);
     if (!url) {
-      setText("preview-empty-title", slide ? "这一页正在准备" : "好内容，正在成形");
-      setText("preview-empty-message", slide ? "当前尚无可预览的 SVG。完成安全写入后会自动显示。" : "当前尚无可预览的 SVG。产物写入后会自动出现在这里。");
+      if (slide && slide.terminal_omission === true) {
+        setText("preview-empty-title", "本页未交付");
+        setText("preview-empty-message", text(slide.detail) || "本轮已跳过此页，不会自动重试。");
+      } else {
+        setText("preview-empty-title", slide ? "这一页正在准备" : "好内容，正在成形");
+        setText("preview-empty-message", slide ? "当前尚无可预览的 SVG。完成安全写入后会自动显示。" : "当前尚无可预览的 SVG。产物写入后会自动出现在这里。");
+      }
     }
     if (element("preview-dialog").open) renderDialog();
   }
@@ -351,7 +391,12 @@
     stageList.scrollTop = scroll.stageTop;
     stageList.scrollLeft = scroll.stageLeft;
     window.scrollTo(scroll.x, scroll.y);
-    setText("live-announcement", `${STATUS_NAMES[state.status] || "状态已更新"}，已产出 ${element("progress-done").textContent} 张正式页。`);
+    const delivered = element("progress-done").textContent;
+    const processed = element("progress-processed").textContent;
+    const total = element("progress-total").textContent;
+    setText("live-announcement", ["complete", "partial"].includes(state.status)
+      ? `${STATUS_NAMES[state.status] || "状态已更新"}，已交付 ${delivered} 页，已处理 ${processed} 页，原目标 ${total} 页。`
+      : `${STATUS_NAMES[state.status] || "状态已更新"}，已产出正式页 ${delivered} 页，已处理 ${processed} 页，原目标 ${total} 页。`);
   }
 
   function setConnection(connected, reason = "") {

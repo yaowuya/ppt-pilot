@@ -1315,12 +1315,14 @@ class BatchConcurrencyContractTest(unittest.TestCase):
         for name, text in ownership_documents.items():
             with self.subTest(document=name):
                 self.assertIn("coordinator", text)
-                self.assertIn("ordered_slide_ids", text)
-        self.assertIn("generator 与各页", self.qa)
-        self.assertIn("可以重叠", self.qa)
-        self.assertIn("只有 coordinator", self.qa)
-        self.assertIn("串行确定", self.qa)
-        self.assertIn("coordinator 独占 candidate 写入", self.workflow)
+        for text in (self.qa, self.artifact):
+            self.assertIn('ordered_slide_ids', text)
+        self.assertIn('按 original order 确定执行', self.workflow)
+        self.assertIn('可以重叠', self.qa)
+        self.assertIn('coordinator 独占', self.qa)
+        self.assertIn('按 original `ordered_slide_ids` 确定执行', self.qa)
+        self.assertIn('无需等待所有 batch pages 都 PASS', self.qa)
+        self.assertIn('candidate write', self.workflow)
         self.assertIn("callback", self.artifact)
 
     def test_host_capability_degrades_safely_without_nested_cli_or_current_context(self):
@@ -1348,15 +1350,18 @@ class BatchConcurrencyContractTest(unittest.TestCase):
 class CjkLineWidthContractTest(unittest.TestCase):
     def test_svg_contract_defines_width_formula(self) -> None:
         svg = read_text(skill_root() / "references" / "svg-contract.md")
-        self.assertIn("行宽估算", svg)
+        self.assertIn('行估算宽', svg)
         self.assertIn("1.0 × font-size", svg)
         self.assertIn("0.88", svg)
-        self.assertIn("12% 余量", svg)
+        self.assertIn('warning heuristic', svg)
+        self.assertIn('不能单独产生 geometry hard failure', svg)
 
     def test_qa_geometry_check_references_the_formula(self) -> None:
         qa = read_text(skill_root() / "references" / "qa-and-revision.md")
-        self.assertIn("行宽估算公式", qa)
-        self.assertRegex(qa, r"svg-contract\.md\) 的行宽估算公式")
+        self.assertIn('svg-contract.md', qa)
+        self.assertIn('文本行宽估算', qa)
+        self.assertIn('保守 warning', qa)
+        self.assertIn('不能单独作为 geometry hard failure', qa)
 
 
 class PreferenceProfileContractTest(unittest.TestCase):

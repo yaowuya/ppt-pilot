@@ -45,8 +45,8 @@ def validate_journal(runtime, journal, old_id=None, mode=None):
     _validate_prompt_by_value(journal['new_prompt'], tx)
     owners = Owners(runtime.store, runtime.run)
     native_visual = tx['generation_trigger_id'].removeprefix('interaction:') in owners.visual_revisions
-    attempts = old['generation_attempt'] if native_visual else 0
-    require(not native_visual or attempts < 3)
+    attempts = old['generation_attempt']
+    require(attempts < 3)
     require(tx['prior_final_sha256'] == old['prior_final_sha256'] and tx['generation_attempt'] == attempts and
             tx['dispatch_epoch'] == old['dispatch_epoch'] + 1 and tx['host_task_id'] is None)
     expected_tx = dict(old, transaction_id=tx['transaction_id'], prompt_snapshot_id=tx['transaction_id'],
