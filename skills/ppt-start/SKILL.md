@@ -47,7 +47,7 @@ python <skill-dir>/scripts/ppt_runtime.py finalize --run-dir RUN
 
 逐页应用[QA 与修订](references/qa-and-revision.md)：真实 XML／安全／来源／事实／硬边界失败阻断该页；`0.88` 文本宽度估算只是保守预警，必须结合真实渲染确认，不能单独声称已经裁切。每个页面整条生产链最多三次真实 dispatch，retry、recompose 或本地修复都不能重置计数、把模型调用改名或制造新 transaction 绕过预算。
 
-普通生成拒绝、超时、格式错误、SVG 契约、事实来源或视觉 QA 失败是**页面局部**结果：保留失败 transaction 原字节和计数，继续不依赖该页的 sibling／后续页面。共享 owner 损坏、快照不一致、CAS 冲突、权限问题、宿主 adapter 不可用或其他完整性失败是**全局阻断**：保持现场并停止写入。绝不把失败 transaction 改成 PASS，也不把旧 final 或孤儿 candidate 当作新证据。
+普通生成拒绝、超时、格式错误、SVG 契约、事实来源或视觉 QA 失败是**页面局部**结果：保留失败 transaction 原字节和计数，继续不依赖该页的 sibling／后续页面。当前校验器否定历史 `validated` 候选时，`resume` 返回 `revalidation_required`，`advance` 先保存旧 transaction／QA 精确证据，再把该页转成普通失败并提升健康 siblings。共享 owner 损坏、快照不一致、CAS 冲突、权限问题、宿主 adapter 不可用或其他完整性失败是**全局阻断**：保持现场并停止写入。绝不把失败 transaction 改成 PASS，也不把旧 final 或孤儿 candidate 当作新证据。
 
 新运行持久化 `production_policy: best_effort`；显式 strict 请求写 `strict`。缺少该字段的旧运行按 strict。对既有运行，只有显式传入 `advance --allow-partial` 才持久化 `best_effort`；不能静默升级。`--skip-slide` 是显式用户跳过并保留审计证据，不是自动失败处理。
 

@@ -84,6 +84,7 @@ class Delivery:
         reservations = self.runtime.reservations(manifest, txs)
         if manifest.get('state') == 'superseded':
             return {'batch_id': manifest['batch_id'], 'dispatchable': [], 'promotable': [],
+                    'revalidation_required': [],
                     'recoverable': [], 'exhausted': [], 'recoveries': [],
                     'global_blockers': [],
                     'reservations': [value for _, value in reservations.values()],
@@ -96,20 +97,32 @@ class Delivery:
                            ref not in omitted and tx['failure_reason'] not in PAGE_FAILURE_REASONS]
         if global_blockers:
             return {'batch_id': manifest['batch_id'], 'dispatchable': [], 'promotable': [],
+                    'revalidation_required': [],
                     'recoverable': [], 'exhausted': [], 'recoveries': [],
                     'global_blockers': global_blockers,
                     'reservations': [value for _, value in reservations.values()],
                     'in_flight': [], 'next_command': 'resolve-global-failure',
                     'same_run_required': True}
-        promotable = [{'slide_id': txs[ref]['slide_id'], 'transaction_id': txs[ref]['transaction_id']}
-                      for ref in manifest['transaction_refs'] if txs[ref]['state'] == 'validated' and
-                      self.runtime.run.get('stage') == 'production']
+        owners = Owners(self.store, self.runtime.run)
+        from _runtime_revalidation import probe
+        promotable, revalidation_required = [], []
+        if self.runtime.run.get('stage') == 'production':
+            for ref in manifest['transaction_refs']:
+                tx = txs[ref]
+                if tx['state'] != 'validated':
+                    continue
+                failure = probe(self.runtime, tx, owners.title_min_size)
+                if failure is None:
+                    promotable.append({'slide_id': tx['slide_id'], 'transaction_id': tx['transaction_id']})
+                else:
+                    revalidation_required.append({'slide_id': tx['slide_id'],
+                        'transaction_id': tx['transaction_id'], **failure})
         dispatchable = [{'slide_id': txs[ref]['slide_id'], 'transaction_id': txs[ref]['transaction_id']}
                         for ref in manifest['transaction_refs']
                         if txs[ref]['state'] == 'compiled' and ref not in reservations]
         omitted_slides = {txs[ref]['slide_id'] for ref in omitted}
         raw = [item for item in self.runtime.failed_recoveries(
-            manifest, txs, Owners(self.store, self.runtime.run))
+            manifest, txs, owners)
             if item['slide_id'] not in omitted_slides]
         exhausted, recoverable = [], []
         for item in raw:
@@ -125,7 +138,9 @@ class Delivery:
         in_flight = [{'slide_id': tx['slide_id'], 'transaction_id': tx['transaction_id'],
                       'host_task_id': tx['host_task_id']} for tx in txs.values()
                      if tx['state'] == 'generating']
-        if promotable:
+        if revalidation_required:
+            next_command = 'advance'
+        elif promotable:
             next_command = 'promote'
         elif any(dispatch['state'] == 'reserved' for _, dispatch in reservations.values()):
             next_command = 'durable_lookup'
@@ -142,7 +157,8 @@ class Delivery:
         else:
             next_command = 'stage_scan'
         return {'batch_id': manifest['batch_id'], 'dispatchable': dispatchable,
-                'promotable': promotable, 'recoverable': recoverable,
+                'promotable': promotable, 'revalidation_required': revalidation_required,
+                'recoverable': recoverable,
                 'exhausted': exhausted, 'recoveries': recoverable + exhausted,
                 'global_blockers': [],
                 'reservations': [value for _, value in reservations.values()],

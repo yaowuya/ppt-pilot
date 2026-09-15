@@ -106,6 +106,12 @@ V2_MANIFEST_OMISSION_FIELDS = {
 }
 
 
+V2_MANIFEST_INVALIDATION_FIELDS = {
+    "validation_invalidation_refs",
+    "validation_invalidation_sha256",
+}
+
+
 V2_TRANSACTION_STATES = {
     "compiling",
     "compiled",
@@ -314,9 +320,12 @@ def validate_v2_manifest(manifest: dict, transactions: dict[str, dict]) -> None:
     if not isinstance(manifest, dict):
         raise ValueError("v2 manifest fields differ")
     fields = set(manifest)
-    optional = fields & V2_MANIFEST_OMISSION_FIELDS
-    if fields - V2_MANIFEST_OMISSION_FIELDS != V2_MANIFEST_FIELDS or optional not in (set(), V2_MANIFEST_OMISSION_FIELDS):
+    allowed_optional = V2_MANIFEST_OMISSION_FIELDS | V2_MANIFEST_INVALIDATION_FIELDS
+    if fields - allowed_optional != V2_MANIFEST_FIELDS:
         raise ValueError("v2 manifest fields differ")
+    for paired in (V2_MANIFEST_OMISSION_FIELDS, V2_MANIFEST_INVALIDATION_FIELDS):
+        if fields & paired not in (set(), paired):
+            raise ValueError("v2 manifest fields differ")
     if manifest["schema_version"] != 2 or manifest["kind"] != "visual_generation_batch":
         raise ValueError("v2 manifest identity differs")
     if (
@@ -377,6 +386,19 @@ def validate_v2_manifest(manifest: dict, transactions: dict[str, dict]) -> None:
     if any(transactions[ref]["state"] != "failed" or
            transactions[ref]["failure_reason"] not in PAGE_FAILURE_REASONS for ref in omitted):
         raise ValueError("omitted transaction is not a page-local failure")
+    invalidations = manifest.get('validation_invalidation_refs', [])
+    invalidation_hashes = manifest.get('validation_invalidation_sha256', {})
+    if (not isinstance(invalidations, list) or
+            any(not isinstance(name, str) or re.fullmatch(
+                r'\.ppt-pilot/visual-generation-invalidations/S[0-9]+-[0-9a-f]{64}\.json', name) is None
+                for name in invalidations)):
+        raise ValueError('validation invalidation evidence is invalid')
+    invalidation_set = set(invalidations)
+    if (len(invalidations) != len(invalidation_set) or not isinstance(invalidation_hashes, dict) or
+            set(invalidation_hashes) != invalidation_set or
+            any(not isinstance(value, str) or _SHA256_ID_RE.fullmatch(value) is None
+                for value in invalidation_hashes.values())):
+        raise ValueError('validation invalidation evidence is invalid')
     if type(manifest["dispatch_epoch"]) is not int or manifest["dispatch_epoch"] < 0:
         raise ValueError("manifest dispatch epoch is invalid")
     for key in ("promotion_cursor", "blocker_cursor"):

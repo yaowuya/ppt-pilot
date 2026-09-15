@@ -100,6 +100,8 @@ class Runtime:
         gate.conformance()
         self.run_name = '.ppt-pilot/run.json' if self.store.path('.ppt-pilot/run.json').exists() else 'run.json'
         self.store.read_bytes(self.run_name)
+        from _runtime_revalidation import validate_run_invalidations
+        validate_run_invalidations(self)
 
     def write_barrier(self):
         gate = Gate(self.store.root)
@@ -146,6 +148,8 @@ class Runtime:
             validate_v2_transaction(tx)
             ensure(_transaction_ref(tx) == ref)
             txs[ref] = tx
+        from _runtime_revalidation import validate_invalidations
+        validate_invalidations(self, manifest, txs)
         # Cursor hints are never authority. A crash after transaction commit can
         # leave stale hints, which read-only resume projects without rewriting.
         self.refresh(manifest, txs)
@@ -620,14 +624,25 @@ class Runtime:
         ensure(not any(tx['state'] == 'failed' and ref not in omitted and
                        tx['failure_reason'] not in PAGE_FAILURE_REASONS for ref, tx in txs.items()),
                'global_generation_failure')
+        from _runtime_revalidation import invalidate, probe
         outcomes = {}
+        stale_validations = {}
+        invalidated = []
         for ref, tx in txs.items():
             if tx['state'] == 'validated':
-                self.validation_evidence(tx, owners.title_min_size)
                 observed = self.store.hash(tx['final_path'])
                 outcome = validated_final_outcome(tx, observed)
                 ensure(outcome != 'final_promotion_conflict', outcome)
+                failure = probe(self, tx, owners.title_min_size)
+                if failure is not None:
+                    ensure(outcome != 'commit_promoted', 'final_promotion_conflict')
+                    stale_validations[ref] = failure
+                    continue
                 outcomes[ref] = (outcome, observed)
+        for ref in manifest['transaction_refs']:
+            if ref in stale_validations:
+                invalidated.append(invalidate(self, manifest, txs, ref, stale_validations[ref],
+                                               owners.title_min_size))
         promoted = []
         for ref in manifest['transaction_refs']:
             tx = txs[ref]
@@ -646,7 +661,9 @@ class Runtime:
             self.persist_graph(manifest, txs, [])
             self.run.pop('active_visual_generation_batch', None)
             self.write_run()
-        return {'batch_id': args.batch_id, 'promoted_slide_ids': promoted}
+        return {'batch_id': args.batch_id, 'promoted_slide_ids': promoted,
+                'invalidated_slide_ids': [item['slide_id'] for item in invalidated],
+                'validation_invalidations': invalidated}
 
     def retire_batch(self, args):
         request = self.input(args.input)

@@ -115,7 +115,7 @@ coordinator 使用 runtime 返回的 page attempt／remaining count 进行用户
 
 candidate 原子写入、关闭、复读后才记录 digest。只有 digest 匹配的 `candidate_written` 可验证；orphan candidate never adopted。validation object 的必需 check 为 XML、Office-safe subset、geometry/text、fact/source、narrative、visual。`checks.office` 仅表示静态 Office-safe SVG subset，不表示 PowerPoint 实测。
 
-某页 validation 可在 sibling 仍生成时完成。通过页无需等待所有 batch pages 都 PASS：到达 deterministic ordered promotion slot 后即可 CAS promote。失败页保留 immutable transaction；后续 independent slot 继续。batch 最终为：
+某页 validation 可在 sibling 仍生成时完成。通过页无需等待所有 batch pages 都 PASS：到达 deterministic ordered promotion slot 后即可 CAS promote。提升前用当前校验器重验 `validated` candidate；历史 PASS 失效时，固定 runtime 通过自校验 journal 保留原 transaction bytes 与 QA record，将该页转换为普通页面失败，并继续提升健康 sibling。该转换不删除候选、不重置 attempt，也不能吞掉 candidate hash、final CAS、owner/snapshot 等全局冲突。失败页保留 immutable transaction；后续 independent slot 继续。batch 最终为：
 
 - `completed`：所有 slots promoted；
 - `partial`：至少一个 promoted、至少一个 authorized omitted；

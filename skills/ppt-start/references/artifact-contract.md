@@ -15,6 +15,7 @@ A write error records `prompt_write_failed` through `compiling -> failed: prompt
 ```text
 .ppt-pilot/visual-generation-transactions/<slide-id>-<tx64>.json
 .ppt-pilot/visual-generation-batches/<batch-id>.json
+.ppt-pilot/visual-generation-invalidations/<slide-id>-<journal64>.json
 .ppt-pilot/generation-prompts/<slide-id>.md
 slides/.candidates/<slide-id>-<tx64>.svg
 slides/<slide-id>.svg
@@ -24,7 +25,7 @@ slides/<slide-id>.svg
 
 每页 transaction 使用精确字段：`schema_version`、`kind`、`batch_id`、`transaction_id`、`slide_id`、`generation_intent`、`generation_trigger_id`、`prompt_path`、`prompt_snapshot_id`、`compiled_prompt_sha256`、`candidate_path`、`final_path`、`prior_final_sha256`、`state`、`generation_attempt`、`candidate_sha256`、`failure_reason`、`dispatch_epoch`、`host_attribution_id`、`host_task_id`、`validation`、`timing`。状态保留 `compiling`、`compiled`、`generating`、`candidate_written`、`validated`、`promoted`、`failed`，以便 v1 状态无损迁移；候选 hash 只能在候选关闭、复读后随 `candidate_written` 提交。host、validation、timing 都由该页 transaction 拥有。`generation_attempt` 属于该页面从 initial 到任何 replacement/recovery 的 inherited lifetime counter，整条链最多三次真实 dispatch；replacement transaction 与 recovery journal 必须继承它，不能归零、递减或把模型调用标成 local repair。
 
-batch manifest 的基础字段为：`schema_version`、`kind`、`batch_id`、`batch_width`、`ordered_slide_ids`、`storyboard_snapshot_id`、`theme_snapshot_id`、`source_audit_snapshot_id`、`generation_prompt_template_snapshot_id`、`transaction_refs`、`dispatch_epoch`、`promotion_cursor`、`blocker_cursor`、`active_blocker_ref`、`state`、`created_at`、`updated_at`、`telemetry_summary`。terminal omission manifest 还必须同时包含闭合的 `omitted_transaction_refs` 与 `omitted_transaction_sha256`：前者是按原 `ordered_slide_ids` 顺序排列的遗漏 transaction ref 子集，后者是以这些 ref 为 key、以其未改写完整文件摘要为 value 的精确 map。任何一个字段单独出现、未知 ref、错序或摘要不匹配都 fail closed。
+batch manifest 的基础字段为：`schema_version`、`kind`、`batch_id`、`batch_width`、`ordered_slide_ids`、`storyboard_snapshot_id`、`theme_snapshot_id`、`source_audit_snapshot_id`、`generation_prompt_template_snapshot_id`、`transaction_refs`、`dispatch_epoch`、`promotion_cursor`、`blocker_cursor`、`active_blocker_ref`、`state`、`created_at`、`updated_at`、`telemetry_summary`。校验器升级导致的历史验证失效还可成对增加 `validation_invalidation_refs` 与 `validation_invalidation_sha256`，按原 slot 顺序绑定自校验 journal 路径和完整摘要；只出现一个字段、缺失、额外、重命名或摘要不符均阻断。terminal omission manifest 还必须同时包含闭合的 `omitted_transaction_refs` 与 `omitted_transaction_sha256`：前者是按原 `ordered_slide_ids` 顺序排列的遗漏 transaction ref 子集，后者是以这些 ref 为 key、以其未改写完整文件摘要为 value 的精确 map。任何一个字段单独出现、未知 ref、错序或摘要不匹配都 fail closed。
 
 `state` 的非终态值按运行时状态机使用；终态只为 `completed|partial|failed`：`completed` 无 omissions，`partial` 同时有 promoted 与 omitted slot，`failed` 没有 promoted slot。manifest 的完整性只表示 batch 已结算，不把 omitted transaction 改成 PASS，也不清除该页 dirty flag。
 
@@ -41,6 +42,8 @@ batch manifest 的基础字段为：`schema_version`、`kind`、`batch_id`、`ba
 pointer 已发布但 manifest／transaction 不完整时以 `visual_generation_state_conflict` fail closed，零覆盖、零 generator 调用。transaction 与 manifest 已完整持久化但 pointer 尚未发布时，恢复只做 pointer-only completion，必须复用字节完全一致的文件。manifest 不复制 transaction state、candidate hash、validation 或 timing；这些状态只从 transaction 文件读取。`promotion_cursor` 与 `blocker_cursor` 只是可重建提示，不能授权 promotion 或 blocker 发布；恢复必须按 `ordered_slide_ids` 从 transaction 重建。
 
 候选只在 durable `candidate_written` 且复读 hash 等于 `candidate_sha256` 时可恢复验证；`generating` 状态路径上的 candidate 是 orphan，必须隔离／删除，never adopted。`validated` transaction 的 final CAS 只允许：observed final 等于 candidate hash 时提交 promoted；等于 `prior_final_sha256` 时重试原子 promotion；第三个 hash 以 `final_promotion_conflict` 停止。任何失败保留 previous final。
+
+当升级后的当前校验器否定历史 `validated` 候选时，runtime 先对同批全部健康 final CAS 做零写入 preflight；存在全局冲突则不写任何失效记录。否则在 `.ppt-pilot/visual-generation-invalidations/` 写自校验、短文件名的 journal，嵌入旧 transaction 精确 bytes、旧 QA record、当前固定诊断与 replacement bytes，再以 CAS 将原 transaction 转成同页 `failed`。候选、attempt、ID 和旧验证证据不删除、不归零；journal 名绑定其完整 canonical 摘要，manifest 绑定 journal inventory；每次审计还从候选与原 QA record 重新得到当前同版本 failure，并要求 reason／check／numeric detail 相同。删除、重命名、协调重写 manifest／journal 或脱离 transaction 都全局阻断。journal → manifest intent binding → transaction CAS replacement → manifest state refresh 可幂等重放，Windows 完整路径不得依赖双 64 位 ID 文件名。该页按普通失败处理，健康 `validated` siblings 仍可在同次 `advance` 提升。
 
 ### v1 → v2 零模型调用迁移
 

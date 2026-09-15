@@ -21,6 +21,7 @@ DIRECTORY_TYPES = {
     '.ppt-pilot/visual-generation-batches': {'.json'},
     '.ppt-pilot/visual-generation-dispatches': {'.json'},
     '.ppt-pilot/visual-generation-recoveries': {'.json'},
+    '.ppt-pilot/visual-generation-invalidations': {'.json'},
     '.ppt-pilot/runtime-inputs': {'.json', '.txt'},
 }
 INTERNAL = frozenset(('dashboard.json', 'dashboard.lock', 'dashboard.log', 'runtime.lock'))

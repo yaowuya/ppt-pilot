@@ -10,9 +10,18 @@ import unicodedata
 NUMBER = r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
 
 
+GEOMETRY_ERROR_REASONS = frozenset({
+    "invalid_number", "non_finite_number", "numeric_underflow", "invalid_geometry",
+    "unstable_arc", "invalid_path", "invalid_arc_flags", "invalid_arc",
+    "non_finite_geometry", "geometry_out_of_bounds", "invalid_text", "text_overflow",
+})
+
+
 class GeometryError(ValueError):
     """Stable contract error with fixed reasons and optional numeric diagnostics."""
     def __init__(self, reason, *, bbox=None):
+        if reason not in GEOMETRY_ERROR_REASONS:
+            raise ValueError("unknown_geometry_error_reason")
         super().__init__("svg_contract_failed")
         self.details = {"reason": reason}
         if bbox is not None:

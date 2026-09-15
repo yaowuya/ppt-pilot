@@ -1,4 +1,5 @@
 """Page-local visual failures preserve healthy work and explicit delivery evidence."""
+import base64
 import copy
 import hashlib
 import json
@@ -472,6 +473,290 @@ class PageLocalRuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, blocked)
         self.assertEqual(blocked['errors'][0]['code'], 'final_promotion_conflict')
         self.assertEqual(blocked['writes'], [])
+
+    def simulate_historic_validated_candidate(self, slide_id):
+        """Install bytes accepted by an older validator but rejected by the current one."""
+        from _runtime_owners import markdown_owner
+        _, txs = self.graph()
+        ref, tx = txs[slide_id]
+        candidate_path = self.root / tx['candidate_path']
+        data = candidate_path.read_bytes().replace(
+            b'</g></svg>',
+            b'<path d="M64 298 L386 298 L386 586 L64 586 Z" fill="none" '
+            b'stroke="#000000" stroke-width="2"/></g></svg>',
+        )
+        candidate_path.write_bytes(data)
+        tx['candidate_sha256'] = digest(data)
+        tx['state'] = 'validated'
+        tx['failure_reason'] = None
+        tx['generation_attempt'] = 3
+        tx['validation'] = {'state': 'passed', 'checks': {key: 'passed' for key in V2_VALIDATION_CHECKS}}
+        self.case.put(ref, tx)
+        report = self.root / '.ppt-pilot/质量检查报告.md'
+        owner = markdown_owner(report.read_bytes())
+        record = next(item for item in owner['records'] if item['transaction_id'] == tx['transaction_id'])
+        record['candidate_sha256'] = tx['candidate_sha256']
+        record['checks'] = dict(tx['validation']['checks'])
+        self.case.document('.ppt-pilot/质量检查报告.md', owner)
+        return ref, tx, data
+
+    def test_every_geometry_reason_is_a_closed_page_local_revalidation_failure(self):
+        from _runtime_revalidation import classify
+        from _svg_geometry import GEOMETRY_ERROR_REASONS, GeometryError
+        self.assertIn('text_overflow', GEOMETRY_ERROR_REASONS)
+        self.assertIn('invalid_arc_flags', GEOMETRY_ERROR_REASONS)
+        for reason in GEOMETRY_ERROR_REASONS:
+            with self.subTest(reason=reason):
+                failure = classify(GeometryError(reason))
+                self.assertEqual(failure['failure_reason'], 'svg_contract_failed')
+                self.assertEqual(failure['failure_check'], 'geometry_text')
+                self.assertEqual(failure['failure_details']['reason'], reason)
+
+    def test_validator_upgrade_invalidates_one_page_and_promotes_healthy_siblings(self):
+        for sid in ('S01', 'S02', 'S03'):
+            dispatch = self.reserve_bind(sid)
+            self.write_candidate(sid, dispatch)
+            self.validate(sid)
+        ref, stale, stale_candidate = self.simulate_historic_validated_candidate('S03')
+        original_transaction = (self.root / ref).read_bytes()
+
+        result, resumed = self.case.invoke('resume')
+        self.assertEqual(result.returncode, 0, resumed)
+        self.assertEqual(resumed['writes'], [])
+        self.assertEqual(resumed['result']['next_command'], 'advance')
+        self.assertEqual([item['slide_id'] for item in resumed['result']['promotable']], ['S01', 'S02'])
+        self.assertEqual([item['slide_id'] for item in resumed['result']['revalidation_required']], ['S03'])
+
+        result, advanced = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 0, advanced)
+        manifest, txs = self.graph()
+        self.assertEqual([txs[sid][1]['state'] for sid in ('S01', 'S02')], ['promoted', 'promoted'])
+        invalidated = txs['S03'][1]
+        self.assertEqual(invalidated['state'], 'failed')
+        self.assertEqual(invalidated['failure_reason'], 'svg_contract_failed')
+        self.assertEqual(invalidated['generation_attempt'], 3)
+        self.assertEqual((self.root / invalidated['candidate_path']).read_bytes(), stale_candidate)
+        self.assertEqual([item['slide_id'] for item in advanced['result']['exhausted']], ['S03'])
+        self.assertEqual(advanced['result']['next_command'], 'advance')
+        self.assertTrue((self.root / 'slides/S01.svg').is_file())
+        self.assertTrue((self.root / 'slides/S02.svg').is_file())
+        self.assertFalse((self.root / 'slides/S03.svg').exists())
+
+        journals = list((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S03-*.json'))
+        self.assertEqual(len(journals), 1)
+        journal = json.loads(journals[0].read_text(encoding='utf-8'))
+        self.assertEqual(base64.b64decode(journal['source_transaction_bytes_base64']), original_transaction)
+        self.assertEqual(journal['replacement_generation_attempt'], 3)
+        self.assertEqual(journal['failure_reason'], 'svg_contract_failed')
+        self.assertEqual(journal['failure_details']['reason'], 'geometry_out_of_bounds')
+        self.assertNotIn('M64 298', json.dumps(journal))
+        self.assertEqual(manifest['validation_invalidation_refs'], [journals[0].relative_to(self.root).as_posix()])
+        self.assertEqual(manifest['validation_invalidation_sha256'], {
+            journals[0].relative_to(self.root).as_posix(): digest(journals[0].read_bytes())})
+
+    def test_invalidation_journal_deletion_is_detected_from_manifest_binding(self):
+        dispatch = self.reserve_bind('S01')
+        self.write_candidate('S01', dispatch)
+        self.validate('S01')
+        self.simulate_historic_validated_candidate('S01')
+        result, advanced = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 0, advanced)
+        path = next((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S01-*.json'))
+        path.unlink()
+        result, blocked = self.case.invoke('resume')
+        self.assertEqual(result.returncode, 2, blocked)
+        self.assertEqual(blocked['errors'][0]['code'], 'validation_invalidation_conflict')
+        self.assertEqual(blocked['writes'], [])
+
+    def test_invalidation_journal_rehash_and_rename_cannot_replace_bound_evidence(self):
+        dispatch = self.reserve_bind('S01')
+        self.write_candidate('S01', dispatch)
+        self.validate('S01')
+        self.simulate_historic_validated_candidate('S01')
+        result, advanced = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 0, advanced)
+        path = next((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S01-*.json'))
+        journal = json.loads(path.read_text(encoding='utf-8'))
+        journal['failure_details']['reason'] = 'invalid_path'
+        changed = json.dumps(journal, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n'
+        renamed = path.with_name('S01-' + hashlib.sha256(changed.encode()).hexdigest() + '.json')
+        renamed.write_bytes(changed.encode('utf-8'))
+        path.unlink()
+        result, blocked = self.case.invoke('resume')
+        self.assertEqual(result.returncode, 2, blocked)
+        self.assertEqual(blocked['errors'][0]['code'], 'validation_invalidation_conflict')
+        self.assertEqual(blocked['writes'], [])
+
+    def test_coordinated_journal_and_manifest_rewrite_cannot_change_observed_failure(self):
+        dispatch = self.reserve_bind('S01')
+        self.write_candidate('S01', dispatch)
+        self.validate('S01')
+        self.simulate_historic_validated_candidate('S01')
+        result, advanced = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 0, advanced)
+        journal_path = next((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S01-*.json'))
+        journal = json.loads(journal_path.read_text(encoding='utf-8'))
+        journal['failure_details']['reason'] = 'invalid_path'
+        changed = json.dumps(journal, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n'
+        renamed = journal_path.with_name('S01-' + hashlib.sha256(changed.encode()).hexdigest() + '.json')
+        renamed.write_bytes(changed.encode('utf-8'))
+        old_name = journal_path.relative_to(self.root).as_posix()
+        new_name = renamed.relative_to(self.root).as_posix()
+        journal_path.unlink()
+        manifest_path = self.root / self.case.manifest_name
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+        manifest['validation_invalidation_refs'] = [new_name if name == old_name else name
+                                                    for name in manifest['validation_invalidation_refs']]
+        manifest['validation_invalidation_sha256'].pop(old_name)
+        manifest['validation_invalidation_sha256'][new_name] = digest(changed.encode())
+        self.case.put(self.case.manifest_name, manifest)
+        result, blocked = self.case.invoke('resume')
+        self.assertEqual(result.returncode, 2, blocked)
+        self.assertEqual(blocked['errors'][0]['code'], 'validation_invalidation_conflict')
+        self.assertEqual(blocked['writes'], [])
+
+    def test_runtime_writer_temp_does_not_block_invalidation_recovery(self):
+        dispatch = self.reserve_bind('S01')
+        self.write_candidate('S01', dispatch)
+        self.validate('S01')
+        self.simulate_historic_validated_candidate('S01')
+        result, advanced = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 0, advanced)
+        journal = next((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S01-*.json'))
+        temp = journal.with_name(journal.name + '.deadbeef.tmp')
+        temp.write_bytes(b'interrupted writer temp')
+        result, resumed = self.case.invoke('resume')
+        self.assertEqual(result.returncode, 0, resumed)
+        self.assertIn(resumed['result']['next_command'], ('dispatch-plan', 'advance'))
+        self.assertTrue(temp.is_file())
+
+    def test_final_delivery_resume_still_audits_bound_invalidation_journal(self):
+        for sid in ('S01', 'S02'):
+            dispatch = self.reserve_bind(sid)
+            self.write_candidate(sid, dispatch)
+            self.validate(sid)
+        self.simulate_historic_validated_candidate('S02')
+        result, advanced = self.case.invoke('advance', '--allow-partial')
+        self.assertEqual(result.returncode, 0, advanced)
+        self.assertIn(advanced['result']['next_command'], ('dispatch-plan', 'prepare-batch', 'finalize'))
+        # Settle remaining compiled S03 as an explicit page failure to reach a final declaration.
+        if json.loads((self.root / '.ppt-pilot/run.json').read_text(encoding='utf-8')).get('active_visual_generation_batch'):
+            self.fail_generation('S03', attempts=3)
+            result, advanced = self.case.invoke('advance', '--allow-partial')
+            self.assertEqual(result.returncode, 0, advanced)
+        journal = next((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S02-*.json'))
+        journal.write_bytes(journal.read_bytes() + b' ')
+        result, blocked = self.case.invoke('resume')
+        self.assertEqual(result.returncode, 2, blocked)
+        self.assertEqual(blocked['errors'][0]['code'], 'validation_invalidation_conflict')
+
+    def test_stale_page_own_final_conflict_preflights_before_invalidation_write(self):
+        dispatch = self.reserve_bind('S01')
+        self.write_candidate('S01', dispatch)
+        self.validate('S01')
+        self.simulate_historic_validated_candidate('S01')
+        (self.root / 'slides/S01.svg').write_bytes(b'<svg>third-party final</svg>')
+        before = {path.relative_to(self.root): path.read_bytes() for path in self.root.rglob('*') if path.is_file()}
+        result, blocked = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 2, blocked)
+        self.assertEqual(blocked['errors'][0]['code'], 'final_promotion_conflict')
+        self.assertEqual(blocked['writes'], [])
+        self.assertEqual(before, {path.relative_to(self.root): path.read_bytes() for path in self.root.rglob('*') if path.is_file()})
+        self.assertFalse((self.root / '.ppt-pilot/visual-generation-invalidations').exists())
+
+    def test_global_final_conflict_preflights_before_any_validation_invalidation_write(self):
+        for sid in ('S01', 'S02'):
+            dispatch = self.reserve_bind(sid)
+            self.write_candidate(sid, dispatch)
+            self.validate(sid)
+        self.simulate_historic_validated_candidate('S01')
+        (self.root / 'slides/S02.svg').write_bytes(b'<svg>third-party final</svg>')
+        before = {path.relative_to(self.root): path.read_bytes() for path in self.root.rglob('*') if path.is_file()}
+        result, blocked = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 2, blocked)
+        self.assertEqual(blocked['errors'][0]['code'], 'final_promotion_conflict')
+        self.assertEqual(blocked['writes'], [])
+        self.assertEqual(before, {path.relative_to(self.root): path.read_bytes() for path in self.root.rglob('*') if path.is_file()})
+        self.assertFalse((self.root / '.ppt-pilot/visual-generation-invalidations').exists())
+
+    def test_validation_invalidation_journal_replays_after_crash_before_transaction_write(self):
+        dispatch = self.reserve_bind('S01')
+        self.write_candidate('S01', dispatch)
+        self.validate('S01')
+        ref, _, _ = self.simulate_historic_validated_candidate('S01')
+        from _runtime_commands import Runtime
+        from ppt_runtime import parser
+        runtime = Runtime(self.root)
+        args = parser().parse_args(['advance', '--run-dir', str(self.root)])
+        original_write = runtime.store.write_bytes
+
+        def crash_after_journal(name, data, expected):
+            if name == ref and expected != 'none':
+                raise OSError('simulated crash after invalidation journal')
+            return original_write(name, data, expected)
+
+        with mock.patch.object(runtime.store, 'write_bytes', side_effect=crash_after_journal), self.assertRaises(OSError):
+            runtime.execute(args)
+        journals = list((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S01-*.json'))
+        self.assertEqual(len(journals), 1)
+        self.assertEqual(self.graph()[1]['S01'][1]['state'], 'validated')
+
+        result, replayed = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 0, replayed)
+        self.assertEqual(self.graph()[1]['S01'][1]['state'], 'failed')
+        self.assertEqual(len(list((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S01-*.json'))), 1)
+        self.assertEqual(self.graph()[1]['S01'][1]['generation_attempt'], 3)
+
+    def test_tampered_validation_invalidation_journal_blocks_replay_without_state_change(self):
+        dispatch = self.reserve_bind('S01')
+        self.write_candidate('S01', dispatch)
+        self.validate('S01')
+        ref, _, _ = self.simulate_historic_validated_candidate('S01')
+        from _runtime_commands import Runtime
+        from ppt_runtime import parser
+        runtime = Runtime(self.root)
+        args = parser().parse_args(['advance', '--run-dir', str(self.root)])
+        original_write = runtime.store.write_bytes
+
+        def crash_after_journal(name, data, expected):
+            if name == ref and expected != 'none':
+                raise OSError('simulated crash after invalidation journal')
+            return original_write(name, data, expected)
+
+        with mock.patch.object(runtime.store, 'write_bytes', side_effect=crash_after_journal), self.assertRaises(OSError):
+            runtime.execute(args)
+        journal_path = next((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S01-*.json'))
+        journal = json.loads(journal_path.read_text(encoding='utf-8'))
+        journal['failure_details']['reason'] = 'current_visual_qa_required'
+        journal_path.write_text(json.dumps(journal), encoding='utf-8')
+        before = (self.root / ref).read_bytes()
+        result, blocked = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 2, blocked)
+        self.assertEqual(blocked['writes'], [])
+        self.assertEqual((self.root / ref).read_bytes(), before)
+
+    def test_committed_validation_invalidation_journal_remains_audited(self):
+        dispatch = self.reserve_bind('S01')
+        self.write_candidate('S01', dispatch)
+        self.validate('S01')
+        self.simulate_historic_validated_candidate('S01')
+        result, advanced = self.case.invoke('advance')
+        self.assertEqual(result.returncode, 0, advanced)
+        journal_path = next((self.root / '.ppt-pilot/visual-generation-invalidations').glob('S01-*.json'))
+        journal = json.loads(journal_path.read_text(encoding='utf-8'))
+        journal['failure_details']['reason'] = 'current_visual_qa_required'
+        journal_path.write_text(json.dumps(journal), encoding='utf-8')
+        result, blocked = self.case.invoke('resume')
+        self.assertEqual(result.returncode, 2, blocked)
+        self.assertEqual(blocked['errors'][0]['code'], 'validation_invalidation_conflict')
+        self.assertEqual(blocked['writes'], [])
+
+    def test_validation_invalidation_journal_name_stays_within_windows_budget(self):
+        from _runtime_revalidation import _journal_path
+        relative = _journal_path({'slide_id': 'S000001', 'transaction_id': 'sha256:' + 'a' * 64,
+                                  'source_transaction_sha256': 'sha256:' + 'b' * 64})
+        self.assertLessEqual(len(relative), 128)
+        self.assertNotIn('a' * 64, Path(relative).name)
 
     def test_normalized_text_role_is_exposed_and_cannot_substitute_for_visual_qa(self):
         dispatch = self.reserve_bind('S01')

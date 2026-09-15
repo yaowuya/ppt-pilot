@@ -35,6 +35,14 @@ The runtime's canonical QA report is `.ppt-pilot/质量检查报告.md`, with `s
 
 编译按该页 operation 的 revision ID 截止，仅应用同页不晚于该 ID 的 runtime overlays；旧 transaction 按原历史截止点重建，未修改 sibling 的 Prompt／transaction 不变。保持 batch 全局 snapshots，沿现有 recovery journal 只替换失败页引用，保留原 failed transaction／candidate、已验证 sibling 与 previous final。native `runtime_visual` 替换继承原 failed transaction 的 `generation_attempt`，整条视觉修复链含首次最多 3 次真实派发；达到 3 时在记录新决定前拒绝，换 request ID 或新 transaction 不能重置预算。旧 materialized recompose／patch／fallback 证据仅供历史 replay，不能给当前链增加 dispatch。历史提交或 journal 中断后，原请求精确重放；不自动迁移曾直接改写故事板的旧修订，不复制旧批准来适配新字节。事实、来源、文案、叙事或其他审查输入真有变化时，仍须在同一运行按正式失效／重审协议处理。
 
+## Current-validator revalidation invalidation
+
+`resume` 只读重验每个 `validated` candidate。仍符合当前校验器的页面进入 `promotable`；当前硬检查失败的页面进入 `revalidation_required`，`next_command: advance`，不能继续显示为可提升页。`advance` 先完成全批 final CAS 零写入 preflight，再对失效页执行 journaled validation invalidation，并继续提升健康 siblings。
+
+journal 路径是 `.ppt-pilot/visual-generation-invalidations/<slide-id>-<journal64>.json`；`journal64` 是完整 canonical journal 的摘要，不拼接 transaction+source 两个长 ID。journal 精确包含原 `validated` transaction bytes、原 validation record、校验器版本与标题下限、候选摘要、固定且不含 SVG 文本／path data 的当前诊断、replacement failed bytes 与继承的 `generation_attempt`。每次 audit 以受绑定候选和记录重新运行同版本 failure probe，并要求 reason／check／numeric detail 精确一致；协调重写 journal 与 manifest 也不能改写实际观测结果。发布顺序为 journal → manifest 中的路径／摘要 intent binding → same transaction ref 的 CAS replacement → manifest state refresh；任一中断均精确重放，journal 删除、重命名、额外副本、摘要或 replacement 篡改全局阻断。严格匹配 runtime writer 命名的 `.tmp` 仅是未提交崩溃残留，审计忽略但不赋予权限。
+
+该转换不声称旧 QA 从未发生，而是记录“旧验证在当前校验器下失效”。candidate bytes、transaction identity、host attribution、attempt 和 previous final 均保留。`GeometryError` 映射到 `svg_contract_failed/geometry_text`；当前 allowlist／SVG contract、fact/source 或 render-required failure 只映射到对应页面级 reason。validation record 缺失、candidate hash、final CAS、owner/snapshot 或其他完整性冲突仍为全局错误，不得被失效转换吞掉。
+
 ## High-level workflow operations
 
 The coordinator-facing production interface is deliberately small:
