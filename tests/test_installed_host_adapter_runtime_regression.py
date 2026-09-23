@@ -54,13 +54,11 @@ def claude_receipt(isolation):
 
 
 class InstalledClaudeCodeCapabilityRegressionTests(unittest.TestCase):
-    def test_accepts_worktree_isolation_for_tool_limited_generator(self):
-        validated = validate_capability(claude_receipt("worktree"))
+    def test_rejects_worktree_isolation_for_tool_limited_generator(self):
+        with self.assertRaises(CapabilityError):
+            validate_capability(claude_receipt("worktree"))
 
-        self.assertEqual(validated["selected_width"], 1)
-        self.assertEqual(validated["evidence"]["isolation"], "worktree")
-
-    def test_keeps_accepting_omitted_isolation(self):
+    def test_accepts_only_omitted_isolation(self):
         validated = validate_capability(claude_receipt("omitted"))
 
         self.assertEqual(validated["evidence"]["isolation"], "omitted")

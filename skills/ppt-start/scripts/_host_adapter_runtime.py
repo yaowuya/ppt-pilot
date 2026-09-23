@@ -73,7 +73,7 @@ def _adapter_spec(entry):
             'loaded_agent_sha256': entry['adapter_digest'],
             'spawn_primitive': 'fresh-context-subagent', 'allowed_tools': ['ListAgents'],
             'ambient_context': ['CLAUDE.md', 'parent_git_status'],
-            'isolation': ('omitted', 'worktree'), 'execution_mode': 'foreground',
+            'isolation': 'omitted', 'execution_mode': 'foreground',
             'result_type': 'text'}
         instruction = _claude_instruction_path('ppt-svg-generator-sdk.md')
     elif host == 'deepseek-harness' and adapter_id == 'native-subagent':

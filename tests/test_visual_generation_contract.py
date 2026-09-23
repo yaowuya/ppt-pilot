@@ -971,9 +971,7 @@ class VisualGenerationContractTests(unittest.TestCase):
                       'do not claim byte-pure prompt-only', '不得轮询', 'run_in_background: false'):
             self.assertIn(token, text)
         self.assertIn('Do not run `git init`, `git add`, `git commit`, `git push`', text)
-        self.assertIn('the user has authorized', text)
-        self.assertIn('never use `remote`', text)
-        self.assertIn('SDK-only local-worktree exception', text)
+        self.assertIn('if the host requires worktree or remote isolation, the Claude adapter is unavailable', text)
 
     def test_generator_unavailable_has_closed_run_level_blocker(self):
         blocker = {
