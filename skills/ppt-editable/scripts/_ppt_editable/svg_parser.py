@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation
 import math
 from pathlib import Path
 import re
+import unicodedata
 from typing import Callable, Dict, Iterable, Mapping, Optional, Sequence, Tuple
 
 from defusedxml import ElementTree as DET
@@ -86,6 +87,8 @@ _NUMBER_RE = re.compile(
     r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?(?:px)?$"
 )
 _COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+_VISIBLE_INTERNAL_SOURCE_ID_RE = re.compile(r"SRC-[0-9]+", re.IGNORECASE)
+_VISIBLE_TRANSIENT_BLOCK_ID_RE = re.compile(r"S[0-9]+-B[1-9][0-9]*", re.IGNORECASE)
 
 
 class DeckPreflightError(Exception):
@@ -618,6 +621,31 @@ def _decode_and_validate_xml_source(data: bytes, slide_id: str) -> str:
     return text
 
 
+def _reject_visible_machine_identifiers(root, slide_id: str) -> None:
+    visible_chunks = [
+        "".join(element.itertext())
+        for element in root.iter()
+        if local_name(element.tag) == "text"
+    ]
+    compact_visible = "".join(
+        character
+        for chunk in visible_chunks
+        for character in chunk
+        if not character.isspace() and unicodedata.category(character) != "Cf"
+    )
+    if (
+        _VISIBLE_INTERNAL_SOURCE_ID_RE.search(compact_visible)
+        or _VISIBLE_TRANSIENT_BLOCK_ID_RE.search(compact_visible)
+    ):
+        raise _error(
+            "svg_text_invalid",
+            "internal source and block identifiers are machine metadata only",
+            slide_id=slide_id,
+            tree_path="/svg[1]",
+            element_type="text",
+        )
+
+
 def parse_svg_slide(
     source: SlideSource,
     notes: SpeakerNotes,
@@ -640,6 +668,7 @@ def parse_svg_slide(
         raise _error("svg_xml_invalid", "SVG XML cannot be parsed", slide_id=source.slide_id) from exc
     if root.tag != "{{{}}}svg".format(SVG_NAMESPACE):
         raise _error("svg_element_unsupported", "root must be a namespaced SVG", slide_id=source.slide_id)
+    _reject_visible_machine_identifiers(root, source.slide_id)
     attributes = _attribute_map(root)
     _validate_attributes("svg", attributes, slide_id=source.slide_id, tree_path="/svg[1]")
     _canvas(root, attributes, source.slide_id)

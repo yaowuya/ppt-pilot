@@ -41,7 +41,7 @@ _NARRATIVE_TOKEN = "{{NARRATIVE}}"
 _MUSTACHE_MARKER_RE = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 _BRACKET_MARKER_RE = re.compile(r"\[\[.*?\]\]", re.DOTALL)
 _SOURCE_ANNOTATION_RE = re.compile(
-    r"(?:\bsource\s*=|\[claim\s*=|data-source-id|\bSRC-[0-9]+\b)",
+    r"(?:\bsource\s*=|\[claim\s*=|data-source-id|SRC-[0-9]+)",
     re.IGNORECASE,
 )
 _NON_LF_LINE_SEPARATOR_RE = re.compile(r"[\x0b\x0c\x1c-\x1e\x85\u2028\u2029]")

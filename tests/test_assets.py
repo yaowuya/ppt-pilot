@@ -125,12 +125,12 @@ class StyleAssetTests(unittest.TestCase):
             "系统字体",
             "<tspan>",
             "对比度",
-            "主导色",
+            "色板",
             "jiawei-product",
             "canway-midyear-review",
         ):
             self.assertIn(token, design, f"design-system.md 缺少 {token}")
-        for prohibition in ("强调色条", "标题下划线", "渐变", "远程字体"):
+        for prohibition in ("自动换行", "远程字体", "滤镜", "位图填充"):
             self.assertIn(prohibition, design, f"design-system.md 必须说明禁止项 {prohibition}")
 
         layouts = read_text(layout_path).lower()

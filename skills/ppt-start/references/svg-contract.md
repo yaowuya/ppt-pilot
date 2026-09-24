@@ -60,7 +60,7 @@
 
 文字保持为文字（text remains text）；标题、标签、正文和来源都不能转换为路径轮廓。
 
-- 通用 SVG API 默认标题下限为 40 px；默认所选风格 `jiawei-product` 的主标题为 40 px。经完整验证且 `strict_brand_rules: true` 的固定品牌风格使用声明的主标题字号（`page_title`，否则 `slide_title`），不得低于 34 px。下限仅由 runtime 从已验证 tokens 推导，SVG／请求字段不能自行降低；
+- 通用默认标题下限为 40 px；经完整验证且 `strict_brand_rules: true` 的固定品牌风格使用声明的主标题字号（`page_title`，否则 `slide_title`），但不得低于 34 px。下限由 AI 从已验证 tokens 选择，并由无状态 SVG 工具校验；SVG 或调用参数不能降到 34 以下；
 - 正文和数据标签至少 20 px；
 - 脚注和来源至少 14 px；
 - 使用 `theme.json` 中的系统字体栈；
@@ -85,11 +85,15 @@
 - 基线间距小于 `1.4 × font-size` 或估算文本块高度超过区域高的 88% 时，也标记为高优先级视觉 warning；
 - 每个可见文本行都执行估算。warning 后优先压缩文案、显式拆行、扩大容器或 recompose，不通过把字号降到 minimum 以下消除；
 - actual parsed safe-bound overflow、minimum font violation 或 render-confirmed clipping／overlap 始终是 hard failure；
-- 缺少可用 renderer 时记录 `not_rendered`，不能把估算描述为视觉 PASS，也不能让该页进入最终 delivered partition。
+- 缺少可用 renderer 时记录 `not_rendered`，不能把估算描述为视觉 PASS；这是一项诚实降级证据，不得因 renderer 不可用而消耗生成 attempts 或阻塞独立页面／结构合格的交付；
 
 ## 数据与来源映射
 
-使用白名单中的矢量元素构建基本图表。坐标轴、柱、点、连接线和标签在页面尺度下必须清晰。isolated generator 不接收 source ID；每个非来源 `block_id` 只可在故事板内容块对应的唯一语义 `<g data-block-id="S03-B1">` 精确属性值中临时出现一次，禁止进入 text／tail／其他属性名值。coordinator 必须在 candidate 写入前将这些 block 与冻结故事板的 ordered source IDs 确定性关联：每个来源通过一层确定性嵌套 `<g data-source-id="SRC-001">` 保存，随后移除全部 `data-block-id` 并规范化序列化。任何缺失、未知、重复／泄漏 block，预存来源属性或非法／重复来源均以 `fact_source_mismatch` 零 candidate 写入失败。最终 SVG 的重要数据主张通过相关分组的 `data-source-id` 携带稳定来源 ID。source ID 的 canonical grammar 精确为大写 ASCII `SRC-[0-9]+`；小写、混合大小写、非 ASCII 数字或其他前缀均非法。内部 source ID 只属于该属性／trace 机器元数据，任何来源名称、URL、引用或内部 ID 都禁止出现在可见 `<text>`／`<tspan>` 中；用户请求可见 citation 也不能绕过该契约，必须在生成前进入交互阻断并选择机器 trace 或单独来源报告。
+使用白名单中的矢量元素构建基本图表。坐标轴、柱、点、连接线和标签在页面尺度下必须清晰。Generator 不接收 **source ID**；它只接收故事板中稳定的 **block ID**，并把每个 block ID 在唯一语义 `<g data-block-id="S03-B1">` 上临时回显一次。Block ID 禁止进入 text、tail 或其他属性。
+
+AI 或 `svg_tool.py finalize` 校验 raw candidate 的 block 集与冻结 source map key 完全一致，然后为每个来源写一层确定性 `<g data-source-id="SRC-001">`、移除全部 `data-block-id`，再验证 final。缺失、未知、重复／泄漏 block、预存来源属性或非法来源都返回 `fact_source_mismatch`，不得发布 final。没有可关联来源的 content block 仍要求 block ID，source map 以 `{"S03-B1": []}` 形式保留该 key；finalize 移除它但不写 `data-source-id`。只有完全没有 content block 的页面才使用 `{}`，且 raw candidate 不含 block ID。
+
+Final SVG 的重要主张通过 `data-source-id` 保存来源。Source ID grammar 精确为大写 ASCII `SRC-[0-9]+`；它只属于属性／trace 机器元数据，任何来源名称、URL、引用或内部 ID 都禁止出现在可见 `<text>`／`<tspan>` 中。
 
 每张图表必须说明指标、单位、期间和比较基准。不得推断缺失值、绘制超出资料期间的趋势，也不得用误导性基线编码差异。
 
@@ -107,7 +111,7 @@
 2. 核对精确画布与元素白名单；
 3. 拒绝重复 ID、禁止元素、事件处理器、外部引用和机器路径；
 4. 核对显式字号、`<tspan>` 换行，并确认所有非背景元素位于 64 px 安全区域；
-5. 核对重要主张和图表是否把来源 ID 保留在 `data-source-id`，并拒绝可见文字中的内部 `SRC-<digits>`；
+5. 核对重要主张和图表是否把来源 ID 保留在 `data-source-id`，并拒绝可见文字中的内部 `SRC-<digits>` 或 transient `S<digits>-B<digits>`；
 6. 确认存在 `<title>` 与 `<desc>`；
 7. 记录是否实际执行视觉渲染，以及具体渲染证据路径。
 

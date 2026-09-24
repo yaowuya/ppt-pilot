@@ -124,6 +124,86 @@ class OrchestratorTests(unittest.TestCase):
         )
         return missing
 
+    def _configure_legacy_best_effort_complete_run(self):
+        pilot = self.run / ".ppt-pilot"
+        storyboard = pilot / "故事板.md"
+        theme = pilot / "theme.json"
+        quality = pilot / "质量检查报告.md"
+        theme.write_text('{"name":"legacy-best-effort"}\n', encoding="utf-8")
+        shutil.copy2(self.run / "samples" / "S01.svg", self.run / "slides" / "S01.svg")
+        digest = lambda data: "sha256:" + hashlib.sha256(data).hexdigest()
+        run_path = pilot / "run.json"
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        run.update(
+            stage="complete",
+            production_policy="best_effort",
+            dirty_slides=[],
+            manuscript_review={
+                "required": True,
+                "state": "manuscript_approved",
+                "status": "PASSED",
+                "open_blocking_findings": [],
+                "pending_round": None,
+            },
+            delivery={
+                "schema_version": 1,
+                "status": "complete",
+                "policy": "best_effort",
+                "target_slide_ids": ["S01", "S02"],
+                "delivered_slide_ids": ["S01", "S02"],
+                "missing_slides": [],
+                "storyboard_sha256": digest(storyboard.read_bytes()),
+                "theme_sha256": digest(theme.read_bytes()),
+                "quality_report_sha256": digest(quality.read_bytes()),
+                "slide_sha256": {
+                    "S01": digest((self.run / "slides" / "S01.svg").read_bytes()),
+                    "S02": digest((self.run / "slides" / "S02.svg").read_bytes()),
+                },
+            },
+        )
+        run_path.write_text(json.dumps(run, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    def _configure_ai_state_partial_run(self):
+        pilot = self.run / ".ppt-pilot"
+        shutil.copy2(self.run / "samples" / "S01.svg", self.run / "slides" / "S01.svg")
+        run_path = pilot / "run.json"
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        run.update(
+            stage="partial",
+            manuscript_review={
+                "required": True,
+                "state": "manuscript_approved",
+                "status": "PASSED",
+                "open_blocking_findings": [],
+                "pending_round": None,
+            },
+            slides={
+                "S01": {
+                    "state": "promoted",
+                    "attempts": 1,
+                    "svg": "slides/S01.svg",
+                    "failure": None,
+                    "qa": {"structure": "pass", "tool": "pass"},
+                },
+                "S02": {
+                    "state": "failed",
+                    "attempts": 2,
+                    "svg": None,
+                    "failure": {"code": "generator_unavailable", "message": "host unavailable"},
+                    "qa": {"structure": "not_run", "tool": "unavailable"},
+                },
+            },
+            delivery={"status": "partial"},
+        )
+        run_path.write_text(json.dumps(run, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        (pilot / "theme.json").write_text('{"name":"ai-state"}\n', encoding="utf-8")
+        (pilot / "质量检查报告.md").write_text(
+            "# QA\n\n```ppt-pilot-qa-json\n"
+            '{"schema_version":1,"status":"partial","target_slide_ids":["S01","S02"],"promoted_slide_ids":["S01"],"missing_slide_ids":["S02"]}'
+            "\n```\n",
+            encoding="utf-8",
+        )
+
     def _degraded(self):
         module = self._module()
         return module.GenerationCapability(
@@ -178,6 +258,64 @@ class OrchestratorTests(unittest.TestCase):
             pillow_available=True,
             office_runner=self._office_runner,
         )
+
+    def test_legacy_best_effort_complete_rehydrates_its_own_output(self):
+        self._configure_legacy_best_effort_complete_run()
+        module = self._module()
+        first = module.generate_editable(self.run, self._degraded())
+        self.assertEqual(first.status, "GENERATED_UNVERIFIED")
+        self.assertEqual(first.delivery_status, "complete")
+        self.assertEqual(first.delivery_policy, "best_effort")
+
+        repeated = module.generate_editable(self.run, self._degraded())
+        self.assertEqual(repeated.status, "GENERATED_UNVERIFIED")
+        self.assertEqual(repeated.output_path, first.output_path)
+        self.assertEqual(repeated.delivery_policy, "best_effort")
+
+    def test_ai_state_partial_exports_promoted_subset_without_legacy_evidence(self):
+        self._configure_ai_state_partial_run()
+        module = self._module()
+        contract = importlib.import_module("_ppt_editable.contract")
+        with mock.patch.object(contract, "_load_shared_delivery_contract", side_effect=AssertionError):
+            result = module.generate_editable(self.run, self._degraded())
+
+        self.assertEqual(result.status, "GENERATED_UNVERIFIED")
+        self.assertEqual(result.delivery_status, "partial")
+        self.assertEqual(result.delivery_policy, "best_effort")
+        self.assertEqual(result.target_slide_ids, ("S01", "S02"))
+        self.assertEqual(result.delivered_slide_ids, ("S01",))
+        self.assertEqual(result.missing_slides[0].evidence_type, "ai_state")
+        output = self.run / "delivery" / "editable" / "fixture-deck-editable-partial-unverified.pptx"
+        self.assertTrue(output.is_file())
+
+        repeated = module.generate_editable(self.run, self._degraded())
+        self.assertEqual(repeated.status, "GENERATED_UNVERIFIED")
+        self.assertEqual(repeated.missing_slides[0].evidence_type, "ai_state")
+        self.assertEqual(repeated.output_path, result.output_path)
+
+    def test_ai_state_committed_manifest_cannot_change_current_partition(self):
+        self._configure_ai_state_partial_run()
+        module = self._module()
+        first = module.generate_editable(self.run, self._degraded())
+        self.assertEqual(first.status, "GENERATED_UNVERIFIED")
+        manifest_path = self.run / "delivery" / "editable" / "editable-result-partial.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["delivered_slide_ids"] = ["S02"]
+        manifest["missing_slides"] = [{
+            "slide_id": "S01",
+            "reason": "failed",
+            "evidence_type": "ai_state",
+            "evidence": {
+                "attempts": 1,
+                "failure_code": "forged",
+                "failure_message": "forged omission",
+            },
+        }]
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        repeated = module.generate_editable(self.run, self._degraded())
+        self.assertEqual(repeated.status, "BLOCKED")
+        self.assertIn("promotion_conflict", {failure.code for failure in repeated.failures})
 
     def test_preflight_failure_blocks_before_candidate_write(self):
         module = self._module()

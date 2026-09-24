@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import math
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Mapping, Optional, Tuple, Union
 
 from .errors import validate_failure_reason
 
@@ -128,6 +128,14 @@ class MissingSlide:
 
 
 @dataclass(frozen=True)
+class AIStateMissingSlide:
+    slide_id: str
+    reason: str
+    evidence_type: str
+    evidence: Mapping[str, object]
+
+
+@dataclass(frozen=True)
 class EditableResult:
     status: str
     deck_id: str
@@ -141,7 +149,7 @@ class EditableResult:
     delivery_policy: Optional[str] = None
     target_slide_ids: Tuple[str, ...] = ()
     delivered_slide_ids: Tuple[str, ...] = ()
-    missing_slides: Tuple[MissingSlide, ...] = ()
+    missing_slides: Tuple[Union[MissingSlide, AIStateMissingSlide], ...] = ()
 
 
 def editable_result_payload(result: EditableResult):

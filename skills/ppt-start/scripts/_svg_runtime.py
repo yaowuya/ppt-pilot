@@ -1,7 +1,10 @@
 """Packaged deterministic svg_runtime operations."""
 from __future__ import annotations
 
+import math
 import re
+import unicodedata
+from typing import Mapping, Sequence
 import xml.etree.ElementTree as ET
 from _xml_safety import parse_xml
 from _svg_geometry import GeometryError, NUMBER, number, validate_geometry
@@ -19,6 +22,16 @@ _ATTRIBUTES = {
 _NUMERIC_ATTRIBUTES = {"width", "height", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry", "font-size", "stroke-width", "stroke-miterlimit", "stroke-dashoffset", "opacity", "fill-opacity", "stroke-opacity"}
 
 
+def validate_title_min_size(value: object) -> float:
+    """Return a finite, contract-safe title floor shared by every lifecycle."""
+    if type(value) not in (int, float) or not math.isfinite(value):
+        raise ValueError("title_min_size_invalid")
+    normalized = float(value)
+    if not 34 <= normalized <= 4096:
+        raise ValueError("title_min_size_invalid")
+    return normalized
+
+
 def extract_svg(generator_text: str) -> str:
     """Accept exactly one XML fence and no prose or additional code blocks."""
     if not isinstance(generator_text, str):
@@ -30,11 +43,15 @@ def extract_svg(generator_text: str) -> str:
 
 
 def validate_svg(svg_text, *, enriched=False, title_min_size=40, warnings=None):
+    title_min_size = validate_title_min_size(title_min_size)
     if warnings is not None and not isinstance(warnings, list):
         raise ValueError("svg_contract_failed")
     if not isinstance(svg_text, str) or re.search(r"<\?(?!xml\s)", svg_text, re.IGNORECASE):
         raise ValueError("svg_contract_failed")
-    root = parse_xml(svg_text.encode("utf-8"), "candidate SVG", "{" + SVG_NS + "}svg")
+    try:
+        root = parse_xml(svg_text.encode("utf-8"), "candidate SVG", "{" + SVG_NS + "}svg")
+    except (ET.ParseError, ValueError) as exc:
+        raise ValueError("svg_contract_failed") from exc
     if any(root.get(key) != value for key, value in (("width", "1280"), ("height", "720"), ("viewBox", "0 0 1280 720"))):
         raise ValueError("svg_contract_failed")
     for name in ("title", "desc"):
@@ -126,11 +143,15 @@ _validate_svg = validate_svg  # Backward-compatible internal name.
 
 def normalize_text_roles(svg_text, *, title_min_size=40, warnings=None):
     """Correct invalid role pairs and minimal vertical text overflow pre-write."""
+    title_min_size = validate_title_min_size(title_min_size)
     if warnings is not None and not isinstance(warnings, list):
         raise ValueError("svg_contract_failed")
     if not isinstance(svg_text, str):
         raise ValueError("svg_contract_failed")
-    root = parse_xml(svg_text.encode("utf-8"), "candidate SVG", "{" + SVG_NS + "}svg")
+    try:
+        root = parse_xml(svg_text.encode("utf-8"), "candidate SVG", "{" + SVG_NS + "}svg")
+    except (ET.ParseError, ValueError) as exc:
+        raise ValueError("svg_contract_failed") from exc
     changed = False
     for index, element in enumerate(root.iter()):
         if element.tag.rsplit("}", 1)[-1] != "text":
@@ -175,28 +196,79 @@ def normalize_text_roles(svg_text, *, title_min_size=40, warnings=None):
     return ET.tostring(root, encoding="unicode")
 
 
-def validate_candidate(svg_text, expected_block_ids, source_map, *, title_min_size=40, warnings=None) -> bytes:
-    """Title floor comes from verified style data, never the SVG or host input."""
-    if warnings is not None and not isinstance(warnings, list):
-        raise ValueError("svg_contract_failed")
-    if type(title_min_size) not in (int, float) or not 34 <= title_min_size <= 4096:
-        raise ValueError("svg_contract_failed")
-    svg_text = normalize_text_roles(svg_text, title_min_size=title_min_size, warnings=warnings)
-    if (not isinstance(expected_block_ids, (list, tuple)) or not expected_block_ids
-        or any(not isinstance(block, str) or _BLOCK_ID.fullmatch(block) is None for block in expected_block_ids)
-        or len(expected_block_ids) != len(set(expected_block_ids))
-        or len({block.split("-B")[0] for block in expected_block_ids}) != 1
-        or not isinstance(source_map, dict) or set(expected_block_ids) != set(source_map)):
+def validate_generator_svg(generator_output: str, *, title_min_size=40, warnings=None) -> str:
+    """Validate an XML-fenced generator response before source enrichment."""
+    title_min_size = validate_title_min_size(title_min_size)
+    svg_text = extract_svg(generator_output)
+    validate_svg(svg_text, title_min_size=title_min_size, warnings=warnings)
+    return svg_text
+
+
+def validate_candidate_svg(
+    svg_text: str,
+    source_map: Mapping[str, Sequence[str]],
+    *,
+    title_min_size=40,
+    warnings=None,
+) -> str:
+    """Validate a raw candidate and its exact transient source-join inventory."""
+    title_min_size = validate_title_min_size(title_min_size)
+    if not isinstance(source_map, dict):
         raise ValueError("fact_source_mismatch")
-    root = validate_svg(svg_text, title_min_size=title_min_size, warnings=warnings)
-    prefix = expected_block_ids[0].split("-B")[0].lower() + "-"
-    if any(node.get("id") and not node.get("id").startswith(prefix) for node in root.iter()):
-        raise ValueError("svg_contract_failed")
-    result = enrich_candidate_source_metadata(svg_text, source_map)
-    _validate_svg(result.decode("utf-8"), enriched=True, title_min_size=title_min_size)
+    validate_svg(svg_text, title_min_size=title_min_size, warnings=warnings)
+    # The enrichment helper owns the exact block-map comparison and rejects
+    # preexisting/leaked source metadata. Discard its transformed result here:
+    # candidate validation must preserve the raw input lifecycle.
+    enrich_candidate_source_metadata(svg_text, source_map)
+    return svg_text
+
+
+def validate_final_svg(svg_text: str, *, title_min_size=40, warnings=None) -> str:
+    """Validate a finalized SVG with machine-only source metadata."""
+    title_min_size = validate_title_min_size(title_min_size)
+    validate_svg(svg_text, enriched=True, title_min_size=title_min_size, warnings=warnings)
+    return svg_text
+
+
+def finalize_candidate_svg(
+    svg_text: str,
+    source_map: Mapping[str, Sequence[str]],
+    *,
+    title_min_size=40,
+    warnings=None,
+) -> bytes:
+    """Normalize, source-join, and validate a raw candidate without I/O."""
+    title_min_size = validate_title_min_size(title_min_size)
+    normalized = normalize_text_roles(svg_text, title_min_size=title_min_size, warnings=warnings)
+    validate_candidate_svg(normalized, source_map, title_min_size=title_min_size, warnings=warnings)
+    result = enrich_candidate_source_metadata(normalized, source_map)
+    validate_final_svg(result.decode("utf-8"), title_min_size=title_min_size, warnings=warnings)
     return result
 
-_VISIBLE_INTERNAL_SOURCE_ID = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
+
+def validate_candidate(svg_text, expected_block_ids, source_map, *, title_min_size=40, warnings=None) -> bytes:
+    """Backward-compatible candidate-to-final helper for retained callers."""
+    title_min_size = validate_title_min_size(title_min_size)
+    if (
+        not isinstance(expected_block_ids, (list, tuple))
+        or any(not isinstance(block, str) or _BLOCK_ID.fullmatch(block) is None for block in expected_block_ids)
+        or len(expected_block_ids) != len(set(expected_block_ids))
+        or not isinstance(source_map, dict)
+        or set(expected_block_ids) != set(source_map)
+    ):
+        raise ValueError("fact_source_mismatch")
+    normalized = normalize_text_roles(svg_text, title_min_size=title_min_size, warnings=warnings)
+    validate_candidate_svg(normalized, source_map, title_min_size=title_min_size, warnings=warnings)
+    root = validate_svg(normalized, title_min_size=title_min_size, warnings=warnings)
+    prefix = expected_block_ids[0].split("-B")[0].lower() + "-" if expected_block_ids else None
+    if prefix is not None and any(node.get("id") and not node.get("id").startswith(prefix) for node in root.iter()):
+        raise ValueError("svg_contract_failed")
+    result = enrich_candidate_source_metadata(normalized, source_map)
+    validate_final_svg(result.decode("utf-8"), title_min_size=title_min_size)
+    return result
+
+_VISIBLE_INTERNAL_SOURCE_ID = re.compile(r"SRC-[0-9]+", re.IGNORECASE)
+_VISIBLE_TRANSIENT_BLOCK_ID = re.compile(r"S[0-9]+-B[1-9][0-9]*", re.IGNORECASE)
 
 
 _BLOCK_ID = re.compile(r"S[0-9]+-B[1-9][0-9]*")
@@ -313,13 +385,23 @@ def fact_source_visible_text_result(svg_text: str):
         root = parse_xml(svg_text.encode("utf-8"), "candidate SVG")
     except (ET.ParseError, ValueError):
         return "svg_contract_failed"
-    visible = " ".join(
+    visible_chunks = [
         "".join(element.itertext())
         for element in root.iter()
         if isinstance(element.tag, str)
         and element.tag.rsplit("}", 1)[-1] == "text"
+    ]
+    visible = " ".join(visible_chunks)
+    compact_visible = "".join(
+        character
+        for chunk in visible_chunks
+        for character in chunk
+        if not character.isspace() and unicodedata.category(character) != "Cf"
     )
-    if _VISIBLE_INTERNAL_SOURCE_ID.search(visible):
+    if (
+        _VISIBLE_INTERNAL_SOURCE_ID.search(compact_visible)
+        or _VISIBLE_TRANSIENT_BLOCK_ID.search(compact_visible)
+    ):
         return "fact_source_mismatch"
     human_citation_visible = re.search(
         r"(?i)(?:来源\s*[:：]|source\s*:)",

@@ -1,15 +1,14 @@
 ﻿<#
 .SYNOPSIS
-把 ppt-start 与 ppt-editable 安装为一个 DeepSeek harness 本地插件。
+把 ppt-start、ppt-editable 与 ppt-style-extract 安装为一个 DeepSeek harness 本地插件。
 .DESCRIPTION
-保留单一 ppt-pilot 插件/市场条目；两个 Skill 安装到 plugin\skills，per-ID 备份位于扫描根外的 plugin\backups。
+保留单一 ppt-pilot 插件/市场条目；三个 Skill 安装到 plugin\skills，per-ID 备份位于扫描根外的 plugin\backups。
 #>
 [CmdletBinding()]
 param(
     [string]$MarketplaceRoot = '',
     [string]$RepoRoot = '',
-    [string]$Version = '',
-    [Parameter(DontShow)][switch]$SkipSharedSkills
+    [string]$Version = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,7 +20,6 @@ if (-not $RepoRoot) {
     else { $RepoRoot = (Get-Location).Path }
 }
 if (-not $MarketplaceRoot) { $MarketplaceRoot = Join-Path $env:USERPROFILE '.agents\plugins' }
-$MarketplaceRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($MarketplaceRoot)
 if (-not $Version) { $Version = "1.0.0+codex.$timestamp" }
 
 $skills = @(
@@ -126,18 +124,10 @@ $marketplaceSnapshot = Join-Path $transactionRoot 'marketplace.json'
 $pluginExisted = Test-Path -LiteralPath $pluginDir
 $marketplaceExisted = Test-Path -LiteralPath $marketplacePath
 $marketplaceAttemptBackup = $null
-$sharedSkillsRoot = Join-Path (Split-Path -Parent ([IO.Path]::GetFullPath($MarketplaceRoot).TrimEnd('\', '/'))) 'skills'
-$sharedSkills = @()
-try {
-    Assert-NoShadowingSkills $skillsRoot
-    if (-not $SkipSharedSkills) {
-        Assert-NoShadowingSkills $sharedSkillsRoot
-        $sharedSkills = @($skills | Where-Object { Test-Path -LiteralPath (Join-Path $sharedSkillsRoot $_.Id) -PathType Container })
-    }
-}
-catch { Write-Host "failed: $($_.Exception.Message); move the shadowing alias outside the Skill discovery root and retry."; throw }
+try { Assert-NoShadowingSkills $skillsRoot }
+catch { Write-Host "failed: $($_.Exception.Message)"; throw }
 New-Item -ItemType Directory -Force -Path $transactionRoot | Out-Null
-if ($pluginExisted) { Copy-PptPilotFilteredTree $pluginDir $pluginSnapshot }
+if ($pluginExisted) { Copy-Item -LiteralPath $pluginDir -Destination $pluginSnapshot -Recurse -Force }
 if ($marketplaceExisted) { Copy-Item -LiteralPath $marketplacePath -Destination $marketplaceSnapshot -Force }
 
 try {
@@ -245,27 +235,6 @@ finally {
     if (Test-Path -LiteralPath $transactionRoot) {
         Remove-Item -LiteralPath $transactionRoot -Recurse -Force
     }
-}
-
-$sharedBackupRoot = Join-Path (Split-Path -Parent $sharedSkillsRoot) 'skill-backups'
-$updated = @([IO.Path]::GetFullPath($pluginDir))
-$rolledBack = @()
-$failed = @()
-foreach ($skill in $sharedSkills) {
-    $destination = Join-Path $sharedSkillsRoot $skill.Id
-    try {
-        $result = Install-PptPilotTree $skill.Source $destination $sharedBackupRoot $skill.Id $timestamp
-        $updated += $result.Path
-        Write-Host ("installed scope=shared-user version={0} path={1} files={2} digest={3}" -f $Version, $result.Path, $result.Count, $result.Digest)
-    }
-    catch {
-        $failed += "$destination :: $($_.Exception.Message)"
-        if ($_.Exception.Data['PptPilotBackupRestored']) { $rolledBack += $destination }
-    }
-}
-if ($failed.Count -gt 0) {
-    Write-Host 'PARTIAL_FAILURE'; Write-Host ('updated: ' + ($updated -join '; '))
-    Write-Host ('rolled_back: ' + ($rolledBack -join '; ')); Write-Host ('failed: ' + ($failed -join '; ')); exit 2
 }
 
 Write-Host "安装完成：$pluginDir"

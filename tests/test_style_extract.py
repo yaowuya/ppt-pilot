@@ -666,6 +666,12 @@ class StylePackVerificationTests(unittest.TestCase):
                 ),
                 "prompt_forbidden_token",
             ),
+            "embedded machine source identifier": (
+                valid_prompt.replace(
+                    "{{NARRATIVE}}", "{{NARRATIVE}}\nlabel=xSRC-2y"
+                ),
+                "prompt_forbidden_token",
+            ),
             "missing required heading": (
                 valid_prompt.replace("### 步骤 2", "### omitted step", 1),
                 "prompt_missing_heading:### 步骤 2",

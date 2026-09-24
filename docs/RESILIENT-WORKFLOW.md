@@ -1,55 +1,57 @@
 # 可继续推进的 PPT 工作流
 
-PPT Pilot 保留事实、权限、产物身份与交付质量的硬检查，将普通失败限制在页面范围内。模型选择叙事表达、布局和合法的修复方式；固定运行时处理计数、哈希、原子写入、失败记录与交付结算。
+## 核心
 
-## 四个关键节点
+页面生产是可恢复的 AI 工作，而不是 batch 状态机。AI 每轮读取 `run.json` 和真实文件，选择一个动作，记录证据，然后更新状态。
 
-1. **内容基线**：明确受众、目标、来源、数字和限定条件；审查批准的内容不会因为普通视觉失败而反复重做。
-2. **视觉基线**：选择已注册风格及代表样张，验证整套视觉方向。
-3. **页面生产**：通过页可独立保存，失败页保留证据；其他独立页面继续。模型不能通过换请求、换事务或改计数绕过预算。
-4. **诚实交付**：明确完整交付、部分交付或未能交付；只有实际通过检查的页面进入输出。
+## 页面独立
 
-`guided`／`auto` 控制交互方式，`strict`／`best_effort` 控制是否允许缺页，两者不是同一件事。
+每页记录：
 
-## 完整与部分交付
+- `state`：planned/generating/validated/promoted/failed/skipped；
+- `attempts`：真实 generator 调用次数；
+- 当前 Prompt 与 final 路径；
+- failure、QA 和工具 evidence。
 
-| 结果 | 含义 |
-|---|---|
-| `complete` | 原计划页面全部交付，无缺页 |
-| `partial` | 已交付有效页面，并明确列出未交付页；仅适用于尽力完成策略 |
-| `failed` | 没有可交付页，不产生空 PPTX |
-| `prepared` | 已确定交付范围，正在等待最终质量检查，不能导出 |
+一个页面的 generator、SVG、来源或视觉错误不阻止独立页面。旧 final 不被失败 candidate 覆盖。
 
-原始页面 ID 和顺序不变。交付页和缺页必须不重叠、完整覆盖原计划。缺页保留原因、次数、原失败事务及其摘要，不被改成成功；已有旧 SVG 也不能冒充本轮交付。
+## 工具分层降级
 
-部分 PPTX 使用独立文件名及结果清单，例如 `deck-editable-partial-unverified.pptx`、`editable-result-partial.json`，不会覆盖完整成品。完整度和验证状态分别报告：`delivery_status: partial` 即使通过验证也仍然是部分交付；没有 Office 实测时只能报告 `GENERATED_UNVERIFIED`，不能声称 Office 已验证。
+- `PASS`：可作为确定性证据；
+- `INVALID`：输入产物有真实问题，只失败该页；
+- `UNAVAILABLE`：工具没有产物结论，AI 直接检查并继续，stage/attempts 不变。
 
-## 模型使用的运行时入口
+不要把工具启动失败记为 generator attempt，也不要因为 Python／renderer／Office 不可用创建全局 blocker。
 
-生产阶段主要循环使用 `ppt_runtime.py advance`；运行时返回当前真正可执行的动作，负责机械性的页级提升和批次结算。准备好真实 QA 后调用 `finalize`。`submit-result` 将任务绑定和结果摄取合并为一个可重放操作。
+## Retry 与 skip
 
-- 新运行默认 `best_effort`，可通过入口的 `--production-policy strict` 选择严格交付。
-- 旧运行没有该字段时仍按 strict，升级安装不会改运行。
-- 对旧运行，只有用户已明确允许部分交付时才执行 `advance --allow-partial`。
-- `--skip-slide S06` 只能用于明确授权跳过的失败页；不能跳过共享权限、来源或状态完整性问题。
-- 达到真实调用上限的页不会继续重试；尽力完成策略记录其缺页证据并继续其他可处理页面。
-- 升级校验器后，如果历史 `validated` 候选不再通过，`resume` 会列为 `revalidation_required` 而不是可提升；`advance` 保留旧 transaction／QA 精确证据，原子转成页面级失败，并继续提升健康页面。
-- 已结束的部分交付不会自动复活缺页或重置预算。
+首次真实生成失败后，只有明确 retry/recompose 才再次调用。第二次失败后询问：
 
-这些命令必须使用实际安装的 Skill 路径和用户指定的原运行目录。不要为了恢复创建 `recovery-N` 副本、手写控制状态或在运行目录放修复脚本。
+- 修复输入／环境；
+- skip 该页继续；
+- 停止。
 
-## 质量检查的变化
+用户回答由 AI 直接写入并应用：skip 保存原始授权，页面变 skipped，attempts 不变；无需任何回答消费命令。
 
-保守的字符宽度余量不足是告警，不等于实际字形已被裁切。它要求真实渲染检查；实际安全边界、字号、事实来源和不安全 SVG 仍是硬约束。确定性文本规范化会保留文案与大小，并公开调整告警。
+## 恢复
 
-最终交付必须绑定当前正式 SVG 与真实 PNG 渲染证据。普通运行的 QA 报告保留逐页记录，并包含 `final_review` 的渲染路径、摘要、输入 SVG 摘要、渲染器和视觉检查结论；外部旧稿使用对应导入 QA 证据。仅写几个 PASS 布尔值不足以完成交付。
+按顺序：
 
-新文稿审查可使用 `ppt_review_snapshot.py` 产生内容指纹。它仅排除结构化故事板中明确允许的视觉和机器元数据字段，其他事实、来源、叙事和正文仍绑定。旧批准继续精确按字节检查，不允许事后补字段追认审批。
+1. pending/answered interaction；
+2. `run.json`、批准文稿、故事板 target、theme 的共享一致性；
+3. 最早未完成阶段；
+4. dirty/failed 页面和实际 final 文件。
 
-## 升级和兼容
+旧 transaction/batch/dispatch 等文件只作历史证据，不重新排队、轮询或迁移。
 
-更新前先比较安装版与源码，保留本地增强和风格版本。标准更新脚本支持 `-PreserveExistingClaudeAgents`：保留已存在的 Agent 文件，并在 SDK Agent 与源码身份不一致时停止该安装范围，避免覆盖更高版本。新会话才能加载更新后的指令。
+## 最终结论
 
-运行时兼容已批准的旧英文 owner，以及当前结构化故事板。PPT 转换支持固定运行时产生的 `data-role` 和单行 `tspan` 重复绝对坐标，不需要重写 SVG 或故事板；不支持的转换特性仍须明确报告，不使用图片兜底。
+- all promoted → `complete`；
+- promoted 非空，其他均有 failed/skipped 证据 → `partial`；
+- promoted 为空 → `failed`。
 
-当前仍保留的限制：共享状态冲突会停止写入；锚点需要满足当前最低覆盖要求；每页真实生成预算有界；转换器不会在导出过程中偷偷删除额外失败页；任何 Office 操作仍遵从用户权限和明确的验证边界。
+`质量检查报告.md` 分开列完整度、结构、真实 render 和 Office 状态。`not_rendered`／`not_verified` 是能力披露，不是假 PASS，也不等于流程卡死。
+
+## Editable handoff
+
+`ppt-editable` 直接消费新 AI-state 页面分区；partial 不需要制造 legacy transaction/batch。历史 explicit delivery 仍走严格 legacy adapter。转换失败只影响 editable 输出，SVG 状态保持不变。

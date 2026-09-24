@@ -17,7 +17,7 @@ import uuid
 
 from .contract import _deck_id_is_safe, _is_reparse_stat
 from .errors import EditableError
-from .model import EditableResult, Failure, editable_result_payload
+from .model import AIStateMissingSlide, EditableResult, Failure, MissingSlide, editable_result_payload
 
 
 @dataclass(frozen=True)
@@ -366,7 +366,7 @@ _RESULT_DELIVERY_KEYS = frozenset(
         "missing_slides",
     }
 )
-_MISSING_SLIDE_KEYS = frozenset(
+_LEGACY_MISSING_SLIDE_KEYS = frozenset(
     {
         "slide_id",
         "reason",
@@ -376,6 +376,9 @@ _MISSING_SLIDE_KEYS = frozenset(
         "transaction_ref",
         "transaction_sha256",
     }
+)
+_AI_STATE_MISSING_SLIDE_KEYS = frozenset(
+    {"slide_id", "reason", "evidence_type", "evidence"}
 )
 _SLIDE_ID_RE = re.compile(r"^S[0-9]{1,6}$")
 _PAGE_FAILURE_REASONS = frozenset(
@@ -425,33 +428,76 @@ def _delivery_inventory_is_valid(
         return False
 
     missing_ids = []
+    omission_kind = None
     for item in raw_missing:
-        if not isinstance(item, dict) or set(item) != _MISSING_SLIDE_KEYS:
+        if not isinstance(item, dict):
             return False
-        slide_id = item.get("slide_id")
-        transaction_id = item.get("transaction_id")
-        if (
-            not isinstance(slide_id, str)
-            or _SLIDE_ID_RE.fullmatch(slide_id) is None
-            or item.get("reason") not in ("attempts_exhausted", "user_skipped")
-            or item.get("failure_reason") not in _PAGE_FAILURE_REASONS
-            or type(item.get("generation_attempt")) is not int
-            or not 0 <= int(item["generation_attempt"]) <= 10000
-            or (
-                item.get("reason") == "attempts_exhausted"
-                and int(item["generation_attempt"]) < 3
-            )
-            or not isinstance(transaction_id, str)
-            or _SHA256_RE.fullmatch(transaction_id) is None
-            or item.get("transaction_ref")
-            != ".ppt-pilot/visual-generation-transactions/{}-{}.json".format(
-                slide_id,
-                transaction_id[len("sha256:") :],
-            )
-            or not isinstance(item.get("transaction_sha256"), str)
-            or _SHA256_RE.fullmatch(str(item.get("transaction_sha256"))) is None
-        ):
+        item_keys = set(item)
+        if item_keys == _LEGACY_MISSING_SLIDE_KEYS:
+            current_kind = "legacy"
+            slide_id = item.get("slide_id")
+            transaction_id = item.get("transaction_id")
+            if (
+                not isinstance(slide_id, str)
+                or _SLIDE_ID_RE.fullmatch(slide_id) is None
+                or item.get("reason") not in ("attempts_exhausted", "user_skipped")
+                or item.get("failure_reason") not in _PAGE_FAILURE_REASONS
+                or type(item.get("generation_attempt")) is not int
+                or not 0 <= int(item["generation_attempt"]) <= 10000
+                or (
+                    item.get("reason") == "attempts_exhausted"
+                    and int(item["generation_attempt"]) < 3
+                )
+                or not isinstance(transaction_id, str)
+                or _SHA256_RE.fullmatch(transaction_id) is None
+                or item.get("transaction_ref")
+                != ".ppt-pilot/visual-generation-transactions/{}-{}.json".format(
+                    slide_id,
+                    transaction_id[len("sha256:") :],
+                )
+                or not isinstance(item.get("transaction_sha256"), str)
+                or _SHA256_RE.fullmatch(str(item.get("transaction_sha256"))) is None
+            ):
+                return False
+        elif item_keys == _AI_STATE_MISSING_SLIDE_KEYS:
+            current_kind = "ai_state"
+            slide_id = item.get("slide_id")
+            evidence = item.get("evidence")
+            if (
+                not isinstance(slide_id, str)
+                or _SLIDE_ID_RE.fullmatch(slide_id) is None
+                or item.get("reason") not in ("failed", "skipped")
+                or item.get("evidence_type") != "ai_state"
+                or not isinstance(evidence, Mapping)
+            ):
+                return False
+            try:
+                json.dumps(evidence, ensure_ascii=False, sort_keys=True)
+            except (TypeError, ValueError):
+                return False
+            if item["reason"] == "failed":
+                if (
+                    type(evidence.get("attempts")) is not int
+                    or evidence["attempts"] < 0
+                    or not isinstance(evidence.get("failure_code"), str)
+                    or not evidence["failure_code"]
+                    or not isinstance(evidence.get("failure_message"), str)
+                    or not evidence["failure_message"]
+                ):
+                    return False
+            elif (
+                type(evidence.get("attempts")) is not int
+                or evidence["attempts"] < 0
+                or evidence.get("decision") != "user_skipped"
+                or not isinstance(evidence.get("answer"), str)
+                or not evidence["answer"]
+            ):
+                return False
+        else:
             return False
+        if omission_kind is not None and omission_kind != current_kind:
+            return False
+        omission_kind = current_kind
         missing_ids.append(slide_id)
 
     missing = tuple(missing_ids)

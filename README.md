@@ -1,78 +1,18 @@
 # 📊 PPT Pilot
 
-> 一句话版本：**你说一句话，它给你一套有据可依的幻灯片**——还能一键变成能直接打开的 PPT。🎯
+> 你说清目标，AI 把证据、叙事和设计整理成独立 SVG；需要时再转换为可编辑 PowerPoint。
 
----
+PPT Pilot 提供三个可安装 Skill：
 
-## 这是什么？
-
-PPT Pilot 是一个装进 **Claude Code / OpenAI Codex / DeepSeek Harness** 就能用的「幻灯片小助手」。
-
-它做的不是套模板，而是**先帮你把内容捋清楚**：主题是什么、每页讲什么、数字从哪来——全都有据可查；然后再按你选的风格，把它画成好看的 **16:9 SVG 独立页面**。
-
-三个技能，分工明确：
-
-| 技能 | 干什么 |
+| Skill | 用途 |
 |---|---|
-| `ppt-start` | 从主题 / 资料 / 既有运行，生成有证据支撑的 16:9 独立 SVG 演示 |
-| `ppt-editable` | 把已结算的完整或明确部分交付，变成**可编辑、能改字**的原生 PowerPoint |
-| `ppt-style-extract` | 从**模板 PPT / 参考图 / 风格 prompt** 提取风格，固化成你自己的 `ppt-start` 风格包 |
+| `ppt-start` | 从主题、资料或既有运行制作证据可追溯的 16:9 SVG 演示文稿 |
+| `ppt-editable` | 将 complete 或明确 partial 的 SVG 运行转换为原生可编辑 PowerPoint |
+| `ppt-style-extract` | 从模板 PPT、参考图或风格描述制作可复用 style pack |
 
-核心工作流由模型创作与固定运行时协作完成，不强制依赖 MCP 或 Hook；随包的实时观察面板使用 Python 3.9+ 本地服务，服务不可用时仍可继续原工作流。**可选网络**研究默认不启用，机密内容默认不出网。
+核心工作流由 AI 协调。`.ppt-pilot/run.json` 是跨回合状态证据，不是 Python 状态机；保留脚本只处理显式 SVG/PPTX 输入。脚本缺失、环境不兼容或内部失败不会锁死阶段、耗尽页面 attempts 或阻止独立页面继续。
 
-普通单页失败不再阻断其他独立页面；运行时保留失败证据、允许明确的部分交付，并严格区分“完整度”和“验证通过”。使用方法与兼容边界见[可继续推进的 PPT 工作流](docs/RESILIENT-WORKFLOW.md)。
-
----
-
-## ✨ 先看效果
-
-下面两套是**同一份已批准的故事板**，分别用两个内置风格包直接编译生成。图片来自真实运行，含客户名称与人名的页面已匿名或未收录。
-
-### 嘉为产品风格 `jiawei-product`
-
-<p align="center">
-  <img src="docs/assets/showcase/jiawei-s01-cover.svg" alt="嘉为产品风格 · 封面" width="32%">
-  <img src="docs/assets/showcase/jiawei-divider.svg" alt="嘉为产品风格 · 章节页" width="32%">
-  <img src="docs/assets/showcase/jiawei-modules.svg" alt="嘉为产品风格 · 架构分解页" width="32%">
-</p>
-<p align="center">
-  <img src="docs/assets/showcase/jiawei-roadmap.svg" alt="嘉为产品风格 · 里程碑页" width="32%">
-  <img src="docs/assets/showcase/jiawei-s09-content.svg" alt="嘉为产品风格 · 内容页" width="32%">
-  <img src="docs/assets/showcase/jiawei-s12-closing.svg" alt="嘉为产品风格 · 收尾页" width="32%">
-</p>
-
-### 嘉为年中总结风格 `canway-midyear-review`
-
-<p align="center">
-  <img src="docs/assets/showcase/canway-s01-cover.svg" alt="嘉为年中总结风格 · 封面" width="32%">
-  <img src="docs/assets/showcase/canway-divider.svg" alt="嘉为年中总结风格 · 章节页" width="32%">
-  <img src="docs/assets/showcase/canway-modules.svg" alt="嘉为年中总结风格 · 架构分解页" width="32%">
-</p>
-<p align="center">
-  <img src="docs/assets/showcase/canway-roadmap.svg" alt="嘉为年中总结风格 · 里程碑页" width="32%">
-  <img src="docs/assets/showcase/canway-s09-content.svg" alt="嘉为年中总结风格 · 内容页" width="32%">
-  <img src="docs/assets/showcase/canway-s12-closing.svg" alt="嘉为年中总结风格 · 收尾页" width="32%">
-</p>
-
-> 想自己生成同款？往下看三步就够了。👇
-
----
-
-## 🚀 三步上手
-
-### 第 1 步：装好技能
-
-技能启动标识：`ppt-start` 和 `ppt-editable`。代码在 **[github.com/yaowuya/ppt-pilot](https://github.com/yaowuya/ppt-pilot)**。
-
-**方式 A：让大模型自己装（最快）**
-
-直接对正在对话的 Agent 说一句，它会自己去下载并装好：
-
-> 请把 https://github.com/yaowuya/ppt-pilot 克隆到本机，然后按 README 运行 `tools/update-hosts.ps1` 更新当前宿主；Claude Code 还要安装随仓库提供的 `ppt-svg-generator` Agent。
-
-在 Claude Code、Codex、DeepSeek Harness 里分别说，就会分别装到各自宿主。
-
-**方式 B：自己从 GitHub 下载安装**
+## 安装
 
 ```bash
 git clone https://github.com/yaowuya/ppt-pilot.git
@@ -80,165 +20,144 @@ cd ppt-pilot
 powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
 ```
 
-一个脚本装好三个宿主（**DeepSeek Harness、Claude Code、Codex**），用过滤后的 staging/摘要做备份替换，并自动刷新所选项目中已经存在的 `.agents/skills`／`.claude/skills`；Claude project Skill 会与匹配 Agent 一起更新。额外项目用 `-ProjectRoot`，物理 Codex 插件副本用 `-CodexPluginRoot`，混合失败会明确返回非零 `PARTIAL_FAILURE`。只想装 DeepSeek，就跑 `tools/install-deepseek-plugin.ps1`，同时刷新已存在的共享用户级 PPT Skill；项目覆盖副本仍通过 `update-hosts.ps1 -ProjectRoot` 更新。SVG 生成直接使用当前宿主的普通 `functions.subagent`，不需要读取／修改 DSH 配置、profile patch 或重启 DSH。该路径是 fresh-context + 不调用工具的提示策略，不是硬工具隔离；调用与恢复见[DSH 协议](skills/ppt-start/references/deepseek-harness.md)。完整参数见[安装指南](docs/INSTALL.md)。
+更新器同步 `ppt-start`、`ppt-editable`、`ppt-style-extract` 到已选择的 Claude Code、Codex 和 DeepSeek Harness discovery scope；Claude Code 还会安装 `hosts/claude-code/agents/ppt-svg-generator.md`。新增／更新 Skill 或 Agent 后重新开启会话。
 
-Claude Code 的 SVG fresh-context 生成还需要仓库随附的 `hosts/claude-code/agents/ppt-svg-generator.md`；更新脚本会把它安装到 `~/.claude/agents/ppt-svg-generator.md`。它使用普通 fresh-context subagent 且不请求 worktree，所以 PPT 工作目录不需要 Git、首个提交或可解析的 `HEAD`。Claude Code 会自动加载 `CLAUDE.md` 与父会话 Git status；该 Agent 明确忽略这些 ambient host context，并且没有文件／网络数据工具，但这不等同于 byte-pure prompt-only。新增或更新 Agent 后，请重新开启 Claude Code 会话；只复制 `skills/ppt-start/` 不足以启用这条生成路径。
+只更新 DeepSeek 插件副本：
 
-执行过程可在[本地实时面板](docs/LIVE-DASHBOARD.md)查看阶段任务、待确认问题和自动刷新的 SVG 预览。更新后的 `ppt-start` 会在实际健康检查通过后给出浏览器地址；独立终端／普通宿主可执行 `py -3 skills/ppt-start/scripts/ppt_dashboard.py start --run-dir ppt-output/<deck-id> --open`，DeepSeek Harness 则由 coordinator 用宿主管理的后台作业运行 `serve` 并通过独立 `status` 再确认，避免回合结束后链接失效（Python 3.9+，无第三方依赖）。
+```bash
+powershell -ExecutionPolicy Bypass -File tools/install-deepseek-plugin.ps1
+```
 
-| 宿主 | 用户级安装 | 项目级安装 | 启动命令 |
-|---|---|---|---|
-| Claude Code | `~/.claude/skills/ppt-start/` | `.claude/skills/ppt-start/` | `/ppt-start` |
-| Codex | `$HOME/.agents/skills/ppt-start/` | `.agents/skills/ppt-start/` | `$ppt-start` |
-| DeepSeek Harness | `$HOME/.agents/plugins/plugins/ppt-pilot/` 或已有 `$HOME/.agents/skills/ppt-start/` | 已有 `.agents/skills/ppt-start/` | `ppt-start` |
+完整参数见 [安装指南](docs/INSTALL.md)。
 
-> 小提示：手动安装时，把**完整**的 `skills/ppt-start/` 和 `skills/ppt-editable/` 放进上表路径，别只拷一个文件。🎒
+## 开始
 
-### 第 2 步：只说一句话
+Claude Code：
 
 ```text
 /ppt-start
-请根据 inputs/ 中的资料制作一份 10 页中文策略演示文稿，使用 guided 模式。
+请根据 inputs/ 中的资料制作一份 10 页中文策略演示，guided 模式。
 ```
 
-执行策略怎么选：**未显式指定策略**时默认 `guided`——它在简报、大纲、锚点页会各问你一次，你点头才继续；`auto` 只有显式说了才用（跳过可选问题但质量门一个不少）。已经做完的运行支持 `resume`（接着跑）和 `revise`（定向改），不用重来；`resume` 会先读 `run.json.manuscript_review.latest_report` 等状态、保留既有执行策略，不重算已批准的上游。
-
-交互上它也很有分寸：先把请求和工作区看一遍，你答过的不重复问，剩下的**一次只**问一个关键问题，给出 2–4 个互斥选项、每项效果和推荐理由——但**推荐不是确认**，提问后一定停住，明确回答才推进下游。
-
-### 第 3 步：拿到文件，还能转 PPT
-
-运行完成后，`slides/` 里就是你的独立 SVG。想要**原生可编辑 PowerPoint**？技能会自动提示下一步，转一下输出到 `delivery/editable/<deck-id>-editable.pptx`。完整的手把手流程见[用户使用手册](docs/USER-GUIDE.md)。
-
----
-
-## 🔄 它会怎么做一份幻灯片
-
-PPT Pilot 的流程很像一位靠谱的同事：**先想清楚，再动手画**。
+Codex：
 
 ```text
-简报/研究 → 大纲+故事板 → 文稿审查（硬质量门）→ 主题/风格包选择
-  → 逐页生成 → 单页 QA + 整套 QA → complete
-  → （可选）ppt-editable 转原生可编辑 PPTX ／ deck-deliver 组装预览与交付
+$ppt-start
 ```
 
-一步步说人话：
+> 如果宿主使用的命令名不同，以实际安装后的 Skill discovery 为准；Skill 本身是宿主中立的。
 
-1. **简报 / 研究**：听懂你要什么；缺的资料，它会按需去研究、补全来源。
-2. **大纲 + 故事板**：先把每页一句话结论和排版逻辑排好——**批准大纲前，它绝不先画**。
-3. **文稿审查（硬质量门）**：把你前面的内容交出去做一遍严格审查；有 `HIGH`/`BLOCKER` 没解决，它宁可停下来问，也不将就着画。
-4. **主题 / 风格包**：内置两套；未指定风格且无已批准选择／工作区偏好时，默认 `jiawei-product`（嘉为产品）。`guided`／`auto` 的确认规则不变，品牌定制先生成派生风格包。
-5. **逐页生成**：一页一页画成独立 SVG，每页都有校验。
-6. **QA**：单页 + 整套检查通过，才宣告完成。
-7. **可转 PPT**：想要能改字的 PowerPoint？转一下就有了。
+执行策略：
 
-> 想看它内部怎么实现的（编译范式、并发协议、证据分级）？那部分属于开发者视角，见 [架构与工作原理](docs/ARCHITECTURE.md)。
+- `guided`（默认）：简报、大纲、锚点各需一次明确批准；
+- `auto`：必须显式指定，省略可选批准，但不省略权限问题和质量门；
+- `resume`：读取既有状态原位继续；
+- `revise`：只使受影响阶段／页面变脏，不重建运行。
 
----
+## 工作流
 
-## 📁 你会拿到什么？
+```text
+简报/研究 → 大纲/故事板 → 文稿审查 → 主题 → 锚点 → 正式页面 → QA
+                                                          ↓
+                                           complete | partial | failed
+```
 
-所有产物都在当前工作区的 `ppt-output/<deck-id>/` 下：
+1. **简报与研究**：明确受众、行动、证据和保密边界；
+2. **大纲与故事板**：冻结每页结论、精确文案、指标、限定、来源和布局意图；
+3. **文稿审查**：未解决的 `BLOCKER`／`HIGH` 阻止视觉生产；
+4. **主题与锚点**：选择已验证 style pack，用封面和最难内容页验证方向；
+5. **逐页生成**：把每页完整冻结 Prompt 按值交给 fresh-context generator；
+6. **QA**：结构、来源、视觉渲染和 Office 能力分别记录，不互相冒充；
+7. **交付**：全部页面 promoted 才是 complete；有成功页且其余有失败／skip 证据才是 partial。
+
+详情见 [可继续推进的工作流](docs/RESILIENT-WORKFLOW.md) 与 [架构](docs/ARCHITECTURE.md)。
+
+## 工具不会控制流程
+
+`ppt-start/scripts/` 只保留两项公开无状态工具：
+
+```bash
+python skills/ppt-start/scripts/svg_tool.py --help
+```
+
+```bash
+python skills/ppt-start/scripts/ppt_source_intake.py --help
+```
+
+工具结果：
+
+- `PASS`：操作成功；
+- `INVALID`：确定性证明该输入产物无效，只影响相应页面／产物；
+- `UNAVAILABLE`：工具自身不可用，AI 记录降级并直接检查，stage 和 attempts 不变。
+
+只有真实 generator 调用增加页面 attempts。工具不能读写 `run.json`、安排任务、重试或应用用户答案。
+
+## 运行产物
 
 ```text
 ppt-output/<deck-id>/
-├── 大纲.md          # 用户唯一需要亲自查看的内容，含每页排版逻辑
-├── slides/          # 最终独立 SVG 页面
-└── .ppt-pilot/      # 内部过程产物（用户无需查看）
+├── 大纲.md
+├── slides/S01.svg ...
+└── .ppt-pilot/
     ├── run.json
-    ├── 简报.md / 研究.md / 来源.md
-    ├── 故事板.md / 文稿审查.md
-    ├── theme.json / 质量检查报告.md
-    ├── generation-prompts/<slide-id>.md
-    ├── visual-generation-transactions/<slide-id>-<tx64>.json
-    ├── visual-generation-batches/<batch-id>.json
+    ├── 简报.md 研究.md 来源.md 故事板.md 文稿审查.md
+    ├── theme.json 质量检查报告.md
+    ├── generation-prompts/
     └── samples/
 ```
 
-状态以 `.ppt-pilot/run.json` 为准。`resume` 按 `pending_interaction` > `manuscript_review.pending_round` > `visual_generation_blocker` > schema-v1 `visual_generation_transaction` migration > `run.json.active_visual_generation_batch` > stage scan 的顺序恢复现场。这些文件也是**跨宿主交接接口**：换个宿主，凭这些文件就能接着 `resume`，不用你重讲一遍。
+状态恢复顺序是：`pending_interaction` → 共享一致性 → 最早未完成阶段／dirty 页面。旧 transaction/batch/dashboard 字段保留为历史证据，但不再执行。
 
----
+## 可编辑 PowerPoint
 
-## 🛡️ 一个硬规矩：文稿先审，再动手画
-
-`简报.md`、`研究.md`、`来源.md`、`大纲.md`、`故事板.md` 冻结后，**优先**委派全新的独立子 agent（只读审查这五份）；委派启动或归因失败时，就在当前步骤执行正式 `inline_fallback`，报告里必须声明是“**当前上下文降级审查，不具备独立上下文隔离**”。
-
-inline PASS 和独立审查用的是**同一道严格质量门**，都能进 `manuscript_approved`；只要有 `BLOCKER`／`HIGH` 没 `RESOLVED` 就阻断，`OPEN` 与阻断级的 `ACCEPTED_RISK` 也照样拦。subagent 和 inline 轮次都计入每个 cycle 三轮上限，只有冻结输入不可读这类极端情况，才用 legacy 兼容的 `review_unavailable`。
-
-改东西也得按规矩来：`patch` 修一个小缺陷，`recompose` 整页重做；一旦动到事实／来源／大纲／故事板，**必须重新审查**。
-
----
-
-## 🎁 做完之后怎么交付？
-
-- **只看 SVG / 预览**：直接用 `slides/`／实时面板，或显式用 `tools/deck-deliver.ps1 -RunDir <run> -SkipPptx` 生成 `preview.html` 联系表，不启动 Office；
-- **图片式 PPTX / Office PNG 导出**：运行完成且明确需要这种交付时，再使用 `tools/deck-deliver.ps1 -RunDir <run>`，可附加 `-ExportPng`；这条路径会调用 PowerPoint，不是仅预览命令；
-- **要原生可编辑 PowerPoint**：调用 `ppt-editable`，得到 `delivery/editable/<deck-id>-editable.pptx`——它自带结构/Office/视觉验证，结果状态清晰（`PASS`／`GENERATED_UNVERIFIED`／`BLOCKED`／`FAILED_VERIFICATION`），已验证的旧版**永不被**未验证构建覆盖。
-
-> 说实话，PPT Pilot **不保证**所有 Office 版本都能一致导入，也**不保证**转换后每个元素都**完全可编辑**——但能力到不到位，它都会如实地告诉你，绝不冒充验证通过。🙏
-
----
-
-## 🎨 把你的风格固化下来
-
-内置的两套风格不够用？让 `ppt-style-extract` 帮你**提取一套你自己的风格**。给三个输入之一，就能得到一个可复用的 `ppt-start` 风格包：
-
-| 你给什么 | 它会做什么 |
-|---|---|
-| 一个**模板 PPT**（.pptx） | 读主题/母版/形状，提取主色、字体、字号阶梯、圆角、间距、描边 |
-| 一张或几张**参考图**（SVG/PNG） | 对图取样主色与版式倾向 |
-| 一句**风格描述** | 映射成 token 与构图/禁用母题倾向 |
-
-它会产出 `manifest.json` + `tokens.json` + `STYLE.md` + `prompt.md`（与内置风格包同一套契约），并幂等注册进 `registry.json`。之后你在 `ppt-start` 里就能用这个风格 id 生成整套演示。
-
-打开方式在 `skills/ppt-style-extract/`（详细契约见[提取设计](docs/style-extract-design.md)）。
-
----
-
-## 📚 想深挖？文档在这里
-
-| 文档 | 内容 |
-|---|---|
-| [用户使用手册](docs/USER-GUIDE.md) | 从发起到拿到可编辑 PPT 的完整操作指引 |
-| [安装指南](docs/INSTALL.md) | 逐宿主复制/符号链接、DeepSeek 插件、一键更新 |
-| [架构与工作原理](docs/ARCHITECTURE.md) | 编译范式、质量门、并发协议、修订模型 |
-| [设计文档](docs/design.md) | 产品原则、共享 Skill 架构、验收标准 |
-| [验收台账](docs/acceptance.md) | 证据分级与人工验收记录 |
-| [提取设计](docs/style-extract-design.md) | 风格提取技能的契约与模块结构 |
-| [ppt-start 运行时契约](skills/ppt-start/SKILL.md) | 生成技能的入口契约 |
-| [ppt-editable 转换契约](skills/ppt-editable/SKILL.md) | 转换技能的入口契约 |
-
----
-
-## 🔧 给开发者的实现备注
-
-如果你要**改代码**，这条红线请先记住：
-
-> 内部 `SRC-<digits>` 只出现在 `data-source-id`／trace 机器元数据里，一旦跑进可见文字，`fact_source_mismatch` 直接硬失败；telemetry 只作诊断，`telemetry_diagnostic_failed` 不改任何正确性结论。🛑
-
-几个核心实现要点（想深挖请去 [架构与工作原理](docs/ARCHITECTURE.md)）：
-
-- **生成范式**：活动视觉路径是**故事板 + `theme.json` 直接编译**——把已批准叙事注入所选风格包的单一 `{{NARRATIVE}}` 注点，产出 `creative-brief-v1` Prompt。早期 `[[CANONICAL_NARRATIVE_BULLETS]]`／`[[STYLE_BASELINE]]` 双 marker 协议已废弃为迁移历史。
-- **并发批次**：无需用户选择，[自动策略](skills/ppt-start/references/adaptive-concurrency.md)的纯规划器目标为 5→10；当前固定运行时新批次上限仍为 5，不保证五个活动任务。只读 `ppt_concurrency.py` 按真实宿主容量、批次上限 `batch_width` 和在途任务规划补位，容量未知时为 1，受限时如实报告。以 pointer-last 顺序写 schema-v2 per-slide transactions、batch manifest 与 `run.json.active_visual_generation_batch`，用完整 `prompt_by_value` 派出 fresh-context generator（工具边界见[宿主适配器](skills/ppt-start/references/host-isolation-adapters.md)，DSH 是禁工具提示策略而非硬工具隔离；缺并发或 durable lookup 时 width 1，非 Git 不降级）；generation 与每页 validation 可**并发**，但 candidate/final、visible blocker 与 pointer 只由 coordinator 按 `ordered_slide_ids` **串行**提交。
-- **风格**：经 `assets/styles/registry.json` 发现，内置仅两套 style pack——`jiawei-product`（嘉为产品，manifest `1.1.0`，`default: true`）与 `canway-midyear-review`（嘉为年中总结风格，manifest `1.3.0`，`default: false`）。`minimal-business`、`tech-dark`、`bold-editorial` 已永久移除；显式请求或旧运行引用这些 ID 时返回 `style_not_registered`，须明确改选已注册风格，不静默替换为默认风格。
-
----
-
-## 🧪 想改代码？先跑测试
-
-聚焦命令：
+Finalized SVG 运行可调用 `ppt-editable`：
 
 ```bash
-python -m unittest tests.test_skill_package tests.test_redesign_prompt_contract -v
+python skills/ppt-editable/scripts/svg_to_editable_pptx.py --run-dir ppt-output/<deck-id> --json
 ```
 
-完整命令：
+- `PASS`：结构、Office 和视觉验证通过；
+- `GENERATED_UNVERIFIED`：已生成原生可编辑候选，但 Office/Pillow 未验证；
+- `BLOCKED`／`FAILED_VERIFICATION`：不发布新的权威 deck。
+
+AI-state complete/partial 直接从故事板和 `slides` 页面记录选择；不要求旧 transaction/batch。旧 explicit delivery 仍由独立 legacy adapter 严格验证。Editable 失败只影响这项可选交付，不反向改写 SVG 状态。
+
+仓库可选伴随工具 `tools/deck-deliver.ps1` 可以生成静态预览和图片式 PPTX；它不是 Skill 工作流 owner。它只增加精确的 companion 产物：`preview.html`、`delivery/delivery-result.json`、可选的 `delivery/<deck-id>.pptx` 与 `delivery/png/S<id>.png`，这些不改写 SVG 状态，也不会阻断后续 `ppt-editable`；其他运行目录代码／未知交付文件仍由 firewall 拒绝。
+
+## 风格
+
+内置：
+
+- `jiawei-product`（嘉为产品，默认）；
+- `canway-midyear-review`（嘉为年中总结风格）。
+
+自定义品牌使用 `ppt-style-extract` 创建新的 immutable style pack，不直接改写已注册 pack。
+
+## 机器来源 ID
+
+内部 `SRC-<digits>` 只允许出现在机器 metadata：`.ppt-pilot/来源.md`、冻结 source map、final SVG 的 `data-source-id` 或 PowerPoint trace metadata。它绝不出现在可见 SVG/PPT 文字。Generator 只接收临时 block ID，finalize 后移除 block ID 并加入机器 source ID。
+
+## 开发验证
+
+聚焦：
 
 ```bash
-python -m unittest discover -s tests -v
+python -B -m unittest tests.test_svg_tool tests.test_ai_workflow_contract tests.test_ppt_editable_orchestrator -v
 ```
 
-> 提醒一句：自动化测试只证明包结构、书面契约和 fixture oracle，**不能**证明真实宿主行为、浏览器渲染或 PowerPoint 导入；证据分级那些，看[验收文档](docs/acceptance.md)。
+完整：
 
----
+```bash
+python -B -m unittest discover -s tests -v
+```
 
-**PPT Pilot，让做 PPT 回归「想清楚」本身。** 祝你早下班。☕
+自动化测试证明静态契约和本地工具行为；真实宿主生成、浏览器渲染和 Office 导入必须有实际运行证据，不能用静态测试冒充。
+
+## 文档
+
+- [用户指南](docs/USER-GUIDE.md)
+- [安装指南](docs/INSTALL.md)
+- [架构](docs/ARCHITECTURE.md)
+- [设计原则](docs/design.md)
+- [验收边界](docs/acceptance.md)
+- [Style Extract 设计](docs/style-extract-design.md)

@@ -8,7 +8,7 @@ import unittest
 from types import MappingProxyType
 
 
-MODULE = Path(__file__).resolve().parents[1] / 'skills/ppt-start/scripts/_delivery_contract.py'
+MODULE = Path(__file__).resolve().parents[1] / 'skills/ppt-editable/scripts/_ppt_editable/delivery_contract.py'
 
 
 def digest(data):

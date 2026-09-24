@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = ROOT / "skills" / "ppt-start"
 sys.path.insert(0, str(SKILL_ROOT / "scripts"))
 
-from _svg_runtime import validate_candidate
+from _svg_runtime import finalize_candidate_svg
 
 
 class InstalledSvgTextRoleNormalizationRegressionTests(unittest.TestCase):
@@ -17,9 +17,8 @@ class InstalledSvgTextRoleNormalizationRegressionTests(unittest.TestCase):
 <g data-block-id=\"S01-B1\"><text x=\"64\" y=\"100\" data-role=\"body\" font-size=\"14\" font-family=\"Arial\"><tspan x=\"64\" y=\"100\">label</tspan></text></g>
 </svg>"""
 
-        result = validate_candidate(
+        result = finalize_candidate_svg(
             svg,
-            ["S01-B1"],
             {"S01-B1": ["SRC-001"]},
         ).decode("utf-8")
 
@@ -34,9 +33,8 @@ class InstalledSvgTextRoleNormalizationRegressionTests(unittest.TestCase):
 <g data-block-id=\"S01-B1\"><text x=\"64\" y=\"102\" data-role=\"title\" font-size=\"40\" font-family=\"Arial\"><tspan x=\"64\" y=\"102\">Title</tspan></text></g>
 </svg>"""
 
-        result = validate_candidate(
+        result = finalize_candidate_svg(
             svg,
-            ["S01-B1"],
             {"S01-B1": ["SRC-001"]},
         ).decode("utf-8")
 
@@ -51,9 +49,8 @@ class InstalledSvgTextRoleNormalizationRegressionTests(unittest.TestCase):
 </svg>"""
 
         with self.assertRaises(ValueError):
-            validate_candidate(
+            finalize_candidate_svg(
                 svg,
-                ["S01-B1"],
                 {"S01-B1": ["SRC-001"]},
             )
 

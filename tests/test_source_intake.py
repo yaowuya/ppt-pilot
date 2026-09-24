@@ -1,4 +1,6 @@
+import contextlib
 import hashlib
+import io
 import json
 import subprocess
 import sys
@@ -280,6 +282,75 @@ class SourceIntakeTests(unittest.TestCase):
                 _deck(source, **kwargs)
                 with self.subTest(name=name), self.assertRaisesRegex(ValueError, message):
                     extract_pptx(source)
+
+    def test_cli_reports_nonblocking_outcomes_and_preserves_existing_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            source = folder / "source.pptx"
+            output = folder / "inventory.json"
+            _deck(source)
+            command = [sys.executable, "-B", str(SCRIPTS / "ppt_source_intake.py"),
+                       "--source", str(source), "--output", str(output)]
+
+            completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(completed.stderr, "")
+            self.assertEqual(
+                json.loads(completed.stdout),
+                {"operation": "source-intake", "status": "PASS", "warnings": []},
+            )
+            self.assertEqual("pptx_source_inventory", json.loads(output.read_text("utf-8"))["kind"])
+            prior = output.read_bytes()
+
+            repeated = subprocess.run(command, capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(repeated.returncode, 3)
+            self.assertEqual(json.loads(repeated.stdout)["status"], "UNAVAILABLE")
+            self.assertEqual(output.read_bytes(), prior)
+
+            bad = folder / "bad.pptx"
+            bad.write_bytes(b"not a zip")
+            absent = folder / "absent.json"
+            failed = subprocess.run(
+                [*command[:3], "--source", str(bad), "--output", str(absent)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+            self.assertEqual(failed.returncode, 2)
+            self.assertEqual(json.loads(failed.stdout)["status"], "INVALID")
+            self.assertFalse(absent.exists())
+
+            missing = subprocess.run(
+                [*command[:3], "--source", str(folder / "missing.pptx"), "--output", str(absent)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+            self.assertEqual(missing.returncode, 3)
+            self.assertEqual(json.loads(missing.stdout)["status"], "UNAVAILABLE")
+
+    def test_cli_startup_and_argument_failures_stay_structured_unavailable(self):
+        import ppt_source_intake
+
+        stream = io.StringIO()
+        with patch.object(ppt_source_intake, "_RUNTIME_ERROR", RuntimeError("broken package")), contextlib.redirect_stdout(stream):
+            exit_code = ppt_source_intake.main(["--source", "source.pptx", "--output", "inventory.json"])
+        self.assertEqual(exit_code, 3)
+        self.assertEqual(json.loads(stream.getvalue()), {
+            "operation": "source-intake",
+            "reason": "tool_runtime_unavailable",
+            "status": "UNAVAILABLE",
+            "warnings": [],
+        })
+
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            exit_code = ppt_source_intake.main(["--source", "source.pptx"])
+        self.assertEqual(exit_code, 3)
+        payload = json.loads(stream.getvalue())
+        self.assertEqual(payload["operation"], "source-intake")
+        self.assertEqual(payload["status"], "UNAVAILABLE")
+        self.assertEqual(payload["reason"], "tool_invocation_invalid")
 
     def test_cli_validates_before_exclusive_output_and_never_overwrites(self):
         """Catches partial output on failure and accidental replacement of an existing file."""

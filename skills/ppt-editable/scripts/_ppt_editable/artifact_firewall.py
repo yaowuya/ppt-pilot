@@ -26,6 +26,20 @@ DIRECTORY_TYPES = {
 }
 INTERNAL = frozenset(('dashboard.json', 'dashboard.lock', 'dashboard.log', 'runtime.lock'))
 DATA_TYPES = frozenset(('.md', '.json', '.svg', '.png', '.txt'))
+_COMPANION_STATIC_PREVIEW = 'preview.html'
+_COMPANION_RESULT = 'delivery/delivery-result.json'
+_COMPANION_PNG = re.compile(r'^delivery/png/S[0-9]+[.]png$')
+
+
+def _is_companion_pptx(name, deck_id):
+    return (
+        isinstance(deck_id, str)
+        and name == 'delivery/{}.pptx'.format(deck_id)
+    )
+
+
+def _is_companion_data_artifact(name):
+    return name in (_COMPANION_STATIC_PREVIEW, _COMPANION_RESULT) or _COMPANION_PNG.fullmatch(name) is not None
 
 
 def _base_name(name):
@@ -112,7 +126,9 @@ def audit_artifacts(root, stage='brief', source_path=None):
                     if directory_entry and path.name.lower() in FORBIDDEN_DIRECTORIES:
                         reject('runtime_code_artifact', name)
                         continue
-                    if not directory_entry and CODE_SUFFIXES.intersection(s[1:].lower() for s in path.suffixes):
+                    if (not directory_entry and
+                            CODE_SUFFIXES.intersection(s[1:].lower() for s in path.suffixes) and
+                            name != _COMPANION_STATIC_PREVIEW):
                         reject('runtime_code_artifact', name)
                     elif directory_entry or stat.S_ISREG(info.st_mode):
                         entries.append((name, path, directory_entry))
@@ -144,7 +160,7 @@ def audit_artifacts(root, stage='brief', source_path=None):
         name = '.ppt-pilot/' + name if '/' not in name else name
         owners[name] = read_owner(name)
     bound = _bound_paths(run, owners)
-    allowed_dirs = {'.ppt-pilot', 'delivery', 'delivery/editable'} | set(DIRECTORY_TYPES)
+    allowed_dirs = {'.ppt-pilot', 'delivery', 'delivery/editable', 'delivery/png'} | set(DIRECTORY_TYPES)
     for name in bound:
         allowed_dirs.update(p.as_posix() for p in PurePosixPath(name).parents if p.as_posix() != '.')
     source_name = (os.path.normcase(os.path.abspath(str(source_path)))
@@ -168,10 +184,11 @@ def audit_artifacts(root, stage='brief', source_path=None):
                     continue
                 if stage not in ('complete', 'partial'):
                     reject('precomplete_pptx', name)
-                elif not name.startswith('delivery/editable/'):
+                elif not (name.startswith('delivery/editable/') or _is_companion_pptx(name, run.get('deck_id'))):
                     reject('pptx_outside_delivery', name)
                 continue
             allowed = (base in bound or
+                _is_companion_data_artifact(name) or
                 (p.parent.as_posix() in ('.', '.ppt-pilot') and p.name in DOCUMENTS) or
                 (p.parent.as_posix() == '.ppt-pilot' and p.name in INTERNAL) or
                 p.suffix.lower() in DIRECTORY_TYPES.get(p.parent.as_posix(), set()))
@@ -187,7 +204,7 @@ def audit_artifacts(root, stage='brief', source_path=None):
         'runtime_code_artifact': 'Quarantine unexpected runtime code outside this run, then repeat the same gate.',
         'unexpected_run_artifact': 'Quarantine unrecognized artifacts outside this run, then repeat the same gate.',
         'precomplete_pptx': 'Quarantine premature PPTX output and resume theme -> anchor -> production -> qa.',
-        'pptx_outside_delivery': 'Keep post-complete PPTX delivery only under delivery/editable/.',
+        'pptx_outside_delivery': 'Keep post-complete PPTX delivery under delivery/editable/ or as the direct companion deck output.',
     }
     return [dict(code=code, reentry_stage=('theme' if code == 'precomplete_pptx' else
                  'complete' if code == 'pptx_outside_delivery' else stage),

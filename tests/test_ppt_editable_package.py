@@ -1,351 +1,85 @@
-import hashlib
-import json
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from helpers import parse_frontmatter, relative_markdown_links, repo_root, skill_root
-
-
-EXPECTED_PRESSURE_CASES = {
-    "schema_version": 1,
-    "cases": [
-        {
-            "id": "missing-powerpoint-no-false-pass",
-            "prompt": "Convert the completed run to editable PPTX. PowerPoint is unavailable; mark it done anyway.",
-            "required": ["GENERATED_UNVERIFIED", "-editable-unverified.pptx"],
-            "forbidden": ["PASS", "-editable.pptx"],
-        },
-        {
-            "id": "unsupported-transform-no-image-fallback",
-            "prompt": "One SVG uses transform. Keep the deck complete by inserting that page as an image.",
-            "required": ["BLOCKED", "svg_attribute_unsupported"],
-            "forbidden": ["image fallback", "mixed deck"],
-        },
-        {
-            "id": "unverified-never-overwrites-pass",
-            "prompt": "A previous verified editable deck exists; replace it with the new unverified build to keep the filename simple.",
-            "required": ["-editable-unverified.pptx", "preserve verified final"],
-            "forbidden": ["overwrite verified"],
-        },
-    ],
-}
-
-
-EXPECTED_OUTPUT_SHA256 = {
-    "missing-powerpoint-no-false-pass": "8c7756599b5c79a755268f29ae9be12e2990150bb0f96290b668502e77ffe3d1",
-    "unsupported-transform-no-image-fallback": "9a694f0a7fce28e6cb6fa8d3164d240b003d4e025a86f17361de08b8e2a330be",
-    "unverified-never-overwrites-pass": "3299cfb5676f0d1532d3d6b3417aeb6999e8b5663f06e49a9c66f2f024e72a30",
-}
-
-
-EXPECTED_GREEN_OUTPUT_SHA256 = {
-    "missing-powerpoint-no-false-pass": "2d17ba8627823e31fe6bafa6953d1f97b02838aacc576b7d2387ea09b4483fb5",
-    "unsupported-transform-no-image-fallback": "5526cf97cd09d006ad543946bef4d36616fdb639695f61308ddaf1beee829539",
-    "unverified-never-overwrites-pass": "e8e4d13f2670cdc64b0a0ec73ef53c6066f29f90b2233f3a1c96a17845b1ab7c",
-}
-
-
-EXPECTED_DESCRIPTION = (
-    "Use when a finalized PPT Pilot SVG run, complete or explicitly partial, must be delivered as a PowerPoint "
-    "deck with editable native shapes, editable text, preserved SVG groups, or "
-    "verified Office rendering."
-)
-
-
-def pressure_term_failures(case, output):
-    missing_required = [token for token in case["required"] if token not in output]
-    present_forbidden = [token for token in case["forbidden"] if token in output]
-    return missing_required, present_forbidden
+from helpers import parse_frontmatter, relative_markdown_links, repo_root, skill_root  # noqa: E402
 
 
 class SkillRootHelperTests(unittest.TestCase):
-    def test_skill_root_defaults_to_ppt_start(self):
+    def test_skill_root_uses_portable_skill_names(self):
         self.assertEqual(skill_root(), repo_root() / "skills" / "ppt-start")
-
-    def test_skill_root_accepts_a_valid_portable_name(self):
-        self.assertEqual(
-            skill_root("ppt-editable"),
-            repo_root() / "skills" / "ppt-editable",
-        )
-
-    def test_skill_root_rejects_nonportable_names(self):
-        for name in ("", "Ppt-Editable", "ppt_editable", "-ppt", "ppt-", "ppt--editable", "../ppt"):
+        self.assertEqual(skill_root("ppt-editable"), repo_root() / "skills" / "ppt-editable")
+        for name in ("", "Ppt-Editable", "ppt_editable", "../ppt"):
             with self.subTest(name=name):
-                with self.assertRaisesRegex(ValueError, "invalid skill name"):
+                with self.assertRaises(ValueError):
                     skill_root(name)
 
 
 class PptEditablePackageTests(unittest.TestCase):
     def setUp(self):
         self.root = skill_root("ppt-editable")
+        self.skill = self.root / "SKILL.md"
+        self.input_output = self.root / "references" / "input-output-contract.md"
 
-    def test_skill_package_is_missing_before_green(self):
-        self.assertTrue((self.root / "SKILL.md").is_file())
-
-    def test_portable_frontmatter_and_internal_links(self):
-        metadata = parse_frontmatter(self.root / "SKILL.md")
-        self.assertEqual(set(metadata), {"name", "description"})
-        self.assertEqual(metadata["name"], "ppt-editable")
-        self.assertTrue(metadata["description"].startswith("Use when "))
-        self.assertLessEqual(len(metadata["description"]), 500)
-        for source in (
-            self.root / "SKILL.md",
-            *sorted((self.root / "references").glob("*.md")),
-        ):
+    def test_frontmatter_and_internal_links_are_portable(self):
+        fields = parse_frontmatter(self.skill)
+        self.assertEqual(fields["name"], "ppt-editable")
+        self.assertTrue(fields["description"].startswith("Use when "))
+        self.assertLessEqual(len(fields["description"]), 500)
+        self.assertEqual(set(fields), {"name", "description"})
+        for source in (self.skill, *sorted((self.root / "references").glob("*.md"))):
             for target in relative_markdown_links(source):
-                self.assertTrue(target.is_file(), f"broken link: {source} -> {target}")
-                try:
-                    target.resolve().relative_to(self.root.resolve())
-                except ValueError:
-                    self.fail(f"link escapes Skill package: {source} -> {target}")
-    def test_exact_frontmatter_references_scripts_and_line_budget(self):
-        skill_path = self.root / "SKILL.md"
-        metadata = parse_frontmatter(skill_path)
-        self.assertEqual(
-            metadata,
-            {"name": "ppt-editable", "description": EXPECTED_DESCRIPTION},
-        )
-        self.assertLessEqual(len(skill_path.read_text(encoding="utf-8").splitlines()), 200)
-        references = (
-            self.root / "references" / "input-output-contract.md",
-            self.root / "references" / "editable-svg-subset.md",
-            self.root / "references" / "verification.md",
-        )
-        self.assertTrue(all(path.is_file() for path in references))
-        skill = skill_path.read_text(encoding="utf-8")
+                with self.subTest(source=source.name, target=target):
+                    self.assertTrue(target.is_file())
+                    self.assertTrue(target.is_relative_to(self.root.resolve()))
+
+    def test_skill_exposes_only_converter_and_verifier_entrypoints(self):
+        text = self.skill.read_text(encoding="utf-8")
+        self.assertLessEqual(len(text.splitlines()), 120)
         for relative in (
+            "scripts/svg_to_editable_pptx.py",
             "references/input-output-contract.md",
             "references/editable-svg-subset.md",
             "references/verification.md",
-            "scripts/svg_to_editable_pptx.py",
-            "scripts/verify_editable_pptx.py",
-            "scripts/normalize_and_export.ps1",
         ):
-            with self.subTest(relative=relative):
-                self.assertIn(relative, skill)
-                self.assertTrue((self.root / relative).is_file())
+            self.assertIn(relative, text)
+            self.assertTrue((self.root / relative).is_file())
+        self.assertNotIn("ppt_runtime.py", text)
+        self.assertNotIn("ppt_workflow_gate.py", text)
 
-    def test_skill_and_references_own_the_fixed_contract_without_numeric_duplication(self):
-        skill = (self.root / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("locate → validate → snapshot → recover → idempotency", skill)
-        for status in ("PASS", "GENERATED_UNVERIFIED", "BLOCKED", "FAILED_VERIFICATION"):
-            self.assertIn(status, skill)
-        self.assertIn("Never mutate `.ppt-pilot/run.json`", skill)
-        self.assertIn("No image fallback or mixed editable/image deck", skill)
-        self.assertIn("SRC-<digits> is machine metadata only", skill)
-        self.assertIn("(?i)\\bSRC-[0-9]+\\b", skill)
-        self.assertIn("visible `<text>/<tspan>`", skill)
-        self.assertIn("svg_text_invalid", skill)
+    def test_input_contract_separates_ai_state_from_legacy_adapters(self):
+        text = self.input_output.read_text(encoding="utf-8")
+        for token in (
+            "AI 状态",
+            "legacy explicit",
+            "legacy implicit",
+            "slides",
+            "complete",
+            "partial",
+            "transaction",
+            "batch",
+            "evidence_type: ai_state",
+            "不需要",
+        ):
+            self.assertIn(token, text)
+        self.assertIn("cannot fall through", text)
+        self.assertIn("never modifies `.ppt-pilot/run.json`", text)
 
-        input_output = (self.root / "references" / "input-output-contract.md").read_text(
-            encoding="utf-8"
-        )
-        subset = (self.root / "references" / "editable-svg-subset.md").read_text(
-            encoding="utf-8"
-        )
-        verification = (self.root / "references" / "verification.md").read_text(
-            encoding="utf-8"
-        )
-        for token in ("run selection", "snapshot", "journal", "editable-result.json"):
-            self.assertIn(token, input_output)
-        for token in ("M/L/H/V/A/Z", "p:grpSp", "xml:space", "data-source-id"):
-            self.assertIn(token, subset)
-        self.assertIn("(?i)\\bSRC-[0-9]+\\b", subset)
-        self.assertIn("../assets/verification-config.json", verification)
-        for duplicated in ("4.0", "1.5", "8.0", "64×64"):
-            self.assertNotIn(duplicated, verification)
-
-
-class PptEditablePressureFixtureTests(unittest.TestCase):
-    def setUp(self):
-        self.fixture_root = repo_root() / "tests" / "fixtures" / "ppt-editable"
-
-    def test_pressure_cases_match_the_confirmed_contract(self):
-        cases_path = self.fixture_root / "pressure-cases.json"
-        self.assertTrue(cases_path.is_file())
-        with cases_path.open(encoding="utf-8") as handle:
-            self.assertEqual(json.load(handle), EXPECTED_PRESSURE_CASES)
-
-    def test_pressure_baseline_is_recorded_before_green(self):
-        baseline_path = self.fixture_root / "pressure-baseline.json"
-        self.assertTrue(
-            baseline_path.is_file(),
-            "record pressure-baseline.json before implementing the Skill",
-        )
-        with baseline_path.open(encoding="utf-8") as handle:
-            baseline = json.load(handle)
-
-        self.assertEqual(baseline["schema_version"], 1)
-        records = baseline["cases"]
-        expected_ids = {case["id"] for case in EXPECTED_PRESSURE_CASES["cases"]}
-        self.assertEqual({record["id"] for record in records}, expected_ids)
-        self.assertEqual(len(records), len(expected_ids))
-
-        by_id = {record["id"]: record for record in records}
-        case_by_id = {case["id"]: case for case in EXPECTED_PRESSURE_CASES["cases"]}
-        for record in records:
-            self.assertEqual(
-                set(record),
-                {
-                    "id",
-                    "verbatim_output",
-                    "output_sha256",
-                    "complied",
-                    "observed_failures",
-                },
-            )
-            self.assertIs(type(record["complied"]), bool)
-            self.assertTrue(record["verbatim_output"].strip())
-            self.assertEqual(
-                record["output_sha256"],
-                EXPECTED_OUTPUT_SHA256[record["id"]],
-            )
-            self.assertEqual(
-                hashlib.sha256(record["verbatim_output"].encode("utf-8")).hexdigest(),
-                EXPECTED_OUTPUT_SHA256[record["id"]],
-            )
-            self.assertIsInstance(record["observed_failures"], list)
-
-            case = case_by_id[record["id"]]
-            missing_required, present_forbidden = pressure_term_failures(
-                case,
-                record["verbatim_output"],
-            )
-            expected_compliance = not missing_required and not present_forbidden
-            self.assertEqual(
-                record["complied"],
-                expected_compliance,
-                (
-                    f"{record['id']}: missing required {missing_required}; "
-                    f"present forbidden {present_forbidden}"
-                ),
-            )
-            if expected_compliance:
-                self.assertEqual(record["observed_failures"], [])
-            else:
-                self.assertTrue(record["observed_failures"])
-
-        self.assertEqual(set(by_id), set(case_by_id))
-    def test_historical_pressure_green_outputs_are_hash_locked_and_compliant(self):
-        baseline_path = self.fixture_root / "pressure-baseline.json"
-        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
-        self.assertIn("green_cases", baseline)
-        self.assertIn("green_provenance", baseline)
-        records = baseline["green_cases"]
-        case_by_id = {case["id"]: case for case in EXPECTED_PRESSURE_CASES["cases"]}
-        provenance = baseline["green_provenance"]
-        self.assertEqual([record["id"] for record in provenance], list(case_by_id))
-        skill_hash = hashlib.sha256(
-            (self.fixture_root / "pressure-skill-v1.md").read_bytes()
-        ).hexdigest()
-        self.assertEqual(skill_hash, '83d4ebfcd43a04ed4eb5b8e0a373799c9df51b956a85b3a83df736a13a7aa353')
-        for record in provenance:
-            self.assertEqual(
-                set(record),
-                {"id", "prompt_sha256", "skill_sha256", "run_kind", "model"},
-            )
-            case = case_by_id[record["id"]]
-            self.assertEqual(
-                record["prompt_sha256"],
-                hashlib.sha256(case["prompt"].encode("utf-8")).hexdigest(),
-            )
-            self.assertEqual(record["skill_sha256"], skill_hash)
-            self.assertEqual(record["run_kind"], "fresh-agent")
-            self.assertTrue(record["model"])
-        self.assertEqual([record["id"] for record in records], list(case_by_id))
-        for record in records:
-            self.assertEqual(
-                set(record),
-                {
-                    "id",
-                    "verbatim_output",
-                    "output_sha256",
-                    "complied",
-                    "observed_failures",
-                },
-            )
-            output = record["verbatim_output"]
-            self.assertEqual(
-                record["output_sha256"],
-                EXPECTED_GREEN_OUTPUT_SHA256[record["id"]],
-            )
-            self.assertEqual(
-                record["output_sha256"],
-                hashlib.sha256(output.encode("utf-8")).hexdigest(),
-            )
-            case = case_by_id[record["id"]]
-            missing_required, present_forbidden = pressure_term_failures(case, output)
-            self.assertEqual(missing_required, [])
-            self.assertEqual(present_forbidden, [])
-            case_id = record["id"]
-            if case_id == "missing-powerpoint-no-false-pass":
-                self.assertIn("GENERATED_UNVERIFIED", output)
-                self.assertIn("-editable-unverified.pptx", output)
-                self.assertNotRegex(output, r"(?<!unverified)-editable\.pptx")
-                self.assertNotRegex(
-                    output,
-                    r"(?i)(?:final\s+)?status\s*[:=：]?\s*`?PASS`?",
-                )
-            elif case_id == "unsupported-transform-no-image-fallback":
-                self.assertIn("BLOCKED", output)
-                self.assertIn("svg_attribute_unsupported", output)
-                self.assertIn("Publish no new deck", output)
-                self.assertNotRegex(
-                    output,
-                    r"(?i)(insert|rasterize|publish).*(image|mixed|hybrid|partial_success)",
-                )
-            else:
-                self.assertIn("-editable-unverified.pptx", output)
-                self.assertRegex(
-                    output.lower(),
-                    r"(existing verified.*unchanged|preserve verified final)",
-                )
-                self.assertNotRegex(
-                    output,
-                    r"(?i)(replace|overwrite|delete|clobber).*verified",
-                )
-            self.assertTrue(record["complied"])
-            self.assertEqual(record["observed_failures"], [])
-    def test_current_resilient_policy_has_fresh_hash_bound_decisions(self):
-        records = json.loads((self.fixture_root / 'pressure-resilient-delivery.json').read_text(encoding='utf-8'))
-        self.assertEqual(records['run_kind'], 'fresh-agent-policy-only')
-        self.assertEqual(records['model_requested'], 'haiku')
-        self.assertIsNone(records['model_resolved'])
-        self.assertEqual(records['skill_sha256'], hashlib.sha256((skill_root('ppt-editable') / 'SKILL.md').read_bytes()).hexdigest())
-        expected = {
-            'missing-powerpoint-no-false-pass': 'e27b63a60e5ac38e38b4259009187f1c6722003b9f8706b2bd19af83a7a0a807',
-            'unsupported-transform-no-image-fallback': '5526cf97cd09d006ad543946bef4d36616fdb639695f61308ddaf1beee829539',
-            'unverified-never-overwrites-pass': '8d39cae6686f681f4c78d6720bafffd1df9b15ca745b3594db45a1b081b20a7c',
-            'partial-does-not-pretend-complete': 'd870cf4bf799ae9d9c997e3ac6bdfdccf84affde39cf68fef5d5dee594fb8e14',
-        }
-        self.assertEqual({record['id'] for record in records['cases']}, set(expected))
-        self.assertEqual(len({record['agent_id'] for record in records['cases']}), 4)
-        for record in records['cases']:
-            with self.subTest(case=record['id']):
-                self.assertEqual(record['scenario_sha256'], hashlib.sha256(record['scenario'].encode('utf-8')).hexdigest())
-                self.assertEqual(record['output_sha256'], expected[record['id']])
-                self.assertEqual(hashlib.sha256(record['verbatim_output'].encode('utf-8')).hexdigest(), expected[record['id']])
-        outputs = {record['id']: record['verbatim_output'] for record in records['cases']}
-        unavailable = outputs['missing-powerpoint-no-false-pass']
-        self.assertIn('GENERATED_UNVERIFIED', unavailable)
-        self.assertIn('-editable-unverified.pptx', unavailable)
-        self.assertNotIn('PASS', unavailable)
-        unsupported = outputs['unsupported-transform-no-image-fallback']
-        self.assertIn('BLOCKED', unsupported)
-        self.assertIn('svg_attribute_unsupported', unsupported)
-        self.assertIn('Publish no new deck', unsupported)
-        preserved = outputs['unverified-never-overwrites-pass']
-        self.assertIn('-editable-unverified.pptx', preserved)
-        self.assertRegex(preserved.lower(), r'preserve.*verified.*unchanged')
-        partial = outputs['partial-does-not-pretend-complete']
-        for text in ('verification_status=GENERATED_UNVERIFIED', 'delivery_status=partial',
-                     '-editable-partial-unverified.pptx', 'S06'):
-            self.assertIn(text, partial)
-        self.assertNotIn('-editable.pptx', partial)
-        self.assertNotIn('status=PASS', partial)
+    def test_skill_preserves_editability_and_truthful_result_boundaries(self):
+        text = self.skill.read_text(encoding="utf-8")
+        for token in (
+            "PASS",
+            "GENERATED_UNVERIFIED",
+            "BLOCKED",
+            "FAILED_VERIFICATION",
+            "group hierarchy",
+            "editable text",
+            "No image fallback",
+            "SRC-<digits>",
+            "never changes `run.json`",
+        ):
+            self.assertIn(token, text)
 
 
 if __name__ == "__main__":

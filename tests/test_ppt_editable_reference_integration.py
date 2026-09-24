@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import unicodedata
 import unittest
 import zipfile
 
@@ -30,17 +31,20 @@ from _ppt_editable.svg_parser import preflight_deck  # noqa: E402
 
 REFERENCE_RUN = os.environ.get("PPT_EDITABLE_REFERENCE_RUN")
 CONFIG_PATH = REPO_ROOT / "skills" / "ppt-editable" / "assets" / "verification-config.json"
-VISIBLE_SOURCE_ID = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
+VISIBLE_SOURCE_ID = re.compile(r"SRC-[0-9]+", re.IGNORECASE)
+VISIBLE_BLOCK_ID = re.compile(r"S[0-9]+-B[1-9][0-9]*", re.IGNORECASE)
 P_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
 A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
 
 
 def _visible_svg_text(path: Path) -> str:
     root = ET.parse(path).getroot()
-    return " ".join(
-        "".join(node.itertext())
+    return "".join(
+        character
         for node in root.iter()
         if isinstance(node.tag, str) and node.tag.rsplit("}", 1)[-1] == "text"
+        for character in "".join(node.itertext())
+        if not character.isspace() and unicodedata.category(character) != "Cf"
     )
 
 
@@ -91,9 +95,15 @@ class ReferenceIntegrationTests(unittest.TestCase):
         )
 
         visible_violations = {
-            source.slide_id: VISIBLE_SOURCE_ID.findall(_visible_svg_text(source.path))
+            source.slide_id: [
+                *VISIBLE_SOURCE_ID.findall(_visible_svg_text(source.path)),
+                *VISIBLE_BLOCK_ID.findall(_visible_svg_text(source.path)),
+            ]
             for source in sources
-            if VISIBLE_SOURCE_ID.search(_visible_svg_text(source.path))
+            if (
+                VISIBLE_SOURCE_ID.search(_visible_svg_text(source.path))
+                or VISIBLE_BLOCK_ID.search(_visible_svg_text(source.path))
+            )
         }
         self.assertEqual(
             visible_violations,

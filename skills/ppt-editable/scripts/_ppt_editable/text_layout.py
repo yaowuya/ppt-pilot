@@ -13,7 +13,8 @@ from .errors import EditableError
 from .model import Bounds, ResolvedStyle, TextLine, TextRun
 
 
-_VISIBLE_INTERNAL_SOURCE_ID_RE = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
+_VISIBLE_INTERNAL_SOURCE_ID_RE = re.compile(r"SRC-[0-9]+", re.IGNORECASE)
+_VISIBLE_TRANSIENT_BLOCK_ID_RE = re.compile(r"S[0-9]+-B[1-9][0-9]*", re.IGNORECASE)
 POWERPOINT_TEXT_BASELINE_OFFSET_PX = 2.0
 
 
@@ -330,9 +331,17 @@ def flatten_text_lines(
         if not runs:
             continue
         visible_text = "".join(run.text for run in runs)
-        if _VISIBLE_INTERNAL_SOURCE_ID_RE.search(visible_text):
+        compact_visible_text = "".join(
+            character
+            for character in visible_text
+            if not character.isspace() and unicodedata.category(character) != "Cf"
+        )
+        if (
+            _VISIBLE_INTERNAL_SOURCE_ID_RE.search(compact_visible_text)
+            or _VISIBLE_TRANSIENT_BLOCK_ID_RE.search(compact_visible_text)
+        ):
             raise _text_error(
-                "internal SRC identifiers are machine metadata only",
+                "internal source and block identifiers are machine metadata only",
                 tree_path,
             )
         try:

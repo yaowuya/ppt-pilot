@@ -4,7 +4,6 @@ param(
     [string]$CodexSkillsRoot = '', [string]$CodexPluginRoot = '', [string[]]$ProjectRoot = @(),
     [string]$RepoRoot = '', [string]$Version = '', [switch]$SkipDeepSeek,
     [switch]$SkipClaudeCode, [switch]$SkipCodex, [switch]$ProjectClaude, [switch]$ProjectCodex,
-    [switch]$PreserveExistingClaudeAgents,
     [Parameter(DontShow)][switch]$SkipRepoProject
 )
 $ErrorActionPreference = 'Stop'
@@ -18,13 +17,11 @@ $skills = @(
     [ordered]@{ Id = 'ppt-style-extract'; Source = Join-Path $RepoRoot 'skills\ppt-style-extract' }
 )
 $agentSource = Join-Path $RepoRoot 'hosts\claude-code\agents\ppt-svg-generator.md'
-$sdkAgentSource = Join-Path $RepoRoot 'hosts\claude-code\agents\ppt-svg-generator-sdk.md'
 foreach ($skill in $skills) {
     if (-not (Test-Path -LiteralPath (Join-Path $skill.Source 'SKILL.md') -PathType Leaf)) { throw "Incomplete source Skill: $($skill.Source)" }
 }
 if (-not (Test-Path -LiteralPath $agentSource -PathType Leaf)) { throw "Missing Claude Agent: $agentSource" }
 $updated = New-Object Collections.Generic.List[string]
-$preserved = New-Object Collections.Generic.List[string]
 $rolledBack = New-Object Collections.Generic.List[string]
 $failed = New-Object Collections.Generic.List[string]
 
@@ -41,7 +38,7 @@ function Install-SkillsRoot {
     $allSucceeded = $true
     foreach ($skill in $skills) {
         $destination = Join-Path $SkillsRoot $skill.Id
-        if ($updated -contains ([IO.Path]::GetFullPath($destination))) { continue }
+        $existed = Test-Path -LiteralPath $destination
         try {
             $result = Install-PptPilotTree $skill.Source $destination $backupRoot $skill.Id $timestamp
             [void]$updated.Add($result.Path)
@@ -58,23 +55,29 @@ function Install-SkillsRoot {
 function Install-ClaudeAgent {
     param([string]$AgentsRoot, [string]$Label)
     $destination = Join-Path $AgentsRoot 'ppt-svg-generator.md'
-    if ($PreserveExistingClaudeAgents -and (Test-Path -LiteralPath $destination -PathType Leaf)) {
-        [void]$preserved.Add([IO.Path]::GetFullPath($destination))
-        Write-Host "preserved scope=$Label path=$destination"
-        return $true
-    }
+    $retired = Join-Path $AgentsRoot 'ppt-svg-generator-sdk.md'
     $backupRoot = Join-Path (Split-Path -Parent $AgentsRoot) 'agent-backups'
     $backup = $null
+    $retiredBackup = $null
     $destinationExisted = Test-Path -LiteralPath $destination
+    $retiredExisted = Test-Path -LiteralPath $retired
     $backupMoved = $false
+    $retiredMoved = $false
     $newCopied = $false
     try {
         New-Item -ItemType Directory -Force -Path $AgentsRoot | Out-Null
-        if (Test-Path -LiteralPath $destination) {
+        if ($destinationExisted -or $retiredExisted) {
             New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
+        }
+        if ($destinationExisted) {
             $backup = Join-Path $backupRoot ("ppt-svg-generator.bak-$timestamp-" + [guid]::NewGuid().ToString('N') + '.md')
             Move-Item -LiteralPath $destination -Destination $backup
             $backupMoved = $true
+        }
+        if ($retiredExisted) {
+            $retiredBackup = Join-Path $backupRoot ("ppt-svg-generator-sdk.bak-$timestamp-" + [guid]::NewGuid().ToString('N') + '.md')
+            Move-Item -LiteralPath $retired -Destination $retiredBackup
+            $retiredMoved = $true
         }
         $newCopied = $true
         Copy-Item -LiteralPath $agentSource -Destination $destination -Force
@@ -87,72 +90,44 @@ function Install-ClaudeAgent {
     catch {
         if ($newCopied -and (Test-Path -LiteralPath $destination)) { Remove-Item -LiteralPath $destination -Force }
         if ($backupMoved -and (Test-Path -LiteralPath $backup)) { Move-Item -LiteralPath $backup -Destination $destination }
+        if ($retiredMoved -and (Test-Path -LiteralPath $retiredBackup)) { Move-Item -LiteralPath $retiredBackup -Destination $retired }
         [void]$failed.Add("$([IO.Path]::GetFullPath($destination)) :: $($_.Exception.Message)")
-        if ($destinationExisted -and (Test-Path -LiteralPath $destination)) { [void]$rolledBack.Add([IO.Path]::GetFullPath($destination)) }
+        if (($destinationExisted -and (Test-Path -LiteralPath $destination)) -or ($retiredExisted -and (Test-Path -LiteralPath $retired))) {
+            [void]$rolledBack.Add([IO.Path]::GetFullPath($AgentsRoot))
+        }
         return $false
     }
 }
 
-function Install-ClaudeSdkAgent {
-    param([string]$AgentsRoot, [string]$Label)
-    $destination = Join-Path $AgentsRoot 'ppt-svg-generator-sdk.md'
-    if ($PreserveExistingClaudeAgents -and (Test-Path -LiteralPath $destination -PathType Leaf)) {
-        [void]$preserved.Add([IO.Path]::GetFullPath($destination))
-        Write-Host "preserved scope=$Label path=$destination"
-        return $true
-    }
+function Trim-ClaudeAgentBackups {
+    param([string]$AgentsRoot)
     $backupRoot = Join-Path (Split-Path -Parent $AgentsRoot) 'agent-backups'
-    $backup = $null
-    $destinationExisted = Test-Path -LiteralPath $destination
-    $backupMoved = $false
-    $newCopied = $false
-    try {
-        New-Item -ItemType Directory -Force -Path $AgentsRoot | Out-Null
-        if (Test-Path -LiteralPath $destination) {
-            New-Item -ItemType Directory -Force -Path $backupRoot | Out-Null
-            $backup = Join-Path $backupRoot ("ppt-svg-generator-sdk.bak-$timestamp-" + [guid]::NewGuid().ToString('N') + '.md')
-            Move-Item -LiteralPath $destination -Destination $backup
-            $backupMoved = $true
-        }
-        $newCopied = $true
-        Copy-Item -LiteralPath $sdkAgentSource -Destination $destination -Force
-        $digest = Get-PptPilotFileSha256 $destination
-        if ($digest -ne (Get-PptPilotFileSha256 $sdkAgentSource)) { throw 'SDK Agent installed digest mismatch' }
-        [void]$updated.Add([IO.Path]::GetFullPath($destination))
-        Write-Host ("installed scope={0} version={1} path={2} files=1 digest={3}" -f $Label, $reportedVersion, [IO.Path]::GetFullPath($destination), $digest)
-        return $true
+    if (-not (Test-Path -LiteralPath $backupRoot -PathType Container)) { return }
+    foreach ($old in @(Get-ChildItem -LiteralPath $backupRoot -File -Filter 'ppt-svg-generator.bak-*.md' | Sort-Object LastWriteTimeUtc, Name -Descending | Select-Object -Skip 1)) {
+        Remove-Item -LiteralPath $old.FullName -Force
     }
-    catch {
-        if ($newCopied -and (Test-Path -LiteralPath $destination)) { Remove-Item -LiteralPath $destination -Force }
-        if ($backupMoved -and (Test-Path -LiteralPath $backup)) { Move-Item -LiteralPath $backup -Destination $destination }
-        [void]$failed.Add("$([IO.Path]::GetFullPath($destination)) :: $($_.Exception.Message)")
-        if ($destinationExisted -and (Test-Path -LiteralPath $destination)) { [void]$rolledBack.Add([IO.Path]::GetFullPath($destination)) }
-        return $false
+    foreach ($retired in @(Get-ChildItem -LiteralPath $backupRoot -File -Filter 'ppt-svg-generator-sdk.bak-*.md')) {
+        Remove-Item -LiteralPath $retired.FullName -Force
+    }
+    if (@(Get-ChildItem -LiteralPath $backupRoot -Force).Count -eq 0) {
+        Remove-Item -LiteralPath $backupRoot -Force
     }
 }
 
 function Install-ClaudePairedScope {
     param([string]$SkillsRoot, [string]$AgentsRoot, [string]$Label)
-    if (-not (Test-Path -LiteralPath $sdkAgentSource -PathType Leaf)) { throw "Missing Claude Agent: $sdkAgentSource" }
     try { Assert-NoShadowingSkills $SkillsRoot }
     catch { [void]$failed.Add("$([IO.Path]::GetFullPath($SkillsRoot)) :: $($_.Exception.Message)"); return }
     $snapshot = Join-Path ([IO.Path]::GetTempPath()) ('ppt-claude-scope-' + [guid]::NewGuid().ToString('N'))
     $agentDestination = Join-Path $AgentsRoot 'ppt-svg-generator.md'
-    $sdkAgentDestination = Join-Path $AgentsRoot 'ppt-svg-generator-sdk.md'
-    if ($PreserveExistingClaudeAgents) {
-        foreach ($path in @($agentDestination, $sdkAgentDestination)) {
-            if ((Test-Path -LiteralPath $path) -and -not (Test-Path -LiteralPath $path -PathType Leaf)) {
-                throw "Existing Agent is not a regular file: $path"
-            }
-        }
-        if ((Test-Path -LiteralPath $sdkAgentDestination -PathType Leaf) -and
-            (Get-PptPilotFileSha256 $sdkAgentDestination) -ne (Get-PptPilotFileSha256 $sdkAgentSource)) {
-            throw 'Preserved SDK Agent differs from source; reconcile its registered version before updating Skills.'
-        }
-    }
+    $retiredAgentDestination = Join-Path $AgentsRoot 'ppt-svg-generator-sdk.md'
+    $agentBackupRoot = Join-Path (Split-Path -Parent $AgentsRoot) 'agent-backups'
+    $skillBackupRoot = Join-Path (Split-Path -Parent $SkillsRoot) 'skill-backups'
     $targets = @(
         [pscustomobject]@{ Path = $agentDestination; Snapshot = Join-Path $snapshot 'agent.md'; IsDirectory = $false },
-        [pscustomobject]@{ Path = $sdkAgentDestination; Snapshot = Join-Path $snapshot 'sdk-agent.md'; IsDirectory = $false }
+        [pscustomobject]@{ Path = $retiredAgentDestination; Snapshot = Join-Path $snapshot 'retired-agent.md'; IsDirectory = $false },
+        [pscustomobject]@{ Path = $agentBackupRoot; Snapshot = Join-Path $snapshot 'agent-backups'; IsDirectory = $true },
+        [pscustomobject]@{ Path = $skillBackupRoot; Snapshot = Join-Path $snapshot 'skill-backups'; IsDirectory = $true }
     )
     foreach ($skill in $skills) {
         $targets += [pscustomobject]@{ Path = Join-Path $SkillsRoot $skill.Id; Snapshot = Join-Path $snapshot $skill.Id; IsDirectory = $true }
@@ -166,13 +141,11 @@ function Install-ClaudePairedScope {
                 else { Copy-Item -LiteralPath $target.Path -Destination $target.Snapshot -Force }
             }
         }
-        $legacyAgentSucceeded = Install-ClaudeAgent $AgentsRoot "$Label-agent"
-        $sdkAgentSucceeded = $false
-        if ($legacyAgentSucceeded) {
-            $sdkAgentSucceeded = Install-ClaudeSdkAgent $AgentsRoot "$Label-sdk-agent"
-        }
-        if ($legacyAgentSucceeded -and $sdkAgentSucceeded) {
-            [void](Install-SkillsRoot $SkillsRoot $Label)
+        if (-not (Install-ClaudeAgent $AgentsRoot "$Label-agent")) { return }
+        [void](Install-SkillsRoot $SkillsRoot $Label)
+        if ($failed.Count -eq $failedBefore) {
+            try { Trim-ClaudeAgentBackups $AgentsRoot }
+            catch { [void]$failed.Add("$([IO.Path]::GetFullPath($AgentsRoot)) :: $($_.Exception.Message)") }
         }
         if ($failed.Count -eq $failedBefore) { return }
         foreach ($target in $targets) {
@@ -192,8 +165,6 @@ function Install-ClaudePairedScope {
 if (-not $SkipDeepSeek) {
     Invoke-Scope 'deepseek-plugin' {
         $arguments = @{ RepoRoot = $RepoRoot }
-        # This updater owns shared roots, including SkipCodex and explicit-root selection.
-        $arguments.SkipSharedSkills = $true
         if ($MarketplaceRoot) { $arguments.MarketplaceRoot = $MarketplaceRoot }
         if ($Version) { $arguments.Version = $Version }
         & (Join-Path $PSScriptRoot 'install-deepseek-plugin.ps1') @arguments
@@ -231,7 +202,6 @@ foreach ($project in $projects) {
     }
     catch { $failed.Add("project:$project :: $($_.Exception.Message)") }
 }
-if ($preserved.Count -gt 0) { Write-Host ('preserved: ' + ($preserved -join '; ')) }
 if ($failed.Count -gt 0) {
     Write-Host 'PARTIAL_FAILURE'; Write-Host ('updated: ' + ($updated -join '; '))
     Write-Host ('rolled_back: ' + ($rolledBack -join '; ')); Write-Host ('failed: ' + ($failed -join '; ')); exit 2

@@ -802,7 +802,11 @@ class TextLayoutTests(unittest.TestCase):
         self.assertTrue(module._VISIBLE_INTERNAL_SOURCE_ID_RE.flags & re.IGNORECASE)
         self.assertEqual(
             module._VISIBLE_INTERNAL_SOURCE_ID_RE.pattern,
-            r"\bSRC-[0-9]+\b",
+            r"SRC-[0-9]+",
+        )
+        self.assertEqual(
+            module._VISIBLE_TRANSIENT_BLOCK_ID_RE.pattern,
+            r"S[0-9]+-B[1-9][0-9]*",
         )
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -813,6 +817,10 @@ class TextLayoutTests(unittest.TestCase):
             "SRC-005",
             "src-006",
             "SrC-007",
+            "xSRC-008y",
+            "来源SRC-009编号",
+            "S01-B1",
+            "S02- B2",
         ):
             path.write_text(
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">'

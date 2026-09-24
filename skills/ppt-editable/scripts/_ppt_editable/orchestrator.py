@@ -39,6 +39,7 @@ from .contract import (
 )
 from .errors import EditableError
 from .model import (
+    AIStateMissingSlide,
     DeckPlan,
     EditableResult,
     Failure,
@@ -130,7 +131,26 @@ def editable_result_dict(result: EditableResult) -> Mapping[str, object]:
     return value
 
 
-def _committed_result(paths, snapshot_id: str) -> Optional[EditableResult]:
+def _missing_slide_from_manifest(item):
+    if not isinstance(item, Mapping):
+        raise EditableError("promotion_conflict", "editable result omission is malformed")
+    legacy = {
+        "slide_id", "reason", "failure_reason", "generation_attempt",
+        "transaction_id", "transaction_ref", "transaction_sha256",
+    }
+    ai_state = {"slide_id", "reason", "evidence_type", "evidence"}
+    if set(item) == legacy:
+        return MissingSlide(**item)
+    if set(item) == ai_state:
+        return AIStateMissingSlide(**item)
+    raise EditableError("promotion_conflict", "editable result omission has unknown shape")
+
+
+def _committed_result(
+    paths,
+    snapshot_id: str,
+    delivery: Optional[DeliverySelection],
+) -> Optional[EditableResult]:
     exists = os.path.lexists(str(paths.manifest_path))
     manifest = _read_json(paths.manifest_path)
     if not exists:
@@ -147,7 +167,7 @@ def _committed_result(paths, snapshot_id: str) -> Optional[EditableResult]:
     if manifest.get("input_snapshot_id") != snapshot_id:
         return None
     raw_missing = manifest.get("missing_slides", ())
-    return EditableResult(
+    result = EditableResult(
         status=str(manifest["status"]),
         deck_id=str(manifest["deck_id"]),
         input_snapshot_id=str(manifest["input_snapshot_id"]),
@@ -168,8 +188,33 @@ def _committed_result(paths, snapshot_id: str) -> Optional[EditableResult]:
         ),
         target_slide_ids=tuple(manifest.get("target_slide_ids", ())),
         delivered_slide_ids=tuple(manifest.get("delivered_slide_ids", ())),
-        missing_slides=tuple(MissingSlide(**item) for item in raw_missing),
+        missing_slides=tuple(_missing_slide_from_manifest(item) for item in raw_missing),
     )
+    explicit = delivery is not None and delivery.explicit
+    if explicit:
+        if (
+            result.delivery_status != delivery.status
+            or result.delivery_policy != delivery.policy
+            or result.target_slide_ids != delivery.target_slide_ids
+            or result.delivered_slide_ids != delivery.delivered_slide_ids
+            or result.missing_slides != delivery.missing_slides
+        ):
+            raise EditableError(
+                "promotion_conflict",
+                "committed editable inventory differs from current delivery",
+            )
+    elif (
+        result.delivery_status is not None
+        or result.delivery_policy is not None
+        or result.target_slide_ids
+        or result.delivered_slide_ids
+        or result.missing_slides
+    ):
+        raise EditableError(
+            "promotion_conflict",
+            "implicit delivery cannot reuse an explicit editable inventory",
+        )
+    return result
 
 
 def _build_presentation_bytes(deck_plan: DeckPlan, *, include_text: bool = True) -> bytes:
@@ -467,7 +512,7 @@ def generate_editable(
             context,
             complete_storyboard,
             delivery.delivered_slide_ids,
-            require_production=delivery.explicit,
+            require_production=delivery.explicit or delivery.requires_production,
         )
         config_path = Path(__file__).resolve().parents[2] / "assets" / "verification-config.json"
         config_bytes = config_path.read_bytes()
@@ -536,7 +581,7 @@ def generate_editable(
                     ),
                     delivery=delivery,
                 )
-            committed = _committed_result(paths, snapshot_id)
+            committed = _committed_result(paths, snapshot_id, delivery)
             ready_for_verified = capability.office_available and capability.pillow_available
             if committed is not None:
                 if committed.status == "PASS":
