@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Optional, Sequence
 
 from .contract import (
+    DeliverySelection,
     RunContext,
     SlideSource,
     StoryboardSlide,
@@ -34,6 +35,18 @@ def sha256_file(path: Path) -> str:
     return "sha256:" + digest.hexdigest()
 
 
+def _canonical_json_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise ValueError("delivery record keys must be strings")
+        return {key: _canonical_json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_canonical_json_value(item) for item in value]
+    if value is None or type(value) in (bool, int, float, str):
+        return value
+    raise ValueError("delivery record contains a non-JSON value")
+
+
 def canonical_snapshot_payload(
     context: RunContext,
     sources: Sequence[SlideSource],
@@ -41,6 +54,7 @@ def canonical_snapshot_payload(
     converter_version: str,
     subset_contract_version: str,
     verification_config_bytes: bytes,
+    delivery: Optional[DeliverySelection] = None,
 ) -> bytes:
     if not isinstance(converter_version, str) or not converter_version:
         raise ValueError("converter_version must be nonempty")
@@ -55,6 +69,31 @@ def canonical_snapshot_payload(
         slide.slide_id for slide in storyboard
     ):
         raise EditableError("slide_set_invalid", "source order differs from storyboard")
+    delivery_payload = None
+    if delivery is not None:
+        if not isinstance(delivery, DeliverySelection):
+            raise TypeError("delivery must be a DeliverySelection")
+        if delivery.explicit:
+            record = delivery.record
+            if (
+                not isinstance(record, Mapping)
+                or tuple(record.get("target_slide_ids", ()))
+                != delivery.target_slide_ids
+                or tuple(record.get("delivered_slide_ids", ()))
+                != delivery.delivered_slide_ids
+                or tuple(source.slide_id for source in sources)
+                != delivery.delivered_slide_ids
+            ):
+                raise EditableError(
+                    "slide_set_invalid",
+                    "delivery record differs from selected input",
+                )
+            delivery_payload = _canonical_json_value(record)
+        elif delivery.record is not None:
+            raise EditableError(
+                "slide_set_invalid",
+                "implicit delivery cannot carry an explicit record",
+            )
 
     slide_payload = []
     for source in sources:
@@ -118,6 +157,8 @@ def canonical_snapshot_payload(
         "verification_config_sha256": sha256_bytes(verification_config_bytes),
         "slides": slide_payload,
     }
+    if delivery_payload is not None:
+        payload["delivery"] = delivery_payload
     return json.dumps(
         payload,
         ensure_ascii=False,

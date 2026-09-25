@@ -108,6 +108,31 @@ class CandidateValidationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     validate_candidate(candidate, ("S01-B1",), {"S01-B1": ["SRC-1"]})
 
+    def test_visible_identifier_fragments_across_text_nodes_fail_closed(self):
+        from _svg_runtime import validate_candidate, validate_final_svg
+
+        def split_svg(first, second):
+            return (
+                '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" '
+                'viewBox="0 0 1280 720"><title>Growth</title><desc>Revenue rose</desc>'
+                '<g data-block-id="S01-B1">'
+                '<text x="400" y="300" text-anchor="end" font-size="20" '
+                'font-family="Arial" data-role="body"><tspan x="400" y="300">'
+                + first + '</tspan></text>'
+                '<text x="400" y="300" text-anchor="start" font-size="20" '
+                'font-family="Arial" data-role="body"><tspan x="400" y="300">'
+                + second + '</tspan></text></g></svg>'
+            )
+
+        for first, second in (("SRC-", "001"), ("S01-", "B1"), ("SR", "C-" + chr(0x200B) + "001")):
+            with self.subTest(first=first, second=second):
+                candidate = split_svg(first, second)
+                with self.assertRaises(ValueError):
+                    validate_candidate(candidate, ("S01-B1",), {"S01-B1": []})
+                final = candidate.replace('<g data-block-id="S01-B1">', "").replace("</g></svg>", "</svg>")
+                with self.assertRaises(ValueError):
+                    validate_final_svg(final)
+
     def test_exact_fence_extraction(self):
         from _svg_runtime import extract_svg
         self.assertEqual(extract_svg('```xml\n' + VALID_SVG + '\n```'), VALID_SVG)
@@ -118,34 +143,23 @@ class CandidateValidationTests(unittest.TestCase):
 
 
 class InstalledRuntimeTests(unittest.TestCase):
-    def test_installed_modules_compile_and_reject_invalid_source_blocks(self):
+    def test_installed_svg_runtime_finalizes_valid_source_blocks_without_tests_imports(self):
         skills = Path(__file__).resolve().parents[1] / "skills"
         with tempfile.TemporaryDirectory() as directory:
             installed = Path(directory) / "skills"
-            for name in ("ppt-start", "ppt-style-extract"):
-                shutil.copytree(skills / name, installed / name,
-                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            shutil.copytree(
+                skills / "ppt-start",
+                installed / "ppt-start",
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            )
             code = '''
 import sys
 sys.path.insert(0, sys.argv[1])
-import types
-poison = types.ModuleType("_style_extract.verify")
-def forbidden(*args, **kwargs):
-    raise AssertionError("ambient verifier was imported")
-poison.verify_prompt = forbidden
-sys.modules["_style_extract.verify"] = poison
-from _prompt_runtime import compile_style_prompt, _style_template_bytes
-from _generation_runtime import validate_v2_transaction
-from _svg_runtime import enrich_candidate_source_metadata
-body = compile_style_prompt(b"- block_id: S01-B1\\n- Revenue grew\\n", _style_template_bytes("canway-midyear-review"))
-assert b"Revenue grew" in body and b"{{NARRATIVE}}" not in body
-for svg in ('<svg><g data-block-id="S01-B1"/><g data-block-id="S01-B1"/></svg>', '<svg><g data-block-id="S01-B2"/></svg>'):
-    try:
-        enrich_candidate_source_metadata(svg, {"S01-B1": ["SRC-1"]})
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("invalid semantic block accepted")
+from _svg_runtime import finalize_candidate_svg
+svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><title>Growth</title><desc>Revenue rose</desc><g id="s01-claim" data-block-id="S01-B1"><text id="s01-title" x="100" y="120" font-size="40" font-family="Arial" data-role="title"><tspan x="100" y="120">Growth</tspan></text></g></svg>'
+result = finalize_candidate_svg(svg, {"S01-B1": ["SRC-1"]})
+assert b'data-source-id="SRC-1"' in result
+assert b'data-block-id' not in result
 assert not any(name == "helpers" or name.startswith("tests.") for name in sys.modules)
 '''
             result = subprocess.run(

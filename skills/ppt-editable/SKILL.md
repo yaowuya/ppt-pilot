@@ -1,87 +1,56 @@
 ---
 name: ppt-editable
-description: Use when a completed PPT Pilot SVG run must be delivered as a PowerPoint deck with editable native shapes, editable text, preserved SVG groups, or verified Office rendering.
+description: Use when a finalized complete or partial PPT Pilot SVG run must be converted to an editable PowerPoint with native shapes, editable text, and honest Office verification.
 ---
 
 # PPT Editable
 
-Convert one completed PPT Pilot run into a recursively grouped, natively editable PowerPoint deck. Preserve the previous verified final until a new verified promotion commits.
+Convert one finalized PPT Pilot run into a recursively grouped, natively editable PowerPoint deck. This is optional post-processing: it never repairs, advances, or reopens `ppt-start` state.
 
-Before consuming prior run artifacts, run the installed `ppt-start/scripts/ppt_workflow_gate.py --run-dir <run> --audit-run` common read-only audit and stop on `BLOCKED`. Consume only contract-validated data files: never execute, import, dynamically load, or pass a run file to an interpreter; never install dependencies or create helper scripts below the run. Owner recovery belongs to the fixed `ppt-start` runtime CLI, not manual repair.
-
-## Required references
-
-Read these before running the converter:
+## Read first
 
 - [Input/output and state contract](references/input-output-contract.md)
 - [Editable SVG subset](references/editable-svg-subset.md)
 - [Verification gates](references/verification.md)
 
-## Fixed phase order
-
-`locate → validate → snapshot → recover → idempotency → dependencies → preflight → build → structural verify → capability → Office → visual compare → promotion → result`
-
-Do not reorder these phases. Complete-deck SVG preflight finishes before any candidate bytes are written.
-
 ## Run
 
-Resolve paths relative to this installed Skill, not the repository or current directory.
+Resolve paths from this installed Skill:
 
 ```bash
-python scripts/svg_to_editable_pptx.py --run-dir <completed-run> --json
+python scripts/svg_to_editable_pptx.py --run-dir <final-run> --json
 ```
 
-Use `--skip-office` only to force degraded capability. The packaged verifier is:
+Use `--skip-office` only when Office is unavailable/disallowed or the user explicitly accepts degraded verification. It can produce `GENERATED_UNVERIFIED`, never `PASS`.
 
-```bash
-python scripts/verify_editable_pptx.py --candidate <pptx> --run-dir <completed-run> --input-snapshot-id <sha256:id> --config assets/verification-config.json --report <report.json>
-```
+The converter selects exactly one input adapter:
 
-The Office adapter is `scripts/normalize_and_export.ps1`; call it only through the packaged Python protocol.
+- new AI-state complete/partial from storyboard + `slides` records;
+- legacy explicit evidence-bound delivery;
+- legacy implicit complete.
 
-## Result states
+It converts only the selected promoted/delivered production pages in storyboard order. A malformed route fails closed; adapters never fall through into a looser route.
 
-- `PASS`: every structural, Office, and visual gate passed. Publish only `<deck-id>-editable.pptx`.
-- `GENERATED_UNVERIFIED`: native candidate passed pre-Office checks, but Office or Pillow capability is unavailable. Publish only `<deck-id>-editable-unverified.pptx`.
-- `BLOCKED`: input, dependency, SVG subset, candidate-write, lock, or recovery contract failed. Publish no new deck.
-- `FAILED_VERIFICATION`: a built candidate failed structural, Office, normalized, or visual verification. Publish no new deck and retain evidence.
+## Fixed conversion order
 
-`editable-result.json` is the commit record. File existence never authorizes adoption.
+`locate → select adapter → validate → snapshot → recover editable output → idempotency → dependencies → SVG preflight → build → structural verify → Office capability → Office normalize/render → visual compare → promote → result`
 
-## Non-negotiable behavior
+Every selected SVG completes preflight before candidate publication. The converter writes only below `delivery/editable/` and never changes `run.json`, attempts, omissions, or source SVGs.
 
-- Accept only one completed PPT Pilot run with the exact storyboard page set.
-- Production `slides/<slide-id>.svg` wins; approved `samples/` anchors are fallback only.
-- Every production SVG group becomes one nested PowerPoint group.
-- Every visual text line becomes one editable text box.
+## Outcomes
+
+- `PASS`: structural, Office and visual gates passed;
+- `GENERATED_UNVERIFIED`: native candidate passed pre-Office checks, but Office/Pillow did not run;
+- `BLOCKED`: input/dependency/path/SVG/lock/recovery contract prevented a build;
+- `FAILED_VERIFICATION`: a candidate was built but failed structural, Office or visual verification.
+
+Report `delivery_status` separately. Partial output uses the `-editable-partial` namespace and never overwrites complete output. An unverified refresh never replaces a previously verified deck.
+
+## Non-negotiable
+
+- Preserve SVG group hierarchy as PowerPoint groups and visible text as editable text boxes.
 - No image fallback or mixed editable/image deck.
-- Never auto-install dependencies.
-- Never terminate a pre-existing PowerPoint process.
-- Always `preserve verified final`; never replace it with an unverified build.
-- Never mutate `.ppt-pilot/run.json`.
-- Write only inside the selected run's `delivery/editable/`.
-
-## Machine-only source IDs
-
-`SRC-<digits> is machine metadata only`.
-
-- Keep IDs in `data-source-id`, source mappings, verification evidence, and `p:cNvPr/@descr` trace metadata.
-- Reject any visible `<text>/<tspan>` matching `(?i)\bSRC-[0-9]+\b` as `svg_text_invalid` and return `BLOCKED`.
-- Human-readable source names or URLs may be visible when explicitly requested, but must omit internal IDs.
-- Never delete offending text after generation; block and fix the source SVG.
-
-## Pressure decisions
-
-When a request conflicts with this contract, return the matching decision without repeating or endorsing the forbidden action:
-
-- PowerPoint unavailable after pre-Office checks: `GENERATED_UNVERIFIED — publish <deck-id>-editable-unverified.pptx.`
-- Unsupported SVG transform or feature: `BLOCKED — svg_attribute_unsupported — Publish no new deck.`
-- New unverified build when a verified output exists: `Publish <deck-id>-editable-unverified.pptx; preserve verified final unchanged.`
-
-## Capability behavior
-
-Missing PowerPoint or Pillow can never produce `PASS`. A later run with capability may resume a coherent same-snapshot unverified result and promote it only after all gates pass.
-
-## Safety
-
-Reject unsafe paths, symlinks, junctions, reparse points, special files, external SVG references, unsupported CSS/features, malformed paths, and nonzero arc rotation. Recovery is journaled and manifest-last; ambiguous evidence is quarantined.
+- Internal `SRC-<digits>` stays only in machine trace metadata; visible occurrences are `BLOCKED`.
+- Never auto-install dependencies or terminate a pre-existing PowerPoint process.
+- Missing Office/Pillow never produces PASS and never downgrades valid SVG completeness.
+- File existence alone is not authority; snapshot, journal and commit record must agree.

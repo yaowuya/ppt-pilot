@@ -21,6 +21,7 @@ CONFIG_PATH = SKILL_ROOT / "assets" / "verification-config.json"
 sys.path.insert(0, str(SCRIPTS_ROOT))
 
 from _ppt_editable import (  # noqa: E402
+    AIStateMissingSlide,
     Bounds,
     DeckPlan,
     EditableError,
@@ -164,6 +165,7 @@ class FoundationTests(unittest.TestCase):
 
     def test_all_foundation_models_are_frozen_dataclasses(self):
         model_types = (
+            AIStateMissingSlide,
             Failure,
             Bounds,
             ResolvedStyle,
@@ -308,6 +310,136 @@ class RunContractTests(unittest.TestCase):
         (root / "slides" / "S02.svg").write_text(svg, encoding="utf-8")
         return root
 
+    def _write_partial_run(self, root):
+        root = self._write_run(root, stage="partial")
+        control = root / ".ppt-pilot"
+        storyboard = control / "故事板.md"
+        theme = control / "theme.json"
+        quality = control / "质量检查报告.md"
+        theme.write_text('{"name":"partial-test"}\n', encoding="utf-8")
+        shutil.copy2(root / "samples" / "S01.svg", root / "slides" / "S01.svg")
+
+        transaction_id = "sha256:" + "a" * 64
+        transaction_ref = (
+            ".ppt-pilot/visual-generation-transactions/S02-" + "a" * 64 + ".json"
+        )
+        transaction = {
+            "schema_version": 2,
+            "kind": "visual_generation_transaction",
+            "batch_id": "batch-partial-test",
+            "slide_id": "S02",
+            "transaction_id": transaction_id,
+            "state": "failed",
+            "failure_reason": "svg_contract_failed",
+            "generation_attempt": 3,
+        }
+        transaction_bytes = json.dumps(
+            transaction,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        transaction_path = root.joinpath(*Path(transaction_ref).parts)
+        transaction_path.parent.mkdir(parents=True)
+        transaction_path.write_bytes(transaction_bytes)
+        batch_path = control / "visual-generation-batches" / "batch-partial-test.json"
+        batch_path.parent.mkdir(parents=True)
+        batch_path.write_text(
+            json.dumps(
+                {
+                    "batch_id": "batch-partial-test",
+                    "state": "partial",
+                    "ordered_slide_ids": ["S01", "S02"],
+                    "transaction_refs": ["unused", transaction_ref],
+                    "omitted_transaction_refs": [transaction_ref],
+                    "omitted_transaction_sha256": {
+                        transaction_ref: "sha256:"
+                        + hashlib.sha256(transaction_bytes).hexdigest()
+                    },
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            encoding="utf-8",
+        )
+
+        digest = lambda data: "sha256:" + hashlib.sha256(data).hexdigest()
+        run_path = control / "run.json"
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        run.update(
+            production_policy="best_effort",
+            dirty_slides=["S02"],
+            manuscript_review={'required': True, 'state': 'manuscript_approved', 'status': 'PASSED',
+                               'open_blocking_findings': []},
+            delivery={
+                "schema_version": 1,
+                "status": "partial",
+                "policy": "best_effort",
+                "target_slide_ids": ["S01", "S02"],
+                "delivered_slide_ids": ["S01"],
+                "missing_slides": [
+                    {
+                        "slide_id": "S02",
+                        "reason": "attempts_exhausted",
+                        "failure_reason": "svg_contract_failed",
+                        "generation_attempt": 3,
+                        "transaction_id": transaction_id,
+                        "transaction_ref": transaction_ref,
+                        "transaction_sha256": digest(transaction_bytes),
+                    }
+                ],
+                "storyboard_sha256": digest(storyboard.read_bytes()),
+                "theme_sha256": digest(theme.read_bytes()),
+                "quality_report_sha256": digest(quality.read_bytes()),
+                "slide_sha256": {
+                    "S01": digest((root / "slides" / "S01.svg").read_bytes())
+                },
+            },
+        )
+        run_path.write_text(json.dumps(run, ensure_ascii=False), encoding="utf-8")
+        return root
+
+    def _write_ai_state_partial_run(self, root):
+        root = self._write_run(root, stage="partial", deck_id="ai-state-partial")
+        shutil.copy2(root / "samples" / "S01.svg", root / "slides" / "S01.svg")
+        run_path = root / ".ppt-pilot" / "run.json"
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        run.update(
+            manuscript_review={
+                "required": True,
+                "state": "manuscript_approved",
+                "status": "PASSED",
+                "open_blocking_findings": [],
+                "pending_round": None,
+            },
+            slides={
+                "S01": {
+                    "state": "promoted",
+                    "attempts": 1,
+                    "svg": "slides/S01.svg",
+                    "failure": None,
+                    "qa": {"structure": "pass", "tool": "pass"},
+                },
+                "S02": {
+                    "state": "skipped",
+                    "attempts": 2,
+                    "svg": None,
+                    "failure": {"code": "generator_unavailable", "message": "host unavailable"},
+                    "skip": {"decision": "user_skipped", "answer": "skip S02"},
+                    "qa": {"structure": "not_run", "tool": "unavailable"},
+                },
+            },
+            delivery={"status": "partial"},
+        )
+        run_path.write_text(json.dumps(run, ensure_ascii=False), encoding="utf-8")
+        (root / ".ppt-pilot" / "theme.json").write_text('{"name":"ai-state"}\n', encoding="utf-8")
+        (root / ".ppt-pilot" / "质量检查报告.md").write_text(
+            "# QA\n\n```ppt-pilot-qa-json\n"
+            '{"schema_version":1,"status":"partial","target_slide_ids":["S01","S02"],"promoted_slide_ids":["S01"],"missing_slide_ids":["S02"]}'
+            "\n```\n",
+            encoding="utf-8",
+        )
+        return root
+
     def _temp_root(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -333,6 +465,133 @@ class RunContractTests(unittest.TestCase):
         )
         self.assertEqual(
             contract.locate_run(None, temp, output_root), unique.resolve()
+        )
+
+    def test_structured_storyboard_parser_binds_runtime_inventory_without_rewriting_it(self):
+        contract = self._contract()
+        path = self._temp_root() / 'storyboard.md'
+        owner = {'slides': [{'slide_id': 'S01', 'assertion_title': 'First', 'audience_takeaway': 'Know', 'next_link': 'Next'},
+                            {'slide_id': 'S03', 'assertion_title': 'Third'}]}
+        text = '# Storyboard\n\n```ppt-pilot-json\n' + json.dumps(owner) + '\n```\n'
+        path.write_text(text, encoding='utf-8')
+        parsed = contract.parse_storyboard(path)
+        self.assertEqual([s.slide_id for s in parsed], ['S01', 'S03'])
+        self.assertEqual(parsed[0].next_link, 'Next')
+        self.assertEqual(path.read_text(encoding='utf-8'), text)
+        for bad in ({'slides': list(reversed(owner['slides']))}, {'slides': [owner['slides'][0]] * 2},
+                    {'schema_version': True, **owner}, {'slides': [{'slide_id': 'S01', 'next_link': {}}]}):
+            with self.subTest(bad=bad):
+                path.write_text('```ppt-pilot-json\n' + json.dumps(bad) + '\n```\n', encoding='utf-8')
+                with self.assertRaises(EditableError):
+                    contract.parse_storyboard(path)
+        for malformed in (text + '\n## S99\n', text + text, '```ppt-pilot-json\n{"slides": [], "slides": []}\n```\n'):
+            path.write_text(malformed, encoding='utf-8')
+            with self.assertRaises(EditableError):
+                contract.parse_storyboard(path)
+
+    def test_ai_state_final_requires_qa_partition_record(self):
+        contract = self._contract()
+        run = self._write_ai_state_partial_run(self._temp_root() / "ai-qa")
+        (run / ".ppt-pilot" / "质量检查报告.md").write_text("# PASS\n", encoding="utf-8")
+        context = contract.validate_final_run(run)
+        with self.assertRaises(EditableError) as raised:
+            contract.validate_delivery_selection(context, contract.parse_storyboard(context.storyboard_path))
+        self.assertEqual(raised.exception.code, "run_not_complete")
+
+    def test_ai_state_inventory_without_delivery_does_not_fall_back_to_legacy_complete(self):
+        contract = self._contract()
+        run = self._write_ai_state_partial_run(self._temp_root() / "ai-missing-delivery")
+        run_path = run / ".ppt-pilot" / "run.json"
+        value = json.loads(run_path.read_text(encoding="utf-8"))
+        value["stage"] = "complete"
+        del value["delivery"]
+        run_path.write_text(json.dumps(value), encoding="utf-8")
+
+        context = contract.validate_final_run(run)
+        with self.assertRaises(ValueError):
+            contract.validate_delivery_selection(context, contract.parse_storyboard(context.storyboard_path))
+
+    def test_ai_state_complete_and_partial_must_match_final_page_partition(self):
+        contract = self._contract()
+        run = self._write_ai_state_partial_run(self._temp_root() / "ai-final")
+        run_path = run / ".ppt-pilot" / "run.json"
+
+        partial = json.loads(run_path.read_text(encoding="utf-8"))
+        partial["stage"] = "complete"
+        run_path.write_text(json.dumps(partial), encoding="utf-8")
+        context = contract.validate_final_run(run)
+        with self.assertRaises(EditableError) as raised:
+            contract.validate_delivery_selection(context, contract.parse_storyboard(context.storyboard_path))
+        self.assertEqual(raised.exception.code, "run_not_complete")
+
+        complete = json.loads(run_path.read_text(encoding="utf-8"))
+        complete["delivery"] = {"status": "complete"}
+        complete["slides"]["S02"] = {
+            "state": "promoted",
+            "attempts": 2,
+            "svg": "slides/S02.svg",
+            "failure": None,
+            "qa": {"structure": "pass", "tool": "pass"},
+        }
+        run_path.write_text(json.dumps(complete), encoding="utf-8")
+        (run / ".ppt-pilot" / "质量检查报告.md").write_text(
+            "# QA\n\n```ppt-pilot-qa-json\n"
+            '{"schema_version":1,"status":"complete","target_slide_ids":["S01","S02"],"promoted_slide_ids":["S01","S02"],"missing_slide_ids":[]}'
+            "\n```\n",
+            encoding="utf-8",
+        )
+        context = contract.validate_final_run(run)
+        selection = contract.validate_delivery_selection(context, contract.parse_storyboard(context.storyboard_path))
+        self.assertEqual(selection.status, "complete")
+        self.assertEqual(selection.delivered_slide_ids, ("S01", "S02"))
+        self.assertEqual(selection.missing_slides, ())
+
+    def test_ai_state_final_requires_approved_manuscript_and_theme(self):
+        contract = self._contract()
+        for mutation in ("review", "theme"):
+            with self.subTest(mutation=mutation):
+                run = self._write_ai_state_partial_run(self._temp_root() / ("ai-" + mutation))
+                if mutation == "review":
+                    run_path = run / ".ppt-pilot" / "run.json"
+                    value = json.loads(run_path.read_text(encoding="utf-8"))
+                    value["manuscript_review"]["state"] = "manuscript_blocked"
+                    run_path.write_text(json.dumps(value), encoding="utf-8")
+                else:
+                    (run / ".ppt-pilot" / "theme.json").unlink()
+                context = contract.validate_final_run(run)
+                with self.assertRaises((EditableError, ValueError)):
+                    contract.validate_delivery_selection(context, contract.parse_storyboard(context.storyboard_path))
+
+    def test_ai_state_partial_derives_ordered_production_subset_without_legacy_owners(self):
+        contract = self._contract()
+        run = self._write_ai_state_partial_run(self._temp_root() / "ai-partial")
+
+        context = contract.validate_final_run(run)
+        selection = contract.validate_delivery_selection(
+            context,
+            contract.parse_storyboard(context.storyboard_path),
+        )
+
+        self.assertTrue(selection.explicit)
+        self.assertEqual(selection.origin, "ai_state")
+        self.assertTrue(selection.requires_production)
+        self.assertEqual(selection.status, "partial")
+        self.assertEqual(selection.policy, "best_effort")
+        self.assertEqual(selection.target_slide_ids, ("S01", "S02"))
+        self.assertEqual(selection.delivered_slide_ids, ("S01",))
+        self.assertEqual(selection.missing_slides[0].slide_id, "S02")
+        self.assertEqual(selection.missing_slides[0].reason, "skipped")
+        self.assertEqual(selection.missing_slides[0].evidence_type, "ai_state")
+
+    def test_locate_run_discovers_a_valid_final_partial_run(self):
+        contract = self._contract()
+        temp = self._temp_root()
+        output_root = temp / "ppt-output"
+        partial = self._write_partial_run(output_root / "partial")
+
+        self.assertEqual(
+            contract.locate_run(None, temp, output_root),
+            partial.resolve(),
         )
 
     def test_locate_run_rejects_explicit_reparse_before_resolving(self):
@@ -582,6 +841,32 @@ class RunContractTests(unittest.TestCase):
         storyboard = contract.parse_storyboard(context.storyboard_path)
         sources = contract.resolve_slide_sources(context, storyboard)
         self.assertEqual([source.slide_id for source in sources], ["S01", "S02"])
+
+    def test_companion_delivery_artifacts_are_narrowly_allowed(self):
+        contract = self._contract()
+        temp = self._temp_root()
+        run = self._write_run(temp / "companion")
+        delivery = run / "delivery"
+        png = delivery / "png"
+        png.mkdir(parents=True)
+        (run / "preview.html").write_text("<!doctype html>", encoding="utf-8")
+        (delivery / "delivery-result.json").write_text("{}\n", encoding="utf-8")
+        (delivery / "example-deck.pptx").write_bytes(b"companion pptx")
+        (png / "S01.png").write_bytes(b"companion png")
+        self.assertEqual(contract.validate_completed_run(run).run_dir, run.resolve())
+
+        for relative, expected in (
+            ("untrusted.html", "runtime_code_artifact"),
+            ("delivery/other.json", "unexpected_run_artifact"),
+            ("delivery/unrelated.pptx", "pptx_outside_delivery"),
+            ("delivery/png/other.png", "unexpected_run_artifact"),
+        ):
+            with self.subTest(relative=relative):
+                blocked = self._write_run(temp / relative.replace("/", "-"))
+                path = blocked / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"unexpected")
+                self._assert_reason(expected, lambda target=blocked: contract.validate_completed_run(target))
 
     def test_sample_candidate_directory_is_not_an_allowed_cache(self):
         contract = self._contract()

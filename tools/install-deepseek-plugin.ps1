@@ -1,8 +1,8 @@
 ﻿<#
 .SYNOPSIS
-把 ppt-start 与 ppt-editable 安装为一个 DeepSeek harness 本地插件。
+把 ppt-start、ppt-editable 与 ppt-style-extract 安装为一个 DeepSeek harness 本地插件。
 .DESCRIPTION
-保留单一 ppt-pilot 插件/市场条目；两个 Skill 安装到 plugin\skills，per-ID 备份位于扫描根外的 plugin\backups。
+保留单一 ppt-pilot 插件/市场条目；三个 Skill 安装到 plugin\skills，per-ID 备份位于扫描根外的 plugin\backups。
 #>
 [CmdletBinding()]
 param(

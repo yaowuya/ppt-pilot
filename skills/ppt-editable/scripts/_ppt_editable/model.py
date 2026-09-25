@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import math
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Mapping, Optional, Tuple, Union
 
 from .errors import validate_failure_reason
 
@@ -117,6 +117,25 @@ class DeckPlan:
 
 
 @dataclass(frozen=True)
+class MissingSlide:
+    slide_id: str
+    reason: str
+    failure_reason: str
+    generation_attempt: int
+    transaction_id: str
+    transaction_ref: str
+    transaction_sha256: str
+
+
+@dataclass(frozen=True)
+class AIStateMissingSlide:
+    slide_id: str
+    reason: str
+    evidence_type: str
+    evidence: Mapping[str, object]
+
+
+@dataclass(frozen=True)
 class EditableResult:
     status: str
     deck_id: str
@@ -126,6 +145,25 @@ class EditableResult:
     output_sha256: Optional[str] = None
     failures: Tuple[Failure, ...] = ()
     warnings: Tuple[str, ...] = ()
+    delivery_status: Optional[str] = None
+    delivery_policy: Optional[str] = None
+    target_slide_ids: Tuple[str, ...] = ()
+    delivered_slide_ids: Tuple[str, ...] = ()
+    missing_slides: Tuple[Union[MissingSlide, AIStateMissingSlide], ...] = ()
+
+
+def editable_result_payload(result: EditableResult):
+    value = asdict(result)
+    if result.delivery_status is None:
+        for key in (
+            "delivery_status",
+            "delivery_policy",
+            "target_slide_ids",
+            "delivered_slide_ids",
+            "missing_slides",
+        ):
+            value.pop(key)
+    return value
 
 
 @dataclass(frozen=True)

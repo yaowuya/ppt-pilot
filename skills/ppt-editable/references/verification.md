@@ -2,6 +2,8 @@
 
 All authoritative threshold and render-size values come from [verification-config.json](../assets/verification-config.json). Do not copy those configured values into prose, scripts, or prompts.
 
+For partial delivery, every gate checks the explicitly selected delivered subset in original order. The original targets and missing-page evidence remain bound to the snapshot and result. Passing verification never changes `delivery_status: partial` into full completion; a failing selected page is not silently omitted by the converter.
+
 ## Pre-Office gates
 
 1. Candidate bytes are atomically written, reread, and hash-checked.
@@ -36,7 +38,7 @@ Per-slide full/geometry difference images and tile JSON are persisted atomically
 
 ## Promotion
 
-Only a candidate that passes structural, Office, normalized, and visual gates can produce `PASS`. Promotion replaces the verified target, rehashes it, then writes `editable-result.json` last. Failed gates never replace a previous verified final.
+Only a candidate that passes structural, Office, normalized, and visual gates can produce `PASS`. Promotion replaces its namespace's verified target, rehashes it, then writes `editable-result.json` (full) or `editable-result-partial.json` (partial) last. Failed gates never replace a previous verified final, and partial promotion never overwrites full authority.
 
 ## Exit codes
 

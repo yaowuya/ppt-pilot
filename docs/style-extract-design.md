@@ -30,7 +30,7 @@
 
 1. `manifest.json`：`schema_version == 1`、`kind == "style_pack"`、`files` 恰好 `{tokens, guidance, prompt_template}`、id 与 `selection_aliases` 一致。
 2. `tokens.json`：`schema_version == 2`；`prompt_baseline` 恰含 `palette_roles, font_stack, spacing_rhythm, shape_language, composition_rules, prohibited_motifs` 六键。色板角色／用途、构图键、禁止母题全部采用闭合枚举或定型数值；`palette_roles[].token` 唯一且都出现在 `colors`。字体、字号、间距、形状均经过非执行数据校验；外边距／标准节奏固定为 `64/24`，正文／支撑字号不低于 `20/14`，形状必须含正圆角与正描边。根层 `spacing/shape/composition` 与 baseline 同名数据不得漂移。
-3. `prompt.md`：`{{NARRATIVE}}` 恰好出现 1 次；不含 `[[CANONICAL_NARRATIVE_BULLETS]]` / `[[STYLE_BASELINE]]` / source annotation；从 byte 0 起按序唯一保留 `# Role`、`## Workflow`、`### 步骤 1/2/3`、`### 兼容约束`，并要求每个非来源 `block_id` 只在规范 `data-block-id` 精确属性值中临时回显一次，禁止进入 text／tail／其他属性名值。建包器只允许把闭合类型视觉数据静态物化为步骤 2 的七行风格指令，其他 hard shell 必须字节一致；最终模板必须与同包 tokens 的确定性合成结果精确相等。
+3. `prompt.md`：`{{NARRATIVE}}` 恰好出现 1 次；不含 `[[CANONICAL_NARRATIVE_BULLETS]]` / `[[STYLE_BASELINE]]` / source annotation；从 byte 0 起按序唯一保留 `# Role`、`## Workflow`、`### 步骤 1/2/3`、`### 兼容约束`，并要求每个非来源 `block_id` 只在规范 `data-block-id` 精确属性值中临时回显一次，禁止进入 text／tail／其他属性名值。canonical renderer 只允许同包已验证 tokens 选择闭合 `prompt_role`、独立布尔 `composition.strict_brand_rules` 引言变体，并把闭合类型视觉数据静态物化为步骤 2 的七行风格指令；其余 hard shell 必须字节一致，最终模板必须与 tokens 的确定性合成结果精确相等。省略新字段保持默认 prompt bytes；schema 支持不代表 writer 自动推断这些字段，详见[验证契约](../skills/ppt-style-extract/references/style-pack-verification.md)。
 4. `STYLE.md`：不引用 `REDESIGN.md` / “完整生成 prompt” / “可执行 prompt”；不包含单页成品示例、参考构图或固定区域图；不反向从成品示例反推构图。
 
 违反以上任何一条，返回 `BLOCKED`，且一个文件都不写。

@@ -1,1 +1,5 @@
 /skills/ppt-editable/assets/verification-config.json text eol=lf
+/hosts/claude-code/agents/*.md text eol=lf
+/skills/ppt-start/references/deepseek-harness.md text eol=lf
+/skills/ppt-editable/SKILL.md text eol=lf
+/tests/fixtures/ppt-editable/pressure-skill-v1.md text eol=lf

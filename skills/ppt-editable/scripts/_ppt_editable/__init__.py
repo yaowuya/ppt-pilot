@@ -3,6 +3,7 @@
 from .config import load_verification_config
 from .errors import EditableError, FAILURE_REASONS
 from .model import (
+    AIStateMissingSlide,
     Bounds,
     DeckPlan,
     EditableResult,
@@ -20,6 +21,7 @@ from .office_protocol import OfficeResult, invoke_office_verification
 from .orchestrator import GenerationCapability, generate_editable
 
 __all__ = [
+    "AIStateMissingSlide",
     "Bounds",
     "DeckPlan",
     "EditableError",

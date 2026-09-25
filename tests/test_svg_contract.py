@@ -1,5 +1,6 @@
 import re
 import sys
+import unicodedata
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -182,10 +183,19 @@ class SvgContractTests(unittest.TestCase):
                 for element in source_nodes
             )
         )
-        visible_text = " ".join("".join(element.itertext()) for element in text_nodes)
+        visible_text = "".join("".join(element.itertext()) for element in text_nodes)
+        compact_visible = "".join(
+            character
+            for character in visible_text
+            if not character.isspace() and unicodedata.category(character) != "Cf"
+        )
         self.assertNotRegex(
-            visible_text,
-            re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE),
+            compact_visible,
+            re.compile(r"SRC-[0-9]+", re.IGNORECASE),
+        )
+        self.assertNotRegex(
+            compact_visible,
+            re.compile(r"S[0-9]+-B[1-9][0-9]*", re.IGNORECASE),
         )
 
 

@@ -1,196 +1,87 @@
-# PPT Pilot 用户使用手册
+# PPT Pilot 用户指南
 
-面向使用者的操作手册：如何用 PPT Pilot 从一个主题或一份资料出发，产出有证据支撑的 SVG 演示，并在需要时交付原生可编辑的 PowerPoint。安装、目录结构与契约细节见 [README](../README.md)；本文只讲"怎么用"。
+## 1. 选择任务
 
----
+- 制作／恢复 SVG 演示：`ppt-start`；
+- 把 finalized SVG 转成原生可编辑 PowerPoint：`ppt-editable`；
+- 从模板／参考图／风格描述制作 style pack：`ppt-style-extract`。
 
-## 1. 它能为你做什么
+安装见 [INSTALL.md](INSTALL.md)。
 
-| 你想要 | 用的技能 | 得到什么 |
-|---|---|---|
-| 一套演示文稿（SVG 页面） | `ppt-start` | `ppt-output/<deck-id>/slides/*.svg`（16:9，独立文件，可跨宿主恢复） |
-| 原生可编辑的 PowerPoint | `ppt-editable` | `delivery/editable/<deck-id>-editable.pptx`（递归分组、可编辑文本/形状、Office 验证证据） |
-| 预览页 + 图片式 PPTX + 演讲者备注 | `tools/deck-deliver.ps1` | `preview.html` + PPTX + 1280×720 PNG（可选伴随工具，不是 Skill） |
+## 2. 发起演示
 
-一次 `ppt-start` 运行会走完整条质量流水线：简报 → 大纲/故事板 → 文稿审查（硬质量门）→ 主题/风格 → 逐页生成 → QA → 完成。你不需要记住这些阶段，只需要在关键节点回答问题、做批准。
+在支持 Skill 的宿主中调用 `ppt-start`，自然语言描述主题、受众、页数、资料目录和模式。例如：
 
----
+```text
+请根据 inputs/ 中资料制作 10 页中文策略演示，guided 模式。
+```
 
-## 2. 开始之前
+- `guided` 默认在简报、大纲和锚点等待明确批准；
+- `auto` 只有明确指定才启用；
+- `resume` 原位恢复，不重建运行；
+- `revise` 只重做受影响内容／页面。
 
-- **装好技能**：按 [README](../README.md) 的安装章节把 `ppt-start` 与 `ppt-editable` 装到你的宿主（Claude Code / Codex / DeepSeek Harness），或直接用一键脚本：
+推荐不是确认。AI 提问后会先把问题写入 `pending_interaction`，等你回答后直接应用，不需要额外命令。
 
-  ```bash
-  powershell -ExecutionPolicy Bypass -File tools/update-hosts.ps1
-  ```
+## 3. 你会看到的步骤
 
-- **准备输入**（三选一，越具体越好）：
-  - 只给一个主题；
-  - 给一份完整简报（受众、时长、页数、关键结论）;
-  - 给一批资料（报告、数据、来源文件）。
+1. **简报／研究**：明确受众、行动、证据、保密和未核验项；
+2. **大纲／故事板**：冻结每页结论、文案、指标、限定、来源和布局意图；
+3. **文稿审查**：未解决 `BLOCKER`／`HIGH` 不进入设计；
+4. **主题／锚点**：选择 style pack，用两页样例验证方向；
+5. **逐页 SVG**：每页完整 Prompt 交给 fresh-context generator；Claude Code 使用当前会话的已安装 Agent，不需要登录 local Claude CLI。若宿主无法安全启动 generator，AI 记录该页 `generator_unavailable` 并继续其他独立页面；
+6. **QA**：结构、来源、视觉和 Office 分别记录；
+7. **交付结论**：`complete`、`partial` 或 `failed`。
 
-- **可选：写一份工作区偏好档案** `ppt-output/pilot-preferences.json`，记录品牌色、字体、偏好风格、语言与保密限制，避免每次重复回答。示例：
+普通页面失败不会停止其他独立页面。首次失败后最多一次明确 retry/recompose；再次失败时 AI 询问修复、skip 或停止。Skip 保留原失败证据，不重置 attempts。
 
-  ```json
-  {
-    "schema_version": 1,
-    "brand": { "colors": ["#156BFF"], "font_stack": "Microsoft YaHei, Arial, sans-serif", "notes": "强调色只用于关键比较" },
-    "style": { "preferred_style_id": "canway-midyear-review" },
-    "audience": { "name": "运营管理层", "desired_action": "确认 H2 资源取舍" },
-    "language": "zh-CN",
-    "confidentiality_restriction": "内部资料不得外发到网络"
-  }
-  ```
+## 4. 工具降级
 
-  优先级固定为：当前请求明确答案 > 本运行已批准产物 > 偏好档案 > 安全默认值。档案只能记录限制型保密策略；跨运行有效的网络或披露授权必须由用户显式给出并记录为 standing 授权。格式错误时披露原因并整体忽略，不影响运行。
+工具脚本可以帮助提取／校验，但不控制流程：
 
----
+- `PASS`：工具成功；
+- `INVALID`：输入产物确有错误，只影响该页；
+- `UNAVAILABLE`：工具自身不可用，AI 记录降级并继续直接检查，stage 和 attempts 不变。
 
-## 3. 发起一次新运行
+没有真实渲染时报告 `not_rendered`，没有 Office 实测时报告 `not_verified`。这些状态不能冒充 PASS，也不会因为工具缺失而卡死整套演示。
 
-在宿主对话里用显式启动词，后跟一句自然语言需求：
+## 5. 输出
 
-| 宿主 | 启动词 | 示例 |
-|---|---|---|
-| Claude Code | `/ppt-start` | `/ppt-start` + "根据 inputs/ 里的季度报告做一份 10 页中文策略演示，guided 模式" |
-| Codex | `$ppt-start` | `$ppt-start` + "从 ppt-output/example-deck/ 恢复运行并继续" |
-| DeepSeek Harness | `ppt-start` | `ppt-start` + "做一份 FY26 上半年总结演示，auto 模式" |
+```text
+ppt-output/<deck-id>/
+├── 大纲.md
+├── slides/*.svg
+└── .ppt-pilot/
+    ├── run.json
+    ├── 简报.md 研究.md 来源.md 故事板.md 文稿审查.md
+    ├── theme.json 质量检查报告.md
+    └── generation-prompts/ samples/
+```
 
-自然语言请求（不写启动词）通常也能触发技能；自动发现不明确时再补启动词。
+`大纲.md` 是主要审阅入口；`slides/` 是正式页面；`.ppt-pilot/` 是可恢复证据。
 
-### 执行策略：guided 还是 auto
+## 6. 继续或修改
 
-- **guided**（默认，推荐）：在简报、大纲、锚点页三个批准点各提一个直接问题，等你明确回答后才推进。
-- **auto**：只有你显式指定才使用；跳过可选问题直接走完，但涉及权限（如联网研究、对外披露）或没有安全默认值的业务决策时仍会问你。
+- “继续”：AI 读取 pending interaction、共享一致性和最早未完成／dirty 项；
+- “修改 S05 的布局”：只使 S05 视觉变脏；
+- “修改数字／来源／核心结论”：返回内容阶段并重新审稿；
+- “跳过 S05，继续”：S05 记为 skipped，独立页面继续；
+- “重试 S05”：只有真实 generator 再调用才增加 attempts。
 
-> 推荐 ≠ 确认。技能给出推荐项后必须等你答复，不会替你拍板。
+旧运行中的 transaction/batch/dashboard 字段保留为历史证据，不再启动旧状态机。
 
----
+## 7. 可编辑 PowerPoint
 
-## 4. 运行中你会经历什么
-
-1. **简报确认**：技能复述它理解的需求；缺信息会按依赖顺序一次只问一个问题。
-2. **大纲 + 故事板**：产出结论先行的 `大纲.md`（这是你唯一必须亲自看的文件，含每页排版逻辑）与内部故事板。**大纲批准前不会进入视觉设计。**
-3. **文稿审查（硬质量门）**：优先由独立子 Agent 只读审查五个文稿文件；任何 `BLOCKER`/`HIGH` 问题未解决都会阻断，材料不足会以"材料缺口"逐条向你提问。零问题也会保存显式 PASS。
-4. **主题与风格**：确认 `theme.json` 与风格包（可用 `canway-midyear-review`、`jiawei-product` 等内置风格，也可给品牌色覆盖）。
-5. **逐页生成**：每页在隔离上下文中生成 SVG，默认每批 4 页；每次派发都会打印一行进度（`[deck-id] 第 N 次请求 slide=S03 …`），让你随时知道在做什么、还剩几次请求预算（每页上限 4 次）。
-6. **QA**：单页硬检查 + 实际渲染视觉检查 + 整套演示 QA，全部通过才推进；无法渲染时如实记录 `visual_qa: not_rendered`。
-
-### 你需要做的决定只有三类
-
-- **批准**：大纲、锚点页、最终交付——明确说"批准"或提出修改；
-- **回答问题**：一次一个，答完才继续；
-- **修订分类**：改几个字（`patch`）、整页重排（`recompose`）、还是动事实/来源（会触发重新审查）——分不清时技能会先问你。
-
----
-
-## 5. 完成后：拿你的交付物
-
-运行目录 `ppt-output/<deck-id>/` 里：
-
-- `大纲.md` —— 给你看的；
-- `slides/*.svg` —— 最终页面；
-- `.ppt-pilot/质量检查报告.md` —— QA 结论；
-- 其余 `.ppt-pilot/` 内部产物无需查看。
-
-整套 SVG 完成并通过 QA 后，插件会**主动提示下一步**，按你需要选择：
-
-| 你要什么 | 怎么做 | 得到什么 |
-|---|---|---|
-| 只看 SVG / 浏览器预览 | 直接用 `slides/`／实时面板，或运行 `tools/deck-deliver.ps1 -RunDir <run> -SkipPptx`，不启动 Office | SVG / 静态预览页 |
-| 图片式 PPTX + 演讲者备注 | `tools/deck-deliver.ps1`（需本机 PowerPoint） | PPTX + 备注清单 |
-| **原生可编辑 PPTX**（可改字、可改形状） | 调用 `ppt-editable` 技能 | `delivery/editable/<deck-id>-editable.pptx` |
-
-`deck-deliver.ps1` 用法（可选伴随工具，在仓库根目录运行）：
+Finalized complete 或 partial 运行可调用 `ppt-editable`：
 
 ```bash
-powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1 -RunDir ppt-output/<deck-id> -SkipPptx
-# 以下仅用于已完成运行的图片式 PPTX / Office PNG 交付，会启动 PowerPoint：
-powershell -ExecutionPolicy Bypass -File tools/deck-deliver.ps1 -RunDir ppt-output/<deck-id> -ExportPng
+python skills/ppt-editable/scripts/svg_to_editable_pptx.py --run-dir ppt-output/<deck-id> --json
 ```
 
-- 始终生成 `<run>/preview.html` 联系表：缩略图网格 + 单页查看器（方向键翻页、Esc 关闭），纯静态、无外部资源；
-- 从 `.ppt-pilot/故事板.md` 解析每页 `assertion_title`／`audience_takeaway`／`next_link`，自动写入 PPTX 演讲者备注；
-- 仅预览必须指定 `-SkipPptx`：生成 preview.html，不探测或启动 Office。退出码 3 表示仅预览成功，不等于 SVG 工作流 QA 已通过；
-- 不指定 `-SkipPptx` 的旧命令仍表示 PPTX 交付：只有 `run.json.stage=complete` 才会调用本机 PowerPoint（COM 自动化）插入 SVG、写备注并复开校验；未完成运行会在输出写入／Office 探测前停止。本机没有 PowerPoint 时只保留预览；
-- `-ExportPng` 额外导出每页 1280×720 PNG 作为渲染证据；结果清单写入 `<run>/delivery/delivery-result.json`；
+`--skip-office` 可在 Office 不可用／不允许时生成 `GENERATED_UNVERIFIED` 候选。可编辑转换失败只影响该交付，不改变 SVG complete/partial 状态。
 
-生成 SVG 的锚点、生产、修订与整套 QA 默认使用非 Office 渲染，不逐页打开 PPT。旧稿导入可在简报阶段按需渲染原稿；最终 PPTX 的 Office 验证在 SVG 全部完成后集中执行。浏览器视觉通过不等于已通过 Office 实测。
-- 工具只新增 preview.html 与 `delivery/`，不修改任何运行产物。退出码：`0`=PPTX+preview 成功；`3`=仅 preview 成功。
+新 AI-state 运行直接从故事板和 `slides` 选页；旧 explicit delivery 继续严格验证其历史证据。
 
-调用 `ppt-editable` 的方式（与 `ppt-start` 同宿主同前缀）：
+## 8. 安全与来源
 
-```text
-Claude Code:  /ppt-editable  请把 ppt-output/<deck-id>/ 转换为原生可编辑 PowerPoint。
-Codex:        $ppt-editable  请将该完成运行转换为可编辑 PPTX，并保留递归分组和备注。
-DeepSeek:     ppt-editable  请把 ppt-output/<deck-id>/ 转换为经验证的原生可编辑 PowerPoint。
-```
-
-`ppt-editable` 会自带完整门禁并返回四种结果之一：
-
-- `PASS` —— 全部结构/Office/视觉验证通过，发布 `<deck-id>-editable.pptx`；
-- `GENERATED_UNVERIFIED` —— 本机缺 PowerPoint/Pillow 能力，只发布 `<deck-id>-editable-unverified.pptx`，并保留已验证旧版不动；
-- `BLOCKED` / `FAILED_VERIFICATION` —— 不发布新文件，保留证据。
-
-> 任何时候已验证的旧版 PPTX 都不会被未验证的新构建覆盖。
-
----
-
-## 6. 中断了怎么办：resume
-
-运行状态全部持久化在 `run.json`，换一台机器、换一个宿主都能继续。直接说：
-
-```text
-/ppt-start  请从 ppt-output/<deck-id>/ 恢复运行并继续。
-```
-
-恢复顺序：待回答问题 → 审查轮次 → 生成 blocker → 旧 schema-v1 transaction 零模型迁移 → 活动批次 → 阶段扫描。已批准的上游工作（大纲、故事板、主题）不会被重算。
-
----
-
-## 7. 改内容：revise 的三种粒度
-
-| 你说 | 技能理解为 | 代价 |
-|---|---|---|
-| "第 3 页标题字号太小" | `patch`（局部修补） | 只重生成该页，不重新审查 |
-| "第 3 页信息太多，重新排版" | `recompose`（整页重构） | 重新编译该页 prompt，从空白构图重做；不重新审查 |
-| "这个数字改成 X" / "结论改成 Y" | 事实/主张变化 | **使文稿批准失效，必须重新进行文稿审查**后才可再生成视觉页 |
-
-分不清时技能会先提一个直接问题确认，再动手。纯视觉修改不会让你重走审查。
-
----
-
-## 8. 常见问题
-
-**Q: 一定要联网吗？**
-不需要。默认用你提供的资料；联网研究是可选能力，且机密内容默认不出网。研究不可用时技能会限定未验证主张，不会编造。
-
-**Q: 生成的 SVG 能直接改成 PPT 吗？**
-两条路：`tools/deck-deliver.ps1`（图片式插入，快）；`ppt-editable`（原生可编辑形状/文本，带 Office 验证，慢但真正可编辑）。
-
-**Q: 运行到一半报 `BLOCKED` 怎么办？**
-看 `run.json.visual_generation_blocker` 与 QA 报告里的具体失败项；修掉对应上游问题（事实、来源、模板、宿主能力）后 `resume`。每页最多 2 次 patch + 1 次确定性回退，用尽即停，不会无限重试。
-
-**Q: 可以只用 ppt-start、不用 ppt-editable 吗？**
-可以，两者独立安装、独立触发。`ppt-start` 完成时只是"提示"你可以转可编辑 PPT，不会替你执行。
-
-**Q: 产物写到哪里？会不会污染我的配置目录？**
-全部写入当前工作区 `ppt-output/<deck-id>/`；禁止写入 Skill 或宿主配置目录。
-
----
-
-## 9. 术语速查
-
-| 术语 | 含义 |
-|---|---|
-| deck-id | 本次运行的目录名，`ppt-output/<deck-id>/` |
-| guided / auto | 逐步询问批准 / 跳过可选问题直接完成 |
-| 文稿审查 | 冻结五文件后的独立质量门；`BLOCKER`/`HIGH` 未解决即阻断 |
-| generation prompt | 每页编译出的完整生成指令，持久化于 `.ppt-pilot/generation-prompts/` |
-| patch / recompose | 局部修补 / 整页重构（不改变事实时） |
-| `visual_qa: not_rendered` | 无法实际渲染时的如实记录，不算视觉通过 |
-| `PASS` / `GENERATED_UNVERIFIED` | `ppt-editable` 的验证通过 / 能力缺失未验证两种发布状态 |
-
----
-
-*安装、架构与验收细节见 [README](../README.md)、[设计文档](design.md) 与[验收文档](acceptance.md)。*
+内部 `SRC-<digits>` 只用于机器 metadata：来源台账、冻结 source map、final SVG `data-source-id` 和 PowerPoint trace；不能显示在页面文字。机密资料默认离线；联网研究或敏感派生查询需要明确授权。任何来源、数字、日期或核验结果都不得虚构。

@@ -1,59 +1,58 @@
 # Input/output and state contract
 
-## Input
+## Input routes
 
-Input is one completed PPT Pilot run, never an arbitrary SVG directory. run selection precedence is:
+`ppt-editable` accepts one finalized PPT Pilot run selected by explicit path, current directory, or the only valid run under `ppt-output/`. It never accepts an arbitrary SVG directory and never modifies `.ppt-pilot/run.json`.
 
-1. explicit run directory;
-2. valid completed current run;
-3. exactly one completed run under `ppt-output/`.
+There are three disjoint adapters:
 
-The authoritative storyboard owns the exact ordered page set. `slides/<slide-id>.svg` is the production owner. `samples/<slide-id>.svg` is legal only for the exact approved anchor recorded by run control.
+1. **AI 状态**：new runs with a storyboard-keyed `slides` map and `delivery: {status: complete|partial}`;
+2. **legacy explicit**：historical delivery object with policy, hashes, omission transactions and terminal batch evidence;
+3. **legacy implicit**：historical `stage: complete` run without delivery metadata.
 
-## Snapshot
+A malformed legacy-shaped object cannot fall through to AI state. A run with `slides` but missing/malformed delivery cannot fall through to legacy complete.
 
-The canonical snapshot hashes:
+## AI 状态 adapter
 
-- actual selected SVG bytes;
-- slide ID, run-relative path, and source owner;
-- storyboard note fields;
-- converter/subset versions;
-- exact verification config bytes.
+- `slides` keys equal the complete storyboard target IDs exactly;
+- target and output order always comes from the storyboard;
+- `promoted` requires `slides/<id>.svg` and enters delivered pages;
+- `failed` requires nonempty failure code/message;
+- `skipped` requires the saved explicit user decision and original answer;
+- `complete` requires every page promoted;
+- `partial` requires at least one promoted page and at least one failed/skipped page;
+- stage, delivery status, approved manuscript state, theme, QA report, and actual production SVGs must agree; the QA report contains exactly one `ppt-pilot-qa-json` fenced object whose exact `status`, target, promoted and missing arrays equal the derived partition.
 
-Canonical JSON uses sorted keys, compact separators, UTF-8, and no path aliases. Same snapshot plus coherent committed output is idempotent; changed input creates a new identity.
+AI 状态 complete/partial **不需要** transaction 或 batch owner，也不得制造它们。Missing-page evidence is projected into the editable snapshot/result as `{slide_id, reason, evidence_type: ai_state, evidence}`.
 
-## Output paths
+## Legacy adapters
+
+Legacy explicit delivery keeps its existing strict validator: policy, ordered target partition, storyboard/theme/QA/SVG hashes, failed transaction and terminal batch omission slot must all match. Legacy implicit complete retains its exact storyboard inventory and approved-anchor fallback.
+
+Legacy omission JSON remains byte-compatible and has no `evidence_type` field.
+
+## Snapshot and source selection
+
+The input snapshot binds actual selected SVG bytes, IDs, canonical relative paths, storyboard notes, converter/subset versions, verification config, and the selected adapter's complete normalized delivery record. A committed result with the same snapshot ID is reused only when its delivered/missing partition and evidence also equal the current selection.
+
+AI state always uses formal production SVGs. Partial conversion selects only promoted pages in storyboard order; it never silently drops another selected page or adopts an old sample.
+
+## Output namespaces
 
 All writes stay under `delivery/editable/`:
 
-- `<deck-id>-editable.pptx`
-- `<deck-id>-editable-unverified.pptx`
-- `editable-result.json`
-- `.tmp/` transaction/work evidence
-- `quarantine/` failed or ambiguous evidence
+| Completeness | Verified | Unverified | Commit record |
+|---|---|---|---|
+| complete | `<deck-id>-editable.pptx` | `<deck-id>-editable-unverified.pptx` | `editable-result.json` |
+| partial | `<deck-id>-editable-partial.pptx` | `<deck-id>-editable-partial-unverified.pptx` | `editable-result-partial.json` |
 
-A `PASS` touches only the verified filename. `GENERATED_UNVERIFIED` touches only the unverified filename. A failed or blocked run never replaces public authority.
+Partial and complete outputs never overwrite each other. Existing verified authority is preserved when a new build is blocked, fails verification, or remains unverified.
 
-## Lock, journal, and recovery
+## Result states
 
-One OS-backed lock covers recovery, generation, and promotion. Lock-file existence alone is not ownership.
+- `PASS`: selected pages passed structural, Office and visual verification;
+- `GENERATED_UNVERIFIED`: native candidate passed pre-Office checks but Office/Pillow was unavailable or Office was explicitly skipped;
+- `BLOCKED`: input, path, dependency, lock, SVG or recovery contract failed; no new deck is published;
+- `FAILED_VERIFICATION`: a built candidate failed structural, Office, normalized or visual verification; no new deck is published.
 
-Each promotion writes a `PREPARED` journal with snapshot, target kind/path, new hash, previous target hash, previous manifest hash, and backup names. Promotion order is:
-
-1. atomically write and reread the journal;
-2. replace and hash-check the public target;
-3. replace `editable-result.json` last;
-4. remove transaction evidence only after committed hashes match.
-
-Recovery recognizes coherent committed, previous, new, and ambiguous states. Coherent previous public authority wins before untrusted backups. Invalid journals cannot manufacture authority. Ambiguous bytes are quarantined.
-
-## Commit record and states
-
-`editable-result.json` is the only commit record. Uncommitted files are never adopted by existence.
-
-- `PASS`: verified output is authoritative.
-- `GENERATED_UNVERIFIED`: unverified output is published separately; prior PASS remains authoritative when present.
-- `BLOCKED`: no candidate is published.
-- `FAILED_VERIFICATION`: no candidate is published; evidence is retained.
-
-Never mutate `.ppt-pilot/run.json`.
+Completeness and verification are independent. A verified partial deck remains partial; an unverified complete deck is not PASS. Converter failure is local to editable delivery and never downgrades or reopens the SVG run.

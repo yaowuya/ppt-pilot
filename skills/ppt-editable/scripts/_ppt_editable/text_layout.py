@@ -13,7 +13,8 @@ from .errors import EditableError
 from .model import Bounds, ResolvedStyle, TextLine, TextRun
 
 
-_VISIBLE_INTERNAL_SOURCE_ID_RE = re.compile(r"\bSRC-[0-9]+\b", re.IGNORECASE)
+_VISIBLE_INTERNAL_SOURCE_ID_RE = re.compile(r"SRC-[0-9]+", re.IGNORECASE)
+_VISIBLE_TRANSIENT_BLOCK_ID_RE = re.compile(r"S[0-9]+-B[1-9][0-9]*", re.IGNORECASE)
 POWERPOINT_TEXT_BASELINE_OFFSET_PX = 2.0
 
 
@@ -273,6 +274,13 @@ def flatten_text_lines(
                 raise _text_error("text may contain only tspan elements", child_path)
             attributes = _attribute_map(child)
             _validate_attributes(kind, attributes, slide_id="", tree_path=child_path)
+            if 'y' in attributes and (parent is not text_element or len(parent) != 1 or
+                    (text_element.text or '').strip() or 'x' not in attributes or
+                    _text_number(attributes['x'], child_path) != root_x or
+                    _text_number(attributes['y'], child_path) != root_y):
+                raise EditableError('svg_attribute_unsupported',
+                    'absolute tspan y must repeat the single runtime text line position',
+                    svg_tree_path=child_path, element_type='tspan')
             style = resolve_style(parent_style, kind, attributes)
             preserve_value = attributes.get("xml:space")
             if preserve_value not in (None, "default", "preserve"):
@@ -283,7 +291,7 @@ def flatten_text_lines(
                 else preserve_value == "preserve"
             )
             dy = _text_number(attributes.get("dy", "0"), child_path)
-            starts_line = "x" in attributes or dy != 0.0
+            starts_line = "x" in attributes or "y" in attributes or dy != 0.0
             if (
                 not starts_line
                 and "text-anchor" in attributes
@@ -300,7 +308,7 @@ def flatten_text_lines(
                     else current[0].x
                 )
                 previous_y = current[0].y
-                y = previous_y + dy
+                y = _text_number(attributes['y'], child_path) if 'y' in attributes else previous_y + dy
                 if not math.isfinite(y) or (dy != 0.0 and y == previous_y):
                     raise _text_error(
                         "text line coordinate change is not representable",
@@ -323,9 +331,17 @@ def flatten_text_lines(
         if not runs:
             continue
         visible_text = "".join(run.text for run in runs)
-        if _VISIBLE_INTERNAL_SOURCE_ID_RE.search(visible_text):
+        compact_visible_text = "".join(
+            character
+            for character in visible_text
+            if not character.isspace() and unicodedata.category(character) != "Cf"
+        )
+        if (
+            _VISIBLE_INTERNAL_SOURCE_ID_RE.search(compact_visible_text)
+            or _VISIBLE_TRANSIENT_BLOCK_ID_RE.search(compact_visible_text)
+        ):
             raise _text_error(
-                "internal SRC identifiers are machine metadata only",
+                "internal source and block identifiers are machine metadata only",
                 tree_path,
             )
         try:

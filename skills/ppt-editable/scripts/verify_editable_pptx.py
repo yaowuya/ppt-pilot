@@ -14,7 +14,9 @@ from _ppt_editable.config import load_verification_config
 from _ppt_editable.contract import (
     parse_storyboard,
     resolve_slide_sources,
-    validate_completed_run,
+    select_storyboard_slides,
+    validate_delivery_selection,
+    validate_final_run,
 )
 from _ppt_editable.errors import EditableError
 from _ppt_editable.svg_parser import DeckPreflightError, preflight_deck
@@ -125,13 +127,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 3 if _write_report(report_path, invalid) else 4
     try:
         config = load_verification_config(Path(arguments.config))
-        context = validate_completed_run(Path(arguments.run_dir))
+        context = validate_final_run(Path(arguments.run_dir))
         storyboard = parse_storyboard(context.storyboard_path)
-        sources = resolve_slide_sources(context, storyboard)
+        delivery = validate_delivery_selection(context, storyboard)
+        sources = resolve_slide_sources(context, storyboard, delivery.delivered_slide_ids,
+                                        require_production=delivery.explicit)
+        selected = select_storyboard_slides(storyboard, delivery)
         plan = preflight_deck(
             context,
             sources,
-            storyboard,
+            selected,
             arguments.input_snapshot_id,
         )
     except (EditableError, DeckPreflightError, ValueError, OSError) as exc:

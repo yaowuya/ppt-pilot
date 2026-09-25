@@ -1,6 +1,6 @@
 # Extraction Contract
 
-提取的目标不是「画像」，而是**能用 token 和指导语表达、能被 `ppt-start` 消费的软风格基线**。每类输入只提取其客观可复现的部分，禁止臆测。
+提取的目标不是「画像」，而是**能用 token 和指导语表达、能被 `ppt-start` 消费的风格基线**。每类输入只提取其客观可复现的部分，禁止臆测。verifier 支持的可选 `prompt_role`、`strict_brand_rules` 与闭合构图配方不代表当前 extractor／writer 会从自然语言自动推断这些字段；未提供时保留原默认行为，字段边界见[风格包验证](style-pack-verification.md)。
 
 ## 模板 PPT（.pptx）
 

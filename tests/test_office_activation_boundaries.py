@@ -110,6 +110,37 @@ try { & ([scriptblock]::Create($source)) @invokeArgs } catch { [Console]::Error.
             self.assertIsNone(manifest['pptxPath'])
             self.assertEqual((root / '.ppt-pilot/run.json').read_bytes(), original)
 
+    def test_companion_preview_does_not_block_editable_input_firewall(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory) / "complete-run"
+            shutil.copytree(ROOT / "tests" / "fixtures" / "ppt-editable" / "run-complete", run)
+            result = self._invoke(run, '-SkipPptx')
+            self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+
+            contract = importlib.import_module('_ppt_editable.contract')
+            self.assertEqual(contract.validate_final_run(run).run_dir, run.resolve())
+
+    def test_auto_discovery_uses_canonical_control_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            run = workspace / "ppt-output" / "only-run"
+            run.mkdir(parents=True)
+            self._fixture(run, 'production')
+            result = subprocess.run(
+                [
+                    shutil.which('powershell'), '-NoProfile', '-NonInteractive',
+                    '-ExecutionPolicy', 'Bypass', '-File', str(ROOT / 'tools/deck-deliver.ps1'),
+                    '-WorkspaceRoot', str(workspace), '-SkipPptx',
+                ],
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+            self.assertTrue((run / 'preview.html').is_file())
+
     def test_completed_pptx_delivery_keeps_office_path_available(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

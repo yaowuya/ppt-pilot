@@ -14,7 +14,7 @@ PPT Pilot 可选伴随工具：把一次运行的 slides/*.svg 组装为可交�
 不修改任何 Skill 运行产物；只新增 preview.html 与 delivery/ 目录。
 
 .PARAMETER RunDir
-运行目录（含 run.json 与 slides/）。缺省时自动探测 ppt-output/ 下唯一含 run.json 的运行。
+运行目录（含 `.ppt-pilot/run.json` 与 `slides/`）。缺省时自动探测 `ppt-output/` 下唯一含 `.ppt-pilot/run.json` 的运行。
 
 .PARAMETER SkipPptx
 跳过 PPTX 组装，只生成 preview.html；SVG 生产期间和仅预览时必须指定，不探测或启动 Office。
@@ -117,11 +117,11 @@ if ($RunDir) {
     $runPath = (Resolve-Path $RunDir).Path
 } else {
     if (-not (Test-Path $pptOutput)) { throw "未找到 ppt-output 目录：$pptOutput" }
-    $candidates = @(Get-ChildItem -LiteralPath $pptOutput -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'run.json') })
+    $candidates = @(Get-ChildItem -LiteralPath $pptOutput -Directory | Where-Object { Test-Path (Join-Path $_.FullName '.ppt-pilot\run.json') })
     if ($candidates.Count -eq 1) {
         $runPath = $candidates[0].FullName
     } elseif ($candidates.Count -eq 0) {
-        throw "ppt-output 下没有含 run.json 的运行目录，请用 -RunDir 指定。"
+        throw "ppt-output 下没有含 .ppt-pilot/run.json 的运行目录，请用 -RunDir 指定。"
     } else {
         $names = ($candidates | ForEach-Object { $_.Name }) -join ', '
         throw "存在多个候选运行（$names），请用 -RunDir 指定其一。"
