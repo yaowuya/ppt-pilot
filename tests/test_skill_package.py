@@ -68,6 +68,13 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("Do not call tools.", text)
         self.assertIn("Do not inspect or read the working directory.", text)
         self.assertIn("exactly one fenced `xml` code block", text)
+        for token in (
+            "local CLI executable",
+            "Git command",
+            "authentication flow",
+            "coordinator, not this generator",
+        ):
+            self.assertIn(token, text)
         self.assertNotIn("worktree", text)
         self.assertNotIn("ListAgents", text)
 

@@ -26,7 +26,7 @@
 
 ## 生产
 
-按页面逐个生成。每轮最多一次真实页面生成调用；AI 在调用前后分别记录该页证据和状态，不启动后台任务、轮询或隐藏并发。工具结果按 `PASS|INVALID|UNAVAILABLE` 处理，工具不可用不消耗 attempt。
+按页面逐个生成。每轮最多一次真实页面生成调用；AI 在调用前后分别记录该页证据和状态，不启动后台任务、轮询或隐藏并发。Claude Code 在 Agent 接受 Prompt 前遇到明确的 `host_git_required` 时，最多执行一次安全本地 bootstrap 和一次同 Prompt 重启；这仍是一个 coordinator action，不增加 attempts，也不能变成通用 retry。工具结果按 `PASS|INVALID|UNAVAILABLE` 处理，工具不可用不消耗 attempt。
 
 ## 失效边界
 

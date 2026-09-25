@@ -29,7 +29,7 @@
 2. **大纲／故事板**：冻结每页结论、文案、指标、限定、来源和布局意图；
 3. **文稿审查**：未解决 `BLOCKER`／`HIGH` 不进入设计；
 4. **主题／锚点**：选择 style pack，用两页样例验证方向；
-5. **逐页 SVG**：每页完整 Prompt 交给 fresh-context generator；
+5. **逐页 SVG**：每页完整 Prompt 交给 fresh-context generator；Claude Code 使用当前会话的已安装 Agent，不需要登录 local Claude CLI。若宿主无法安全启动 generator，AI 记录该页 `generator_unavailable` 并继续其他独立页面；
 6. **QA**：结构、来源、视觉和 Office 分别记录；
 7. **交付结论**：`complete`、`partial` 或 `failed`。
 

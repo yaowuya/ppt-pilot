@@ -9,7 +9,7 @@ description: Use when creating, resuming, redesigning, or revising an evidence-b
 
 AI is the only workflow coordinator. It reads the workspace, chooses the next action, writes artifacts, and maintains `.ppt-pilot/run.json`. Packaged scripts are stateless artifact tools; their availability never owns a stage, retry, user decision, or recovery path.
 
-Do not require Git, a worktree, a workflow runner, a host registry, a dashboard, a hidden queue, or a polling loop. Never create helper programs or dependencies inside a presentation run.
+Git is not a content or delivery prerequisite. Do not require a worktree, a workflow runner, a host registry, a dashboard, a hidden queue, or a polling loop. Fresh-context generation uses the active host session, never a local CLI process; Claude Code may use the single conditional bootstrap in [Prompt and generation](references/visual-brief-and-generation.md) only after its named Agent explicitly reports a missing Git prerequisite before accepting a Prompt. Never create helper programs or dependencies inside a presentation run.
 
 ## Run one action
 
@@ -41,7 +41,7 @@ Read [AI state](references/ai-state.md) whenever creating, resuming, retrying, s
 - For artifact safety and source metadata, read [SVG contract](references/svg-contract.md).
 - For page-local recovery, truthfulness, and final partitioning, read [QA and revision](references/qa-and-revision.md) and [artifact contract](references/artifact-contract.md).
 
-Save each complete Prompt at `.ppt-pilot/generation-prompts/<slide-id>.md`, then pass those Prompt bytes—not the path—to an available fresh-context generator. The generator returns one XML fence and owns no files or state. AI validates and promotes the result. A generator/tool failure is page-local; independent pages continue.
+Save each complete Prompt at `.ppt-pilot/generation-prompts/<slide-id>.md`, then pass those Prompt bytes—not the path—to an available fresh-context generator. In Claude Code, the active session dispatches the installed `ppt-svg-generator` Agent; it never authenticates or falls back to a local CLI. The generator returns one XML fence and owns no files or state. AI validates and promotes the result. A generator/tool failure is page-local; independent pages continue.
 
 ## Retained tools
 

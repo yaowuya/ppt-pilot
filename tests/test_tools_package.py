@@ -115,6 +115,9 @@ class InstallerTests(unittest.TestCase):
                 (claude_agents / "ppt-svg-generator.md").read_bytes(),
                 (source / "hosts" / "claude-code" / "agents" / "ppt-svg-generator.md").read_bytes(),
             )
+            installed_agent = (claude_agents / "ppt-svg-generator.md").read_text(encoding="utf-8")
+            self.assertIn("local CLI executable", installed_agent)
+            self.assertIn("coordinator, not this generator", installed_agent)
             self.assertFalse((claude_agents / "ppt-svg-generator-sdk.md").exists())
             self.assertEqual((claude_agents / "unrelated.md").read_text(encoding="utf-8"), "keep")
             backups = claude_agents.parent / "agent-backups"

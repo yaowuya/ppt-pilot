@@ -21,7 +21,7 @@
 - `INVALID`：输入产物有真实问题，只失败该页；
 - `UNAVAILABLE`：工具没有产物结论，AI 直接检查并继续，stage/attempts 不变。
 
-不要把工具启动失败记为 generator attempt，也不要因为 Python／renderer／Office 不可用创建全局 blocker。
+不要把工具启动失败记为 generator attempt，也不要因为 Python／renderer／Office 不可用创建全局 blocker。Claude Code 使用当前会话的 Agent，不要求 local Claude CLI 登录；若明确的安全 Git bootstrap 或宿主启动仍不可用，记录该页 `generator_unavailable`，stage/attempts 不变并继续独立页面。
 
 ## Retry 与 skip
 

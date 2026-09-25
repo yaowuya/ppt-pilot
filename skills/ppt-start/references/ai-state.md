@@ -69,6 +69,18 @@ AI 是 `.ppt-pilot/run.json` 的唯一流程 owner。文件是跨回合证据，
 }
 ```
 
+Claude Code 仅在 Agent 尚未接受 Prompt 且明确产生 `host_git_required` 后，才可在页面既有 record 中附加成功 bootstrap 的审计事实：
+
+```json
+"generator_setup": {
+  "kind": "claude_code_local_git_initialized",
+  "scope": "presentation_workspace_root",
+  "trigger": "host_git_required"
+}
+```
+
+它不是新的 control state 或 retry owner。bootstrap 失败或 Agent 第二次仍无法启动时，记录 `generator_unavailable`，保持 stage 和 attempts；只有 Agent 接受 Prompt 后的真实 fresh-context call 才增加 attempts。
+
 - 首次真实生成失败后，只有用户或当前修订动作明确选择 retry/recompose 才能再生成一次。
 - 第二次失败后等待用户选择修复、skip 或停止；不得重建运行、改名页面或删除证据归零。
 - `skipped` 页保存 `skip.decision: user_skipped` 和用户原始回答，attempts 保持不变。

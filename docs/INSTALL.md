@@ -49,7 +49,7 @@ powershell -ExecutionPolicy Bypass -File tools/install-deepseek-plugin.ps1
 
 仓库源文件：`hosts/claude-code/agents/ppt-svg-generator.md`。
 
-Agent 只接收完整 Prompt 文本并返回一个 XML fence。其 frontmatter 可能因宿主 schema 声明 `TodoWrite`，但正文明确禁止调用工具；它没有文件／网络数据工具。不要把这种提示约束描述为硬沙箱或 byte-pure 进程隔离。
+Agent 只接收完整 Prompt 文本并返回一个 XML fence。其 frontmatter 可能因宿主 schema 声明 `TodoWrite`，但正文明确禁止调用工具；它没有文件／网络数据工具。不要把这种提示约束描述为硬沙箱或 byte-pure 进程隔离。Claude Code 使用当前会话授权的 Agent，不需要也不会安装 local Claude CLI 登录路线；若宿主生成能力不可用，AI 记录页面级 `generator_unavailable`，而不是把安装视为失败。
 
 更新器在所选 Claude user/project scope 中同步当前 Agent，并移除同目录下已退休的 SDK Agent 文件；不触碰其他 Agent。
 

@@ -22,7 +22,7 @@ Implementation：把受众决策、主张、精确 display copy、限定、指�
 
 ### 3. SVG generation and tools
 
-Generator interface：完整 Prompt bytes → 一个 XML fence。Generator 没有运行状态和文件 ownership。
+Generator interface：完整 Prompt bytes → 一个 XML fence。Generator 没有运行状态和文件 ownership。Claude Code 只使用当前会话已安装的 prompt-only Agent，不需要 local Claude CLI 登录；只有宿主明确报告 Git 启动前置条件时，coordinator 才能执行受限的本地 bootstrap。任何其他启动失败都是页面级 `generator_unavailable`，不影响 stage 或 attempts。
 
 Stateless tool interface：显式输入文件 → `PASS|INVALID|UNAVAILABLE` JSON。
 

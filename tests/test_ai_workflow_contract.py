@@ -69,6 +69,39 @@ class AIWorkflowContractTests(unittest.TestCase):
         self.assertRegex(state, r"UNAVAILABLE[^\n]{0,100}(?:不改变|保持)[^\n]{0,30}(?:stage|阶段|attempts)")
         self.assertRegex(state, r"INVALID[^\n]{0,100}(?:页面|page)[^\n]{0,30}(?:失败|failed)")
 
+    def test_claude_native_generator_has_one_safe_git_bootstrap_route(self):
+        skill = read_text(PPT_START / "SKILL.md")
+        visual = read_text(PPT_START / "references" / "visual-brief-and-generation.md")
+        workflow = read_text(PPT_START / "references" / "workflow.md")
+        state = read_text(PPT_START / "references" / "ai-state.md")
+
+        self.assertIn("ppt-svg-generator", skill)
+        self.assertIn("local CLI", skill)
+        self.assertEqual(visual.count("git init"), 1)
+        for token in (
+            "Claude Code",
+            "host_git_required",
+            "ppt-output",
+            "same frozen Prompt",
+            "generator_unavailable",
+            "claude_code_local_git_initialized",
+        ):
+            self.assertIn(token, visual + "\n" + workflow + "\n" + state)
+        self.assertRegex(workflow, r"(?:不增加|不消耗).*attempts")
+        for forbidden in (
+            "git add",
+            "git commit",
+            "git branch",
+            "git remote",
+            "git push",
+            "git pull",
+            "git fetch",
+            "git clone",
+            "git worktree",
+            "git config",
+        ):
+            self.assertIn(forbidden, visual)
+
     def test_ai_state_qa_partition_is_a_single_machine_owner(self):
         qa = read_text(PPT_START / "references" / "qa-and-revision.md")
         editable = read_text(PPT_EDITABLE / "references" / "input-output-contract.md")
@@ -133,6 +166,19 @@ class AIWorkflowContractTests(unittest.TestCase):
             self.assertIn(token, text)
         self.assertRegex(text, r"AI 状态[\s\S]{0,700}(?:不需要|不要求)[^\n]{0,80}(?:transaction|batch)")
         self.assertRegex(text, r"Legacy explicit[\s\S]{0,700}(?:strict validator|byte-compatible)")
+
+    def test_public_docs_keep_claude_generation_host_native(self):
+        for path in (
+            ROOT / "README.md",
+            ROOT / "docs" / "ARCHITECTURE.md",
+            ROOT / "docs" / "INSTALL.md",
+            ROOT / "docs" / "RESILIENT-WORKFLOW.md",
+            ROOT / "docs" / "USER-GUIDE.md",
+        ):
+            text = read_text(path)
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertIn("local Claude CLI", text)
+                self.assertIn("generator_unavailable", text)
 
     def test_active_markdown_links_resolve(self):
         historical_roots = (ROOT / "docs" / "superpowers", ROOT / "acceptance-evidence")

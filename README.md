@@ -66,7 +66,7 @@ $ppt-start
 2. **大纲与故事板**：冻结每页结论、精确文案、指标、限定、来源和布局意图；
 3. **文稿审查**：未解决的 `BLOCKER`／`HIGH` 阻止视觉生产；
 4. **主题与锚点**：选择已验证 style pack，用封面和最难内容页验证方向；
-5. **逐页生成**：把每页完整冻结 Prompt 按值交给 fresh-context generator；
+5. **逐页生成**：把每页完整冻结 Prompt 按值交给 fresh-context generator；Claude Code 使用当前会话已安装的 Agent，无需登录 local Claude CLI。若宿主能力或安全 Git bootstrap 不可用，AI 只记录该页 `generator_unavailable` 并继续独立页面；详细边界由 [生成参考](skills/ppt-start/references/visual-brief-and-generation.md) 定义；
 6. **QA**：结构、来源、视觉渲染和 Office 能力分别记录，不互相冒充；
 7. **交付**：全部页面 promoted 才是 complete；有成功页且其余有失败／skip 证据才是 partial。
 
