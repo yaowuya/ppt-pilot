@@ -93,8 +93,10 @@ class InteractionProtocolTests(unittest.TestCase):
             workflow,
         )
         self.assertIn("pending_interaction", workflow)
-        self.assertIn("不启动后台任务、轮询或隐藏并发", workflow)
-        self.assertNotIn("可并发", workflow)
+        self.assertIn("不忙轮询", workflow)
+        self.assertIn("可并发", workflow)
+        self.assertIn("串行提交", workflow)
+        self.assertIn("默认并发 5", workflow)
         self.assertNotIn("paused", workflow)
         self.assertNotIn("active_visual_generation_batch", workflow)
 

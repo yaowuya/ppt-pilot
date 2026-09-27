@@ -25,6 +25,10 @@
 - 单页 layout／visual intent 变化：只把该页标记 dirty 并重编完整 Prompt；
 - 已验证的纯字节缺陷可直接修正，但不得改变语义、来源或视觉意图。
 
+## 并发结果
+
+Generator completion may be out of order. Coordinator 按 `active_generation_wave.ordered_slide_ids` 的故事板顺序消费和发布 terminal results；一个页面失败不取消或降级 accepted siblings。Prompt 被宿主接受前的 capacity rejection 不增加 attempts。提取、确定性校验、final promotion、QA evidence 和状态更新始终逐页串行。
+
 ## 生成预算
 
 每页首发一次；真实生成失败后，下一轮最多一次明确 retry/recompose。只有真实 generator 调用增加 attempts。第二次失败后等待用户选择修复、skip 或停止；不自动循环、不删除证据、不重建运行归零。

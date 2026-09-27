@@ -70,6 +70,34 @@ class AIWorkflowContractTests(unittest.TestCase):
         self.assertRegex(state, r"UNAVAILABLE[^\n]{0,100}(?:不改变|保持)[^\n]{0,30}(?:stage|阶段|attempts)")
         self.assertRegex(state, r"INVALID[^\n]{0,100}(?:页面|page)[^\n]{0,30}(?:失败|failed)")
 
+    def test_parallel_generation_is_one_bounded_coordinator_action(self):
+        skill = read_text(PPT_START / "SKILL.md")
+        state = read_text(PPT_START / "references" / "ai-state.md")
+        workflow = read_text(PPT_START / "references" / "workflow.md")
+        visual = read_text(PPT_START / "references" / "visual-brief-and-generation.md")
+        combined = "\n".join((skill, state, workflow, visual))
+        for token in (
+            "active_generation_wave",
+            "target_width",
+            "ordered_slide_ids",
+            "accepted_tasks",
+            "默认并发 5",
+            "2–10",
+            "同一工具轮",
+            "故事板顺序",
+            "coordinator-only",
+            "host_concurrency_unavailable",
+            "重复归因幂等",
+            "归因冲突",
+            "首个未 terminal",
+        ):
+            self.assertIn(token, combined)
+        self.assertNotIn(
+            "A turn may make at most one real generator call for one page", skill
+        )
+        self.assertNotIn("每轮最多执行一个真实页面生成调用", state)
+        self.assertNotIn("每轮最多一次真实页面生成调用", workflow)
+
     def test_native_context_is_not_a_worktree_or_head_prerequisite(self):
         skill = read_text(PPT_START / "SKILL.md")
         visual = read_text(PPT_START / "references" / "visual-brief-and-generation.md")

@@ -34,6 +34,8 @@ JSON、Prompt、candidate、final 和报告先在同目录写临时文件，关�
 
 状态只能引用真实存在的相对路径。记录 hash 时必须来自实际字节；没有确定性 hash 能力时写 `unhashed` 和实际验证方式，不伪造摘要。
 
+Parallel generators never write run artifacts. Prompt/source-map preparation, candidate/final files, QA evidence and `run.json` are coordinator-only serial writes. `active_generation_wave` 只保存有序协调证据，不是第二份 slide inventory；final delivery 不能保留 active wave。
+
 ## Prompt 与 SVG
 
 首次生成或 recompose 保存完整 Prompt。Generator 接收 Prompt 字节，只返回一个 XML fence，不读取任何文件或状态。

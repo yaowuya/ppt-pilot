@@ -511,6 +511,37 @@ class RunContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             contract.validate_delivery_selection(context, contract.parse_storyboard(context.storyboard_path))
 
+    def test_ai_state_final_rejects_active_generation_wave(self):
+        contract = self._contract()
+        run = self._write_ai_state_partial_run(self._temp_root() / "ai-active-wave")
+        run_path = run / ".ppt-pilot" / "run.json"
+        value = json.loads(run_path.read_text(encoding="utf-8"))
+        value["active_generation_wave"] = {
+            "schema_version": 1,
+            "wave_id": "wave-S02-S06-01",
+            "stage": "production",
+            "status": "collecting",
+            "target_width": 5,
+            "ordered_slide_ids": ["S02"],
+            "prompt_sha256": {"S02": "sha256:" + "a" * 64},
+            "accepted_tasks": {
+                "S02": {
+                    "task_id": "task-S02-01",
+                    "attempt": 2,
+                    "prompt_sha256": "sha256:" + "a" * 64,
+                    "state": "in_flight",
+                }
+            },
+        }
+        run_path.write_text(json.dumps(value), encoding="utf-8")
+        context = contract.validate_final_run(run)
+        with self.assertRaises(EditableError) as raised:
+            contract.validate_delivery_selection(
+                context,
+                contract.parse_storyboard(context.storyboard_path),
+            )
+        self.assertEqual(raised.exception.code, "run_not_complete")
+
     def test_ai_state_complete_and_partial_must_match_final_page_partition(self):
         contract = self._contract()
         run = self._write_ai_state_partial_run(self._temp_root() / "ai-final")

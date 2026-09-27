@@ -13,6 +13,7 @@ AI 是 `.ppt-pilot/run.json` 的唯一流程 owner。文件是跨回合证据，
   "mode": "guided",
   "stage": "production",
   "pending_interaction": null,
+  "active_generation_wave": null,
   "dirty_slides": ["S02"],
   "slides": {
     "S01": {
@@ -36,11 +37,11 @@ AI 是 `.ppt-pilot/run.json` 的唯一流程 owner。文件是跨回合证据，
 
 1. 读取当前状态和真实产物。
 2. 处理 `pending_interaction` 或选择最早可执行动作。
-3. 每轮最多执行一个真实页面生成调用；没有隐藏队列、忙等或自动循环。
+3. 每轮执行一个非生成动作，或一个独立页面的有界生成 wave；默认并发 5，显式串行 1，显式并发 2–10。没有隐藏队列、忙等或自动循环。
 4. 先写入并读回真实证据，再原子更新状态。
 5. 报告本轮动作、工具降级、页面失败、下一动作和待决定事项。
 
-只有真实 fresh-context 生成调用才增加该页 `attempts`。读取、校验、格式转换、工具启动失败、用户 skip 和恢复检查都不得增加或重置它。
+只有真实 fresh-context 生成调用才增加该页 `attempts`；只有宿主接受完整 Prompt 并返回可恢复的任务归因，才算该调用发生。读取、校验、格式转换、容量拒绝、工具启动失败、用户 skip 和恢复检查都不得增加或重置它。
 
 ## 工具证据
 
@@ -68,6 +69,57 @@ AI 是 `.ppt-pilot/run.json` 的唯一流程 owner。文件是跨回合证据，
   "qa": {"structure": "not_run", "visual": "not_rendered", "tool": "unavailable"}
 }
 ```
+
+### 有界 generation wave
+
+`active_generation_wave` 是 AI 暂存的协调证据，不是队列或第二份页面 inventory；`slides` 始终是页面 authority。只有同一运行、同一阶段、同一已批准故事板／文稿／主题快照下，且 Prompt 与 page-specific source map 已完整写入并读回、互不依赖的页面才能进入同一 wave。锚点 wave 与 production wave 不能跨越批准门。
+
+默认并发 5；显式串行宽度为 1，显式并发宽度为 2–10。实际宽度取 target、剩余 eligible 页面和已知 host capacity 的最小值。准备阶段按故事板顺序选择页面，并在任何 Agent 调用前原子写入：
+
+```json
+{
+  "active_generation_wave": {
+    "schema_version": 1,
+    "wave_id": "wave-S02-S06-01",
+    "stage": "production",
+    "status": "prepared",
+    "target_width": 5,
+    "ordered_slide_ids": ["S02", "S03", "S04", "S05", "S06"],
+    "prompt_sha256": {
+      "S02": "sha256:d4df06e9137784f7529d8a018c4801f664c512389c2656bbf3b12b8ff1df9f12",
+      "S03": "sha256:c41ec4b66d5bf8b7b1723e827ad29aa953dd055c8eff00334c0735407cffa141",
+      "S04": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "S05": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "S06": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "accepted_tasks": {}
+  }
+}
+```
+
+示例 digest 只展示字段语法；真实运行必须从每份实际读回的 Prompt 字节计算。宿主接受调用后，`accepted_tasks` 只记录真实返回的 durable task attribution：
+
+```json
+{
+  "S02": {
+    "task_id": "task-S02-01",
+    "attempt": 1,
+    "prompt_sha256": "sha256:d4df06e9137784f7529d8a018c4801f664c512389c2656bbf3b12b8ff1df9f12",
+    "state": "in_flight"
+  }
+}
+```
+
+不变量：
+
+- `status` 只能是 `prepared|collecting`；`ordered_slide_ids` 无重复且保持故事板顺序；
+- `prompt_sha256` 的 key 必须与 `ordered_slide_ids` 完全相同，且摘要来自实际读回字节；
+- `accepted_tasks` 的 key 是 `ordered_slide_ids` 的子集，task ID 非空且 Prompt digest 一致；
+- 只有 task attribution 被宿主接受并写入后，相应 `slides[id].attempts` 才增加一次并进入 `generating`；prepared 但未接受的页面不消耗 attempt；
+- 同一 `task_id` 与 Prompt digest 的重复归因幂等：保持原 attempt 和 task state，不再次增加 attempts；
+- 归因冲突（同页 task/digest 被替换、同一 task ID 绑定多页或 attempt 不一致）必须 fail closed，只使该页成为 `generator_attribution_unknown`，不覆盖证据、不猜测或重复计数；
+- 已接受 task ID 在恢复时只 resume／consume，绝不因新回合重新 dispatch；
+- 所有 accepted task 终止并按顺序处理，且未接受页面恢复 eligible 后，清除 wave；最终 `complete|partial|failed` 必须让 `active_generation_wave` 为 `null` 或不存在。
 
 ### Generator setup 证据
 

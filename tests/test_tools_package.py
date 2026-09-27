@@ -118,6 +118,15 @@ class InstallerTests(unittest.TestCase):
             installed_agent = (claude_agents / "ppt-svg-generator.md").read_text(encoding="utf-8")
             self.assertIn("local CLI executable", installed_agent)
             self.assertIn("coordinator, not this generator", installed_agent)
+            installed_skill = (claude_skills / "ppt-start" / "SKILL.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("bounded generation wave", installed_skill)
+            self.assertIn("default width is 5", installed_skill)
+            self.assertNotIn(
+                "A turn may make at most one real generator call for one page",
+                installed_skill,
+            )
             self.assertFalse((claude_agents / "ppt-svg-generator-sdk.md").exists())
             self.assertEqual((claude_agents / "unrelated.md").read_text(encoding="utf-8"), "keep")
             backups = claude_agents.parent / "agent-backups"

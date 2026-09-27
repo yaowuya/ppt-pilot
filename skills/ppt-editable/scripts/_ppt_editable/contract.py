@@ -535,6 +535,11 @@ class AIStateDeliveryAdapter:
         slides = context.run_data["slides"]
         delivery = context.run_data["delivery"]
         status = delivery["status"]
+        if context.run_data.get("active_generation_wave") is not None:
+            raise _error(
+                "run_not_complete",
+                "AI state final run retains an active generation wave",
+            )
         if context.run_data.get("stage") != status:
             raise _error("run_not_complete", "AI state stage differs from delivery status")
         if context.theme_path is None:

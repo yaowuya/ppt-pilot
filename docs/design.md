@@ -18,6 +18,10 @@ AI 读取真实文件、维护 `run.json`、应用用户决定并选择下一动
 
 每页有独立 Prompt、attempt、failure、QA 和 final。页面失败保留 prior final 和 evidence；不依赖该页的 siblings 继续。真实 generator 调用之外的动作不消耗 attempts。
 
+### Bounded parallel generation
+
+独立页面默认以 target width 5 的 wave 生成；用户可明确选择串行 1 或并发 2–10，实际宽度受 eligible 页数和宿主容量约束。只有 prompt-only page Agents 并发；AI 仍是 coordinator-only writer，按故事板顺序串行准备 Prompt/source map、处理结果、验证、promote 和更新 `run.json`。静态／纯函数测试只证明契约，真实 2+ Agent overlap 必须由 Host 证据证明。
+
 ### Layered degradation
 
 工具只能返回 `PASS|INVALID|UNAVAILABLE`：
