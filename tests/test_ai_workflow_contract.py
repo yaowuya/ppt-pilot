@@ -1,3 +1,4 @@
+import json
 import re
 import sys
 import unittest
@@ -69,38 +70,50 @@ class AIWorkflowContractTests(unittest.TestCase):
         self.assertRegex(state, r"UNAVAILABLE[^\n]{0,100}(?:不改变|保持)[^\n]{0,30}(?:stage|阶段|attempts)")
         self.assertRegex(state, r"INVALID[^\n]{0,100}(?:页面|page)[^\n]{0,30}(?:失败|failed)")
 
-    def test_claude_native_generator_has_one_safe_git_bootstrap_route(self):
+    def test_native_context_is_not_a_worktree_or_head_prerequisite(self):
         skill = read_text(PPT_START / "SKILL.md")
         visual = read_text(PPT_START / "references" / "visual-brief-and-generation.md")
-        workflow = read_text(PPT_START / "references" / "workflow.md")
-        state = read_text(PPT_START / "references" / "ai-state.md")
-
-        self.assertIn("ppt-svg-generator", skill)
+        native = visual.split("### Claude Code HEAD repair", 1)[0]
+        payloads = re.findall(r"```json\n(.*?)\n```", native, re.DOTALL)
+        self.assertEqual(len(payloads), 1, "Show the default native Agent invocation")
+        invocation = json.loads(payloads[0])
+        self.assertEqual(invocation["subagent_type"], "ppt-svg-generator")
+        self.assertEqual(set(invocation), {"subagent_type", "prompt"})
+        self.assertIn("fresh context", native)
+        self.assertIn("isolation", native)
+        self.assertIn("省略", native)
+        self.assertIn("fork", native)
+        self.assertIn("HEAD", skill)
         self.assertIn("local CLI", skill)
-        self.assertEqual(visual.count("git init"), 1)
+        self.assertIn("普通原生调用不以 Git/HEAD 为前置条件", native)
+
+    def test_head_repair_has_a_bounded_empty_initial_commit_exception(self):
+        visual = read_text(PPT_START / "references" / "visual-brief-and-generation.md")
+        repair = visual.split("### Claude Code HEAD repair", 1)[-1]
         for token in (
-            "Claude Code",
-            "host_git_required",
-            "ppt-output",
-            "same frozen Prompt",
-            "generator_unavailable",
-            "claude_code_local_git_initialized",
+            "host_git_required", "host_git_head_required", "--allow-empty --only",
+            "HEAD^{commit}", "ls-tree", "宿主实际启动目录", "run_dir",
+            "用户明确授权", "本插件创建", "已有用户仓库", "所有权不明", "损坏",
+            "用户主目录", "磁盘根目录", "ppt-output", "same frozen Prompt",
+            "git add", "git reset", "git clean", "git checkout", "git push",
+            "hooks", "签名", "一次",
         ):
-            self.assertIn(token, visual + "\n" + workflow + "\n" + state)
+            self.assertIn(token, repair)
+        self.assertNotIn("--no-verify", repair)
+        self.assertNotIn("--no-gpg-sign", repair)
+        self.assertNotRegex(repair, r"(?m)^git\s+(?:add|push|reset|clean|checkout)\b")
+
+    def test_init_only_evidence_does_not_become_an_endless_head_gate(self):
+        state = read_text(PPT_START / "references" / "ai-state.md")
+        workflow = read_text(PPT_START / "references" / "workflow.md")
+        self.assertIn("claude_code_local_git_initialized", state)
+        self.assertIn("claude_code_local_git_head_ready", state)
+        self.assertIn('"protocol_version": 2', state)
+        self.assertIn("不代表 HEAD 就绪", state)
+        self.assertIn("旧版初始化不消耗本次 HEAD 修复机会", state)
+        self.assertIn("不重复追加", state)
+        self.assertIn("HEAD-only", workflow)
         self.assertRegex(workflow, r"(?:不增加|不消耗).*attempts")
-        for forbidden in (
-            "git add",
-            "git commit",
-            "git branch",
-            "git remote",
-            "git push",
-            "git pull",
-            "git fetch",
-            "git clone",
-            "git worktree",
-            "git config",
-        ):
-            self.assertIn(forbidden, visual)
 
     def test_ai_state_qa_partition_is_a_single_machine_owner(self):
         qa = read_text(PPT_START / "references" / "qa-and-revision.md")
@@ -179,6 +192,8 @@ class AIWorkflowContractTests(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT)):
                 self.assertIn("local Claude CLI", text)
                 self.assertIn("generator_unavailable", text)
+                self.assertIn("HEAD", text)
+                self.assertIn("visual-brief-and-generation.md", text)
 
     def test_active_markdown_links_resolve(self):
         historical_roots = (ROOT / "docs" / "superpowers", ROOT / "acceptance-evidence")

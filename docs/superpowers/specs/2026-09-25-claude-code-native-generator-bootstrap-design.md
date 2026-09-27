@@ -1,7 +1,7 @@
 # Claude Code 原生生成器与条件式本地 Git Bootstrap
 
 **日期：** 2026-09-25
-**状态：** 用户已确认“条件式本地 Git bootstrap”方案；已实现并在 2026-09-25 验证（420 tests，6 skipped）；未部署本次变更到本地宿主。
+**状态：** 2026-09-27 修订。2026-09-25 的 init-only 方案虽然通过静态契约测试，却不能产生有效 HEAD；本次修复明确替代该限制。执行细节以 [生成器恢复协议](../../../skills/ppt-start/references/visual-brief-and-generation.md) 为准。
 
 ## 问题
 
@@ -15,45 +15,31 @@ PPT Pilot 要求逐页 SVG 由不读取工作区的 fresh-context generator 按�
 
 1. PPT coordinator 只把完整冻结 Prompt 按值交给当前宿主的 `ppt-svg-generator`；generator 不读工作区、不写文件、不维护状态。
 2. coordinator 永不调用或提示调用本地 `claude` CLI；不触发登录、认证浏览器、API key、`claude -p` 或任何 CLI 备用生成器。
-3. 仅当运行在 Claude Code，且宿主明确诊断 named Agent 因“当前启动目录不是 Git 仓库”而无法启动时，coordinator 才可初始化一个本地 Git 仓库并重试同一 Prompt 一次。
-4. Git 只是 Claude Code 的启动垫片，不是 PPT workflow owner、状态机、证据来源或交付前提。
+3. Claude Code 默认新建非 fork 的原生 Agent，省略可选的 filesystem isolation，不执行 Git/HEAD 前置检查。只有宿主实际强制 Git 或返回真实的 HEAD 启动错误时，才进入受限修复。
+4. Git 只是 Claude Code 的启动基准，不是 PPT workflow owner、状态机或交付前提。
 
-## 条件式 Git bootstrap
+## 条件式 HEAD 修复（2026-09-27 修订）
 
-### 触发条件
+原方案只允许初始化目录，同时禁止所有提交，导致 unborn HEAD 永远无法自愈。允许空仓库并不意味着允许提交文稿：本修订的唯一提交例外是用户已明确授权、由插件创建、无历史／refs／remote 的专用本地仓库中的一次空初始提交。
 
-以下条件必须同时成立：
+### 资格与目录
 
-- 当前 host 是 Claude Code；
-- `ppt-svg-generator` 尚未开始处理 Prompt；
-- 启动失败被明确归因为缺少 Git 仓库，而不是泛化的 Agent、权限、模型、网络、Prompt 或工具错误；
-- coordinator 能确定 Claude Code 用于启动 Agent 的专用 presentation workspace root，且它是 run 的祖先或 run 本身；该 root 必须是 `ppt-output/` 容器或一个明确选择的 presentation workspace，绝不能是用户主目录、磁盘根目录或无关项目目录。
+- 错误必须发生在 Prompt 被接受前，且实际原因是缺少 Git 仓库或有效 HEAD，不是权限、网络、模型或缺 Agent。
+- 现有有效 HEAD 直接复用；已有用户仓库、所有权不明、损坏仓库或带 remote 的空仓库不擅自修改。
+- 从宿主实际启动目录确认安全根目录：必须为已授权的专用 presentation workspace，并在 `run_dir` 之外。宿主根等于 run 时，仅可选择已授权且名为 `ppt-output` 的直接父目录。
+- 不选择主目录、盘根、无关项目或链接目标，不创建嵌套仓库。
 
-泛化失败、无法确定 root、Git 不可用或初始化失败都不得触发猜测性 Git 操作。
+### 提交与验证
 
-### 根目录与隔离
+原生独立上下文不要求 HEAD。若宿主确实要求，受限修复使用带 `--allow-empty --only` 的初始提交排除 staged 文件；身份仅放在子进程环境，不写 Git 配置。已有 index 和所有文件保持不变，保留 hooks／签名要求，失败不绕过。
 
-`run_dir` 是 `ppt-output/<deck-id>/`。`.git` 不得写在 `run_dir` 之内，因为 `.ppt-pilot` / SVG artifact firewall 必须继续只面对交付证据。
+从实际启动目录验证 `HEAD^{commit}` 与根目录；新建初始提交的 tree 必须为空。只初始化目录不算完成，Git 基准可用也不等于宿主已生成 SVG。禁止暂存资料、改写历史、设置 remote、推送或上传；具体可执行序列由生成参考唯一维护，不再在设计稿复制。
 
-- 若 Claude Code workspace root 是 run 的祖先，在该 workspace root 初始化；
-- 若 workspace root 恰好是 run，则仅在其父目录严格命名为 `ppt-output` 时，才在该父目录初始化，使 Git 向上发现但不污染 run artifact tree；否则不初始化并按页面级不可用处理；
-- 若两种关系都不成立，不初始化 Git，改为页面级 `generator_unavailable`。
+### 恢复与预算
 
-只执行一次：
+旧 `claude_code_local_git_initialized` 仅表示 init-only，不消耗本次 HEAD 修复机会。新 `generator_setup` 记录 `protocol_version: 2`、`claude_code_local_git_head_ready` 和实际 HEAD；失败也记录所处步骤，避免相同错误／相同环境反复 HEAD-only 检查。
 
-```text
-git init <selected-local-root>
-```
-
-禁止 `git add`、`commit`、`branch`、`remote`、`push`、`pull`、`fetch`、`clone`、`worktree` 和显式 `git config` 操作，以及读取或上传已有 Git 历史。初始化仓库没有 remote，也不产生提交。
-
-### 重试和状态
-
-bootstrap 成功后，仅重新启动 named Agent 一次，并将完全相同的冻结 Prompt 按值传入。AI 在页面的既有 evidence 中记录 `claude_code_local_git_initialized`、所选作用域和触发原因；这只是审计事实，不是新的 runtime owner。
-
-- Agent 真正开始生成前的 Git / host 启动失败：`generator_unavailable`，不增加 attempts；
-- Agent 已开始生成后产生无效 SVG：按现有 `INVALID` 页面局部失败规则处理，属于真实 attempt；
-- bootstrap 后仍不可启动：页面局部 `generator_unavailable`；不调用 local CLI、不自动循环、不阻塞 sibling 页面。
+修复完成后，同一冻结 Prompt 最多重新启动一次原生 Agent。启动前失败不增加 attempts；实际开始生成后的失败才消耗一次生成机会。若宿主仍不可用，一次性披露限制并转向其他可执行动作；不要求用户反复“继续”，不生成替代 SVG。
 
 ## 宿主边界
 
@@ -68,8 +54,8 @@ Claude Code 使用当前会话的原生 Agent 路线。Codex 与 DeepSeek Harnes
 3. 更新 README / architecture 中与 host generation 相关的简短说明，避免把 local CLI 当成可选方案。
 4. 扩展 package/workflow contract tests，验证：
    - active instructions 不包含可执行的 local Claude CLI fallback；
-   - Git bootstrap 仅在 Claude Code + explicit Git prerequisite 条件下允许；
-   - 禁止 Git 历史、remote、commit、push、worktree 和隐藏重试；
+   - Git/HEAD 修复仅在 Claude Code 的真实启动错误下允许；
+   - 普通路由无 HEAD 前置门，空提交例外不包含文件，不改变配置／index／remote；
    - generator Agent 自身无 CLI/Git/workspace 行为；
    - installer 继续打包同一份更新后的 Skill / Agent。
 5. 运行相关聚焦测试和完整测试套件。
@@ -83,7 +69,8 @@ Claude Code 使用当前会话的原生 Agent 路线。Codex 与 DeepSeek Harnes
 ## 完成标准
 
 - 任何 active instruction 都不要求、建议或执行 local Claude CLI 登录/生成；
-- Claude Code 因缺 Git 无法启动 generator 时，只有安全根目录内的一次本地 `git init` 和一次 Agent 重试；
+- 默认原生路由不要求 Git/HEAD；确需 Git 时，安全根中的空初始提交必须通过实际 HEAD 和空 tree 校验，之后至多重启一次 Agent；
+- 临时目录内用真实 Git 测试 init-only 失败、可用 worktree 基准、暂存文件排除、旧空仓库恢复、有效 HEAD 复用和 hook 失败；
 - `.git` 不进入 PPT run artifact tree；
 - 无法 bootstrap 时工作流诚实地页面级降级；
 - 已有 `PASS | INVALID | UNAVAILABLE`、attempt 和 partial-delivery 契约保持不变；

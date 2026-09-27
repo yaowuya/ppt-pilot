@@ -9,7 +9,7 @@ description: Use when creating, resuming, redesigning, or revising an evidence-b
 
 AI is the only workflow coordinator. It reads the workspace, chooses the next action, writes artifacts, and maintains `.ppt-pilot/run.json`. Packaged scripts are stateless artifact tools; their availability never owns a stage, retry, user decision, or recovery path.
 
-Git is not a content or delivery prerequisite. Do not require a worktree, a workflow runner, a host registry, a dashboard, a hidden queue, or a polling loop. Fresh-context generation uses the active host session, never a local CLI process; Claude Code may use the single conditional bootstrap in [Prompt and generation](references/visual-brief-and-generation.md) only after its named Agent explicitly reports a missing Git prerequisite before accepting a Prompt. Never create helper programs or dependencies inside a presentation run.
+Fresh context means a new Agent context, not a separate checkout. Prefer the active host's native Agent without optional filesystem isolation or a Git/HEAD preflight; never use a local CLI process. Read [Prompt and generation](references/visual-brief-and-generation.md) before dispatch, when a host reports a Git/HEAD launch error, or when resuming an init-only repair. Do not introduce a workflow runner, host registry, dashboard, hidden queue, or polling loop. Never create helper programs or dependencies inside a presentation run.
 
 ## Run one action
 

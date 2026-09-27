@@ -1,5 +1,7 @@
 # Claude Code Native Generator Bootstrap Implementation Plan
 
+> **SUPERSEDED — 2026-09-27:** This is the historical init-only implementation plan. Its blanket commit prohibition left an unborn HEAD and has been replaced by the [revised design](../specs/2026-09-25-claude-code-native-generator-bootstrap-design.md) and [active generator recovery protocol](../../../skills/ppt-start/references/visual-brief-and-generation.md). Do not execute the old bootstrap steps below. The old checked tests proved document wording, not a usable Git HEAD; `tests/test_generator_git_bootstrap.py` now exercises the documented repair against real temporary repositories.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make PPT Pilot use only the active Claude Code session's prompt-only generator, with one safe local Git bootstrap only for an explicit Git-prerequisite launch failure and never a local Claude CLI login or fallback.
