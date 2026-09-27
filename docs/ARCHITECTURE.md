@@ -22,7 +22,7 @@ Implementation：把受众决策、主张、精确 display copy、限定、指�
 
 ### 3. SVG generation and tools
 
-Generator interface：完整 Prompt bytes → 一个 XML fence。Generator 没有运行状态和文件 ownership。Claude Code 只使用当前会话已安装的 prompt-only Agent，不需要 local Claude CLI 登录；只有宿主明确报告 Git 启动前置条件时，coordinator 才能执行受限的本地 bootstrap。任何其他启动失败都是页面级 `generator_unavailable`，不影响 stage 或 attempts。
+Generator interface：完整 Prompt bytes → 一个 XML fence。Generator 没有运行状态和文件 ownership。Claude Code 使用非 fork 原生 Agent，默认不请求 worktree，也不设 Git/HEAD 前置检查；不需要 local Claude CLI 登录。只有宿主实际强制 Git 隔离时，coordinator 才按 [生成器恢复协议](../skills/ppt-start/references/visual-brief-and-generation.md) 在授权的自有空仓库中建立文件集为空的初始提交并验证 HEAD。单纯初始化目录不算 ready；不可修复则记录页面级 `generator_unavailable`，不反复检查同一个错误。
 
 Stateless tool interface：显式输入文件 → `PASS|INVALID|UNAVAILABLE` JSON。
 

@@ -21,7 +21,7 @@
 - `INVALID`：输入产物有真实问题，只失败该页；
 - `UNAVAILABLE`：工具没有产物结论，AI 直接检查并继续，stage/attempts 不变。
 
-不要把工具启动失败记为 generator attempt，也不要因为 Python／renderer／Office 不可用创建全局 blocker。Claude Code 使用当前会话的 Agent，不要求 local Claude CLI 登录；若明确的安全 Git bootstrap 或宿主启动仍不可用，记录该页 `generator_unavailable`，stage/attempts 不变并继续独立页面。
+不要把工具启动失败记为 generator attempt，也不要因为 Python／renderer／Office 不可用创建全局 blocker。Claude Code 原生独立上下文默认不依赖 Git/HEAD，不要求 local Claude CLI 登录。宿主明确要求 Git 时，按 [生成器恢复协议](../skills/ppt-start/references/visual-brief-and-generation.md) 补齐获准的本地空初始提交；旧的 init-only 记录不代表 HEAD 就绪。修复后仍不可用只记录一次 `generator_unavailable`，stage/attempts 不变；环境未变时不重复 HEAD 检查和相同失败写入，转向其他可执行动作。
 
 ## Retry 与 skip
 

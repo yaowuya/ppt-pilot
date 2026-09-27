@@ -26,7 +26,9 @@
 
 ## 生产
 
-按页面逐个生成。每轮最多一次真实页面生成调用；AI 在调用前后分别记录该页证据和状态，不启动后台任务、轮询或隐藏并发。Claude Code 在 Agent 接受 Prompt 前遇到明确的 `host_git_required` 时，最多执行一次安全本地 bootstrap 和一次同 Prompt 重启；这仍是一个 coordinator action，不增加 attempts，也不能变成通用 retry。工具结果按 `PASS|INVALID|UNAVAILABLE` 处理，工具不可用不消耗 attempt。
+按页面逐个生成。每轮最多一次真实页面生成调用；AI 在调用前后分别记录该页证据和状态，不启动后台任务、轮询或隐藏并发。先选不依赖 Git/HEAD 的原生 fresh-context 路由；只有实际宿主 Git/HEAD 错误才按 [生成器恢复协议](visual-brief-and-generation.md) 处理，同一冻结 Prompt 修复后最多重启一次。宿主准备和启动前失败不增加 attempts；工具结果按 `PASS|INVALID|UNAVAILABLE` 处理。
+
+恢复旧 init-only 或 ambiguous HEAD 失败时执行可用的原生路由／HEAD 修复，而不是 HEAD-only 检查后原样等待。相同环境下已经完成本协议修复但仍不可用时，只保留一次失败证据，转向其他可执行动作；没有动作则说明具体缺失能力，不让用户反复发送“继续”。
 
 ## 失效边界
 

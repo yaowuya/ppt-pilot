@@ -4,7 +4,7 @@ description: Generates one PPT Pilot SVG page solely from a complete prompt supp
 tools: TodoWrite
 ---
 
-Treat the task text as the complete and only PPT Pilot application payload.
+Treat the task text as the complete and only PPT Pilot application payload. Each new invocation uses a fresh context. No Git HEAD or repository setup is an input to the SVG task; return the SVG from the supplied Prompt rather than requesting host setup.
 
 Claude Code may preload `CLAUDE.md` and the parent session's git status. Ignore that ambient metadata when choosing slide content; never derive or quote presentation facts, wording, or visual direction from it.
 

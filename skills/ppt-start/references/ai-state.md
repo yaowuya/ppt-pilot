@@ -69,17 +69,29 @@ AI 是 `.ppt-pilot/run.json` 的唯一流程 owner。文件是跨回合证据，
 }
 ```
 
-Claude Code 仅在 Agent 尚未接受 Prompt 且明确产生 `host_git_required` 后，才可在页面既有 record 中附加成功 bootstrap 的审计事实：
+### Generator setup 证据
+
+[生成器恢复协议](visual-brief-and-generation.md) 是原生路由和本地 HEAD 修复的唯一规则；这里仅定义已有页面 record 中的审计证据，不创建新的流程 owner。
+
+旧的 `claude_code_local_git_initialized` **不代表 HEAD 就绪**，只证明曾初始化目录。旧版初始化不消耗本次 HEAD 修复机会；保留旧证据，在确认同一安全根目录和授权后恢复。只有从宿主实际启动目录验证通过，才保存新的 `generator_setup`：
 
 ```json
-"generator_setup": {
-  "kind": "claude_code_local_git_initialized",
-  "scope": "presentation_workspace_root",
-  "trigger": "host_git_required"
+{
+  "generator_setup": {
+    "protocol_version": 2,
+    "kind": "claude_code_local_git_head_ready",
+    "scope": "presentation_workspace_root",
+    "trigger": "host_git_head_required",
+    "head": "<实际验证返回的 Git 对象 ID>"
+  }
 }
 ```
 
-它不是新的 control state 或 retry owner。bootstrap 失败或 Agent 第二次仍无法启动时，记录 `generator_unavailable`，保持 stage 和 attempts；只有 Agent 接受 Prompt 后的真实 fresh-context call 才增加 attempts。
+`scope` 按实际选择记录为 `presentation_workspace_root` 或 `ppt_output_parent`；`trigger` 为真实的 `host_git_required` 或 `host_git_head_required`。复用已有有效 HEAD 也必须实际验证，不能用旧 init 成功记录代替，也不能伪造对象 ID。head-ready 只证明宿主基准，不证明 generator／SVG PASS。
+
+失败时，在既有页面证据中记录 `generator_setup.protocol_version: 2`、`kind: claude_code_local_git_head_unavailable`、实际失败步骤和 `failure.code: generator_unavailable`，保持 stage 和 attempts。恢复时读取该证据；对同一宿主／根目录／错误且环境未变的情况不重复追加失败、不重复消耗 setup 机会。只有原生路由、权限、宿主能力、Git 状态或修复协议实际改变，才重新评估；“继续”本身不是环境修复。
+
+### 生成预算
 
 - 首次真实生成失败后，只有用户或当前修订动作明确选择 retry/recompose 才能再生成一次。
 - 第二次失败后等待用户选择修复、skip 或停止；不得重建运行、改名页面或删除证据归零。

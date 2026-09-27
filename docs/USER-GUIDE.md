@@ -29,7 +29,7 @@
 2. **大纲／故事板**：冻结每页结论、文案、指标、限定、来源和布局意图；
 3. **文稿审查**：未解决 `BLOCKER`／`HIGH` 不进入设计；
 4. **主题／锚点**：选择 style pack，用两页样例验证方向；
-5. **逐页 SVG**：每页完整 Prompt 交给 fresh-context generator；Claude Code 使用当前会话的已安装 Agent，不需要登录 local Claude CLI。若宿主无法安全启动 generator，AI 记录该页 `generator_unavailable` 并继续其他独立页面；
+5. **逐页 SVG**：每页完整 Prompt 交给 fresh-context generator；Claude Code 默认用不依赖 Git/HEAD 的原生独立上下文，不需要登录 local Claude CLI。若宿主强制需要 Git，按 [生成器恢复协议](../skills/ppt-start/references/visual-brief-and-generation.md) 在获准的专用目录建立不包含资料的空初始提交；若仍不可用，报告 `generator_unavailable` 和具体限制，不反复让你发送“继续”；
 6. **QA**：结构、来源、视觉和 Office 分别记录；
 7. **交付结论**：`complete`、`partial` 或 `failed`。
 
