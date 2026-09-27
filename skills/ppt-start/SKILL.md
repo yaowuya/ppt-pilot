@@ -11,12 +11,12 @@ AI is the only workflow coordinator. It reads the workspace, chooses the next ac
 
 Fresh context means a new Agent context, not a separate checkout. Prefer the active host's native Agent without optional filesystem isolation or a Git/HEAD preflight; never use a local CLI process. Read [Prompt and generation](references/visual-brief-and-generation.md) before dispatch, when a host reports a Git/HEAD launch error, or when resuming an init-only repair. Do not introduce a workflow runner, host registry, dashboard, hidden queue, or polling loop. Never create helper programs or dependencies inside a presentation run.
 
-## Run one action
+## Run one action or bounded wave
 
 1. Select an existing run or create a non-conflicting `ppt-output/<deck-id>/`.
 2. Read `run.json`, the artifacts for its current stage, and the actual files in `slides/`.
 3. If `pending_interaction` exists, replay or apply that decision first. Otherwise choose the earliest executable action.
-4. Perform one action. A turn may make at most one real generator call for one page.
+4. Perform one non-generation action, or one bounded generation wave of independent pages. The default width is 5; an explicit serial request uses 1, and an explicit parallel width may be 2–10. Read Prompt and generation before dispatch.
 5. Write and reread the artifact evidence, then atomically update `run.json`.
 6. Report what completed, any degraded tool evidence, failed/skipped pages, the next action, and any decision needed from the user.
 
@@ -37,11 +37,11 @@ Read [AI state](references/ai-state.md) whenever creating, resuming, retrying, s
 `theme → anchor → production → qa → complete|partial|failed`
 
 - For theme selection and visual rules, read [design system](references/design-system.md) and, when choosing a layout, [layout catalog](references/layout-catalog.md).
-- For compiling and dispatching one complete page Prompt, read [Prompt and generation](references/visual-brief-and-generation.md) and [Prompt byte grammar](references/generation-prompt-byte-grammar.md).
+- For compiling and dispatching one or more complete page Prompts, read [Prompt and generation](references/visual-brief-and-generation.md) and [Prompt byte grammar](references/generation-prompt-byte-grammar.md).
 - For artifact safety and source metadata, read [SVG contract](references/svg-contract.md).
 - For page-local recovery, truthfulness, and final partitioning, read [QA and revision](references/qa-and-revision.md) and [artifact contract](references/artifact-contract.md).
 
-Save each complete Prompt at `.ppt-pilot/generation-prompts/<slide-id>.md`, then pass those Prompt bytes—not the path—to an available fresh-context generator. In Claude Code, the active session dispatches the installed `ppt-svg-generator` Agent; it never authenticates or falls back to a local CLI. The generator returns one XML fence and owns no files or state. AI validates and promotes the result. A generator/tool failure is page-local; independent pages continue.
+Save each complete Prompt at `.ppt-pilot/generation-prompts/<slide-id>.md`, then pass those Prompt bytes—not the path—to an available fresh-context generator. In Claude Code, dispatch one prompt-only `ppt-svg-generator` Agent per page in the same tool round. A bounded generation wave is one AI action; Agents own no files or state, and AI serially validates and publishes results in storyboard order. The active session never authenticates or falls back to a local CLI. A generator/tool failure is page-local; independent pages continue.
 
 ## Retained tools
 

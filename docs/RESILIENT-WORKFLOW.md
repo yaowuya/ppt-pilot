@@ -2,7 +2,7 @@
 
 ## 核心
 
-页面生产是可恢复的 AI 工作，而不是 batch 状态机。AI 每轮读取 `run.json` 和真实文件，选择一个动作，记录证据，然后更新状态。
+页面生产是可恢复的 AI 工作，而不是 batch 状态机。AI 每轮读取 `run.json` 和真实文件，选择一个非生成动作或一个有界页面 wave，记录证据，然后更新状态。
 
 ## 页面独立
 
@@ -14,6 +14,12 @@
 - failure、QA 和工具 evidence。
 
 一个页面的 generator、SVG、来源或视觉错误不阻止独立页面。旧 final 不被失败 candidate 覆盖。
+
+## 有界并行
+
+独立页面默认按 target width 5 进入 generation wave；用户可明确要求串行 1 或并发 2–10，实际宽度取 target、eligible 页数和已知宿主容量的最小值。只有 prompt-only Agent 调用并发。AI 先串行冻结 Prompt/source map，再把各页 Agent 放进同一工具轮；结果可乱序完成，但必须按故事板顺序串行校验、promote 和写 `run.json`。
+
+只有宿主 accepted Prompt 才增加该页 attempts；容量拒绝不计数。恢复时已有 durable task ID 只 resume／consume，不重复派发；通过宿主 completion notification 推进，不忙轮询。宿主无法并发时可降为宽度 1 并披露 `host_concurrency_unavailable`。真实 2+ Agent overlap 是 Host-level 验收项，静态测试不冒充该证据。
 
 ## 工具分层降级
 
@@ -49,6 +55,8 @@
 - all promoted → `complete`；
 - promoted 非空，其他均有 failed/skipped 证据 → `partial`；
 - promoted 为空 → `failed`。
+
+Final `complete|partial|failed` 前必须清除 `active_generation_wave`；editable handoff 不消费 in-flight host task。
 
 `质量检查报告.md` 分开列完整度、结构、真实 render 和 Office 状态。`not_rendered`／`not_verified` 是能力披露，不是假 PASS，也不等于流程卡死。
 

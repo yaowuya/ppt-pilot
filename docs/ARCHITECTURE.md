@@ -22,7 +22,9 @@ Implementation：把受众决策、主张、精确 display copy、限定、指�
 
 ### 3. SVG generation and tools
 
-Generator interface：完整 Prompt bytes → 一个 XML fence。Generator 没有运行状态和文件 ownership。Claude Code 使用非 fork 原生 Agent，默认不请求 worktree，也不设 Git/HEAD 前置检查；不需要 local Claude CLI 登录。只有宿主实际强制 Git 隔离时，coordinator 才按 [生成器恢复协议](../skills/ppt-start/references/visual-brief-and-generation.md) 在授权的自有空仓库中建立文件集为空的初始提交并验证 HEAD。单纯初始化目录不算 ready；不可修复则记录页面级 `generator_unavailable`，不反复检查同一个错误。
+Generator interface：完整 Prompt bytes → 一个 XML fence。Generator 没有运行状态和文件 ownership。独立页面以 bounded wave 派发：默认 target width 5，显式串行 1、显式并发 2–10，实际宽度受 eligible 页数与宿主容量限制。只有 prompt-only Agent 调用重叠；coordinator 按故事板顺序串行准备 Prompt/source map、消费结果、校验、promote 并写 `run.json`。
+
+Claude Code 使用非 fork 原生 Agent，默认不请求 worktree，也不设 Git/HEAD 前置检查；不需要 local Claude CLI 登录。只有宿主实际强制 Git 隔离时，coordinator 才按 [生成器恢复协议](../skills/ppt-start/references/visual-brief-and-generation.md) 在授权的自有空仓库中建立文件集为空的初始提交并验证 HEAD。单纯初始化目录不算 ready；不可修复则记录页面级 `generator_unavailable`，不反复检查同一个错误。真实 2+ Agent overlap 属于 Host-level evidence，静态契约测试不冒充已在当前宿主发生。
 
 Stateless tool interface：显式输入文件 → `PASS|INVALID|UNAVAILABLE` JSON。
 
@@ -51,8 +53,8 @@ request + local evidence
   → manuscript review
   → theme
   → per-page frozen Prompt
-  → fresh-context generator
-  → raw SVG candidate
+  → bounded fresh-context generator wave (default width 5)
+  → raw SVG candidates
   → structure + source join + final validation
   → slides/<id>.svg
   → deck QA
@@ -66,7 +68,7 @@ request + local evidence
 
 恢复顺序：pending interaction → 共享一致性 → 最早未完成阶段／dirty page。旧未知字段保留为证据，不驱动新流程。
 
-每轮一个动作，先证据后状态。只有真实 generator 调用增加 attempts。用户 skip、工具运行、校验和恢复扫描都不增加它。
+每轮执行一个非生成动作或一个有界 generation wave，先证据后状态。`active_generation_wave` 只保存 ordered task attribution，不复制页面 inventory；final state 前必须清除。只有宿主接受真实 generator Prompt 才增加 attempts；用户 skip、容量拒绝、工具运行、校验和恢复扫描都不增加它。
 
 ## 失败 locality
 

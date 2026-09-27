@@ -24,7 +24,10 @@
 - skip：页面变 `skipped`，attempts 不变，siblings 继续；
 - tool unavailable：记录降级，stage／attempts 不变；
 - tool invalid：只失败相应页面并保留 prior final；
-- resume：从 pending → 共享一致性 → 最早未完成／dirty 项继续。
+- resume：从 pending → active generation wave → 共享一致性 → 最早未完成／dirty 项继续；
+- bounded generation wave：默认 target width 5，显式串行 1／并发 2–10，实际宽度可因 eligible 页数或 host capacity 降低；
+- accepted tasks：只有宿主接受 Prompt 才各增加一次 attempt，容量拒绝不计数，恢复不重新派发已有 task ID；
+- ordering：Agent 可并发且乱序完成，但 candidate/final/QA/state 按故事板顺序串行发布；一页失败不取消 siblings。
 
 ### Content gate
 
@@ -62,4 +65,4 @@
 
 ## 当前声明
 
-仓库测试结果只在本次实际运行后记录。不要把过去的测试数量、旧 dashboard／runtime 验收或旧 host adapter 证据复制为当前 PASS。真实 generator、render 和 Office 仍需针对当前安装重新执行。
+仓库测试结果只在本次实际运行后记录。不要把过去的测试数量、旧 dashboard／runtime 验收或旧 host adapter 证据复制为当前 PASS。真实 generator 启动、2+ Agent overlap、render 和 Office 仍需针对当前安装重新执行；静态／纯函数 wave 测试不能冒充 Host-level 并发证据。

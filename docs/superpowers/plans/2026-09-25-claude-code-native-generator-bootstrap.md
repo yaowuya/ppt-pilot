@@ -1,6 +1,8 @@
 # Claude Code Native Generator Bootstrap Implementation Plan
 
 > **SUPERSEDED — 2026-09-27:** This is the historical init-only implementation plan. Its blanket commit prohibition left an unborn HEAD and has been replaced by the [revised design](../specs/2026-09-25-claude-code-native-generator-bootstrap-design.md) and [active generator recovery protocol](../../../skills/ppt-start/references/visual-brief-and-generation.md). Do not execute the old bootstrap steps below. The old checked tests proved document wording, not a usable Git HEAD; `tests/test_generator_git_bootstrap.py` now exercises the documented repair against real temporary repositories.
+>
+> **CONCURRENCY CORRECTION — 2026-09-27:** This plan also treated the then-active one-real-generator-call rule as an invariant. That assertion is superseded by the [bounded parallel generation design](../specs/2026-09-27-ai-owned-bounded-parallel-generation-design.md): one coordinator action may dispatch a default width-5 page wave while shared writes remain serial.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
@@ -288,7 +290,7 @@ Run:
 python -B -m unittest tests.test_ai_workflow_contract tests.test_skill_package tests.test_tools_package tests.test_interaction_protocol -v
 ```
 
-Expected: PASS. In particular, the one-real-generator-call rule, no deleted runtime surfaces, agent package behavior, and installer behavior remain intact.
+Expected: PASS. In particular, deleted runtime surfaces, agent package behavior, and installer behavior remain intact. The historical one-real-generator-call assertion exercised by this run is superseded by the 2026-09-27 bounded parallel generation design; this sentence records the correction without rewriting the original test event.
 
 - [x] **Step 2: Run the complete test suite**
 

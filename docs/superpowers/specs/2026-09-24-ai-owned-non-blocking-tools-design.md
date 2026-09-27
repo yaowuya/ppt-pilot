@@ -4,6 +4,8 @@
 **Status:** Approved by the user on 2026-09-24.
 **Scope:** `ppt-start`, its retained stateless tools, and the `ppt-editable` handoff. This design supersedes the fixed Python workflow/state-machine path for new and resumed work. Historical owner files remain readable evidence, not active control state.
 
+> **2026-09-27 bounded-concurrency correction:** “perform one action” below includes one bounded generation wave of independent page Agents. It never required one page generator call per turn. The active behavior is defined by [AI-Owned Bounded Parallel SVG Generation Design](2026-09-27-ai-owned-bounded-parallel-generation-design.md): default target width 5, coordinator-only serial writes, and no restored scheduler.
+
 ## Problem
 
 The current cleanup deletes the fixed workflow runtime, but several agent instructions, validators, and delivery adapters still require its commands and owner graph. That split architecture preserves the original failure modes:
@@ -57,7 +59,7 @@ The main Skill contains the short ordered recipe every run needs:
 1. select or create the run;
 2. read current state and artifacts;
 3. consume an answered interaction or choose the earliest executable action;
-4. perform one action;
+4. perform one action (a non-generation action or one bounded generation wave of independent pages);
 5. write artifact evidence, then atomically update state;
 6. report the completed action, degradation, failures, and next action.
 

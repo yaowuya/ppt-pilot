@@ -21,7 +21,8 @@ A malformed legacy-shaped object cannot fall through to AI state. A run with `sl
 - `skipped` requires the saved explicit user decision and original answer;
 - `complete` requires every page promoted;
 - `partial` requires at least one promoted page and at least one failed/skipped page;
-- stage, delivery status, approved manuscript state, theme, QA report, and actual production SVGs must agree; the QA report contains exactly one `ppt-pilot-qa-json` fenced object whose exact `status`, target, promoted and missing arrays equal the derived partition.
+- stage, delivery status, approved manuscript state, theme, QA report, and actual production SVGs must agree; the QA report contains exactly one `ppt-pilot-qa-json` fenced object whose exact `status`, target, promoted and missing arrays equal the derived partition;
+- `complete|partial` requires `active_generation_wave` to be null or absent; editable conversion never consumes in-flight host tasks.
 
 AI 状态 complete/partial **不需要** transaction 或 batch owner，也不得制造它们。Missing-page evidence is projected into the editable snapshot/result as `{slide_id, reason, evidence_type: ai_state, evidence}`.
 

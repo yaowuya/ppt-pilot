@@ -32,6 +32,8 @@ class SkillPackageTests(unittest.TestCase):
             "ppt-editable",
         ):
             self.assertIn(token, text)
+        self.assertIn("bounded generation wave", text)
+        self.assertIn("default width is 5", text)
         for token in (
             "ppt_runtime.py",
             "ppt_entry.py",

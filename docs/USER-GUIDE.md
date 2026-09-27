@@ -29,7 +29,7 @@
 2. **大纲／故事板**：冻结每页结论、文案、指标、限定、来源和布局意图；
 3. **文稿审查**：未解决 `BLOCKER`／`HIGH` 不进入设计；
 4. **主题／锚点**：选择 style pack，用两页样例验证方向；
-5. **逐页 SVG**：每页完整 Prompt 交给 fresh-context generator；Claude Code 默认用不依赖 Git/HEAD 的原生独立上下文，不需要登录 local Claude CLI。若宿主强制需要 Git，按 [生成器恢复协议](../skills/ppt-start/references/visual-brief-and-generation.md) 在获准的专用目录建立不包含资料的空初始提交；若仍不可用，报告 `generator_unavailable` 和具体限制，不反复让你发送“继续”；
+5. **有界并行 SVG**：默认同时启动 5 个独立页面 Agent；你可以要求串行 1 或并发 2–10，eligible 页面不足或宿主容量较低时实际宽度会降低。只有 generator 调用重叠；AI 仍按故事板顺序串行处理结果和共享文件。Claude Code 默认用不依赖 Git/HEAD 的原生独立上下文，不需要登录 local Claude CLI。若宿主强制需要 Git，按 [生成器恢复协议](../skills/ppt-start/references/visual-brief-and-generation.md) 在获准的专用目录建立不包含资料的空初始提交；若仍不可用，报告 `generator_unavailable` 和具体限制，不反复让你发送“继续”。真实多 Agent overlap 需要当前宿主 task evidence，静态测试不能代替；
 6. **QA**：结构、来源、视觉和 Office 分别记录；
 7. **交付结论**：`complete`、`partial` 或 `failed`。
 
@@ -62,7 +62,8 @@ ppt-output/<deck-id>/
 
 ## 6. 继续或修改
 
-- “继续”：AI 读取 pending interaction、共享一致性和最早未完成／dirty 项；
+- “继续”：AI 读取 pending interaction、active generation wave、共享一致性和最早未完成／dirty 项；
+- “继续，并行生成多个页面”：至少两页独立 eligible 时尝试有界多页 wave，而不是套用单页限制；
 - “修改 S05 的布局”：只使 S05 视觉变脏；
 - “修改数字／来源／核心结论”：返回内容阶段并重新审稿；
 - “跳过 S05，继续”：S05 记为 skipped，独立页面继续；

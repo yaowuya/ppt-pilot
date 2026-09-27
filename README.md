@@ -66,7 +66,7 @@ $ppt-start
 2. **大纲与故事板**：冻结每页结论、精确文案、指标、限定、来源和布局意图；
 3. **文稿审查**：未解决的 `BLOCKER`／`HIGH` 阻止视觉生产；
 4. **主题与锚点**：选择已验证 style pack，用封面和最难内容页验证方向；
-5. **逐页生成**：把每页完整冻结 Prompt 按值交给 fresh-context generator；Claude Code 默认使用无需 Git/HEAD 的原生独立上下文，不登录 local Claude CLI。仅宿主确实强制 Git 时，按 [生成参考](skills/ppt-start/references/visual-brief-and-generation.md) 建立获准的本地空提交基准；不可用则记录 `generator_unavailable`，不陷入重复“继续”的循环；
+5. **有界并行生成**：默认同时派发 5 个独立页面 Agent；可显式串行 1 或并发 2–10，实际宽度可因 eligible 页数或宿主容量降低。只有 prompt-only Agent 调用重叠，Prompt/source-map 准备、结果消费、校验、final promotion 和 `run.json` 写入仍由 AI 按故事板顺序串行完成。Claude Code 默认使用无需 Git/HEAD 的原生独立上下文，不登录 local Claude CLI；仅宿主确实强制 Git 时，按 [生成参考](skills/ppt-start/references/visual-brief-and-generation.md) 建立获准的本地空提交基准；不可用则记录 `generator_unavailable`，不陷入重复“继续”的循环；
 6. **QA**：结构、来源、视觉渲染和 Office 能力分别记录，不互相冒充；
 7. **交付**：全部页面 promoted 才是 complete；有成功页且其余有失败／skip 证据才是 partial。
 
@@ -151,7 +151,7 @@ python -B -m unittest tests.test_svg_tool tests.test_ai_workflow_contract tests.
 python -B -m unittest discover -s tests -v
 ```
 
-自动化测试证明静态契约和本地工具行为；真实宿主生成、浏览器渲染和 Office 导入必须有实际运行证据，不能用静态测试冒充。
+自动化测试证明静态契约和本地工具行为；真实宿主启动与 2+ Agent overlap、浏览器渲染和 Office 导入必须有实际运行证据，不能用静态／纯函数测试冒充。
 
 ## 文档
 

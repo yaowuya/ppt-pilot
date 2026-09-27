@@ -96,6 +96,18 @@ HEAD 验证通过才记录 [AI 状态协议](ai-state.md) 的 head-ready 证据�
 
 同一宿主、同一根目录、同一错误且环境未变时，不重复 HEAD-only 检查、相同失败写入或自动启动；协议从 init-only 升级到 head-ready 是一次有意义的修复机会，不是循环许可。修复后仍失败则记录一次 `generator_unavailable`，保留 Prompt、source map、theme、旧 final 和 attempts，继续不依赖该宿主的动作；没有可执行动作就一次性说明所缺能力，不反复要求“继续”。只有 Agent 真正接受 Prompt 开始生成才增加 attempts；不得伪造 SVG。
 
+### Parallel page wave
+
+页面 Prompt 彼此独立时，默认并发 5；用户可明确要求串行 1 或并发 2–10。AI 先按 [AI 状态协议](ai-state.md) 串行冻结、写入并读回所有 Prompt/source map，再写 `active_generation_wave`。随后在**同一工具轮**为每页发出独立 Agent 调用，而不是逐页等待后再发下一页：
+
+```json
+{"subagent_type":"ppt-svg-generator","prompt":"S02 complete frozen Prompt bytes"}
+```
+
+每个实际调用都把该页完整 Prompt 字节替换示例文本后按值传入。工具 schema 支持时使用可返回 durable task ID 的 background call；一次 wave 的所有调用一起提交。`isolation` 可选时仍省略；若 schema 强制 worktree，则只在宿主真实要求且前述 HEAD 协议已满足时由宿主管理隔离。隔离不改变 Agent 的 prompt-only 边界，也不授予文件或 state ownership。
+
+Agent 结果只保留在宿主 task evidence，直到 coordinator 消费。宿主返回 task attribution 后，AI 串行记录 `accepted_tasks` 并只为 accepted Prompt 增加 attempts；相同 task ID/digest 的恢复写入幂等，冲突归因 fail closed，capacity rejection 不计数。通过 completion notification 恢复，不忙轮询。结果可乱序完成，但 coordinator 必须按 `ordered_slide_ids` 的故事板顺序形成连续 terminal 前缀；遇到首个未 terminal 页面停止本次发布，后续结果继续留在宿主证据中。已接受 sibling 不因另一页失败而取消或降级。
+
 ## Candidate 到 final
 
 1. 提取唯一 XML fence；
